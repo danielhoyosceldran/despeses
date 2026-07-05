@@ -26,6 +26,19 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   int _page = 0;
   bool _hasMore = true;
   bool _loading = true;
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(Expense expense) {
+    setState(() {
+      if (_selectedIds.contains(expense.id)) {
+        _selectedIds.remove(expense.id);
+      } else {
+        _selectedIds.add(expense.id);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -90,15 +103,20 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     if (saved == true) _reload();
   }
 
-  Future<void> _delete(Expense expense) async {
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Delete transaction',
-      message: 'Delete this transaction?',
+      title: 'Delete transactions',
+      message: 'Delete $count selected transaction(s)?',
       destructive: true,
     );
     if (!confirmed) return;
-    await ref.read(expenseRepositoryProvider).delete(expense.id);
+    final repo = ref.read(expenseRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
     _reload();
   }
 
@@ -117,13 +135,18 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(t?.t('nav.expenses') ?? 'Expenses'),
-        actions: [
-          IconButton(
-            icon: Icon(hasActiveFilters ? LucideIcons.filter300 : LucideIcons.filter300),
-            onPressed: _openFilters,
-          ),
-        ],
+        title: _selectionMode ? Text('${_selectedIds.length} selected') : Text(t?.t('nav.expenses') ?? 'Expenses'),
+        leading: _selectionMode
+            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
+            : null,
+        actions: _selectionMode
+            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
+            : [
+                IconButton(
+                  icon: Icon(hasActiveFilters ? LucideIcons.filter300 : LucideIcons.filter300),
+                  onPressed: _openFilters,
+                ),
+              ],
       ),
       floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
       body: _loading
@@ -145,8 +168,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     final expense = _expenses[index];
                     return _ExpenseTile(
                       expense: expense,
-                      onTap: () => _openEntry(expenseId: expense.id),
-                      onDelete: () => _delete(expense),
+                      selectionMode: _selectionMode,
+                      selected: _selectedIds.contains(expense.id),
+                      onTap: () =>
+                          _selectionMode ? _toggleSelection(expense) : _openEntry(expenseId: expense.id),
+                      onLongPress: () => _toggleSelection(expense),
                     );
                   },
                 ),
@@ -155,11 +181,19 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 }
 
 class _ExpenseTile extends ConsumerWidget {
-  const _ExpenseTile({required this.expense, required this.onTap, required this.onDelete});
+  const _ExpenseTile({
+    required this.expense,
+    required this.onTap,
+    required this.onLongPress,
+    this.selectionMode = false,
+    this.selected = false,
+  });
 
   final Expense expense;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback onLongPress;
+  final bool selectionMode;
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -178,19 +212,16 @@ class _ExpenseTile extends ConsumerWidget {
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
 
     return ListTile(
+      selected: selected,
+      leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
       title: Text(title),
       subtitle: Text(DateFormat.yMMMd().format(expense.date)),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
-            style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
-          ),
-          IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: onDelete),
-        ],
+      trailing: Text(
+        '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
+        style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
       ),
       onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 }

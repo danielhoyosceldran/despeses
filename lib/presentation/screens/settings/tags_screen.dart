@@ -19,6 +19,20 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   List<TagGroup> _groups = [];
   Map<String, List<Tag>> _tagsByGroup = {};
   bool _loading = true;
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(Tag tag) {
+    if (tag.isDefault) return;
+    setState(() {
+      if (_selectedIds.contains(tag.id)) {
+        _selectedIds.remove(tag.id);
+      } else {
+        _selectedIds.add(tag.id);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -71,16 +85,23 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     _load();
   }
 
-  Future<void> _delete(Tag tag) async {
+  Future<void> _deleteSelected() async {
     final repo = ref.read(tagRepositoryProvider);
-    final budgetCount = await repo.budgetCount(tag.id);
+    var budgetCount = 0;
+    for (final id in _selectedIds) {
+      budgetCount += await repo.budgetCount(id);
+    }
     if (!mounted) return;
+    final count = _selectedIds.length;
     final message = budgetCount > 0
-        ? 'This tag has $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete this tag?';
-    final confirmed = await showConfirmDialog(context, title: 'Delete tag', message: message, destructive: true);
+        ? 'These $count tags have $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete $count selected tag${count == 1 ? '' : 's'}?';
+    final confirmed = await showConfirmDialog(context, title: 'Delete tags', message: message, destructive: true);
     if (!confirmed) return;
-    await repo.delete(tag.id);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -101,7 +122,25 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(translations?.t('settings_nav.tags') ?? 'Tags')),
+      appBar: AppBar(
+        title: _selectionMode
+            ? Text('${_selectedIds.length} selected')
+            : Text(translations?.t('settings_nav.tags') ?? 'Tags'),
+        leading: _selectionMode
+            ? IconButton(
+                icon: const Icon(LucideIcons.x300),
+                onPressed: () => setState(() => _selectedIds.clear()),
+              )
+            : null,
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _deleteSelected,
+                ),
+              ]
+            : null,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -141,22 +180,24 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                             final label = translations == null
                                 ? tag.name
                                 : displayNameFor(translations, name: tag.name, isDefault: tag.isDefault);
+                            final selected = _selectedIds.contains(tag.id);
                             return ListTile(
                               key: ValueKey(tag.id),
-                              leading: tag.color == null
-                                  ? null
-                                  : CircleAvatar(backgroundColor: hexToColor(tag.color), radius: 8),
+                              selected: selected,
+                              leading: _selectionMode
+                                  ? Checkbox(
+                                      value: selected,
+                                      onChanged: tag.isDefault ? null : (_) => _toggleSelection(tag),
+                                    )
+                                  : tag.color == null
+                                      ? null
+                                      : CircleAvatar(backgroundColor: hexToColor(tag.color), radius: 8),
                               title: Text(label),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(tag, label)),
-                                  IconButton(
-                                    icon: const Icon(LucideIcons.trash2300),
-                                    onPressed: () => _delete(tag),
-                                  ),
-                                ],
-                              ),
+                              trailing: _selectionMode
+                                  ? null
+                                  : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(tag, label)),
+                              onLongPress: () => _toggleSelection(tag),
+                              onTap: _selectionMode ? () => _toggleSelection(tag) : null,
                             );
                           },
                         ),

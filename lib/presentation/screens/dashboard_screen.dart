@@ -34,6 +34,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final Map<String, List<Expense>> _expenseCache = {};
   List<Budget> _allBudgets = [];
   Map<String, int> _budgetProgress = {};
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(Expense expense) {
+    setState(() {
+      if (_selectedIds.contains(expense.id)) {
+        _selectedIds.remove(expense.id);
+      } else {
+        _selectedIds.add(expense.id);
+      }
+    });
+  }
 
   String _monthKeyOf(DateTime month) => '${month.year}-${month.month.toString().padLeft(2, '0')}';
   String get _monthKey => _monthKeyOf(_month);
@@ -107,16 +120,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Future<void> _delete(Expense expense) async {
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Delete transaction',
-      message: 'Delete this transaction?',
+      title: 'Delete transactions',
+      message: 'Delete $count selected transaction(s)?',
       destructive: true,
     );
     if (!confirmed) return;
-    await ref.read(expenseRepositoryProvider).delete(expense.id);
-    setState(() => _expenseCache.remove(_monthKey));
+    final repo = ref.read(expenseRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() {
+      _selectedIds.clear();
+      _expenseCache.clear();
+    });
     _loadBudgets();
   }
 
@@ -128,7 +148,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
     return Scaffold(
-      appBar: AppBar(title: Text(translations?.t('nav.dashboard') ?? 'Dashboard')),
+      appBar: AppBar(
+        title: _selectionMode
+            ? Text('${_selectedIds.length} selected')
+            : Text(translations?.t('nav.dashboard') ?? 'Dashboard'),
+        leading: _selectionMode
+            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
+            : null,
+        actions: _selectionMode
+            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
+            : null,
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openEntry(),
         child: const Icon(LucideIcons.plus300),
@@ -158,7 +188,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   currency: currency,
                   translations: translations,
                   onOpenEntry: _openEntry,
-                  onDelete: _delete,
+                  selectionMode: _selectionMode,
+                  selectedIds: _selectedIds,
+                  onToggleSelection: _toggleSelection,
                 );
               },
             ),
@@ -179,7 +211,9 @@ class _MonthPage extends ConsumerWidget {
     required this.currency,
     required this.translations,
     required this.onOpenEntry,
-    required this.onDelete,
+    required this.selectionMode,
+    required this.selectedIds,
+    required this.onToggleSelection,
   });
 
   final DateTime month;
@@ -189,7 +223,9 @@ class _MonthPage extends ConsumerWidget {
   final String currency;
   final Translations? translations;
   final Future<void> Function({String? expenseId}) onOpenEntry;
-  final Future<void> Function(Expense expense) onDelete;
+  final bool selectionMode;
+  final Set<String> selectedIds;
+  final void Function(Expense expense) onToggleSelection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -252,8 +288,10 @@ class _MonthPage extends ConsumerWidget {
               _ExpenseRow(
                 expense: expense,
                 translations: translations,
-                onTap: () => onOpenEntry(expenseId: expense.id),
-                onDelete: () => onDelete(expense),
+                selectionMode: selectionMode,
+                selected: selectedIds.contains(expense.id),
+                onTap: () => selectionMode ? onToggleSelection(expense) : onOpenEntry(expenseId: expense.id),
+                onLongPress: () => onToggleSelection(expense),
               ),
           ],
         );
@@ -330,13 +368,17 @@ class _ExpenseRow extends ConsumerWidget {
     required this.expense,
     required this.translations,
     required this.onTap,
-    required this.onDelete,
+    required this.onLongPress,
+    this.selectionMode = false,
+    this.selected = false,
   });
 
   final Expense expense;
   final Translations? translations;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback onLongPress;
+  final bool selectionMode;
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -355,22 +397,19 @@ class _ExpenseRow extends ConsumerWidget {
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
 
     return ListTile(
+      selected: selected,
+      leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
       title: Text(title),
       subtitle: FutureBuilder<String?>(
         future: _categoryLabel(ref),
         builder: (context, snapshot) => Text(snapshot.data ?? ''),
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
-            style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
-          ),
-          IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: onDelete),
-        ],
+      trailing: Text(
+        '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
+        style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
       ),
       onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 

@@ -17,6 +17,19 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   List<Project> _projects = [];
   bool _loading = true;
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(Project project) {
+    setState(() {
+      if (_selectedIds.contains(project.id)) {
+        _selectedIds.remove(project.id);
+      } else {
+        _selectedIds.add(project.id);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -67,16 +80,23 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     _load();
   }
 
-  Future<void> _delete(Project project) async {
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
     final repo = ref.read(projectRepositoryProvider);
-    final budgetCount = await repo.budgetCount(project.id);
+    var budgetCount = 0;
+    for (final id in _selectedIds) {
+      budgetCount += await repo.budgetCount(id);
+    }
     if (!mounted) return;
     final message = budgetCount > 0
-        ? 'This project has $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete this project?';
-    final confirmed = await showConfirmDialog(context, title: 'Delete project', message: message, destructive: true);
+        ? 'These $count projects have $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete $count selected project(s)?';
+    final confirmed = await showConfirmDialog(context, title: 'Delete projects', message: message, destructive: true);
     if (!confirmed) return;
-    await repo.delete(project.id);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -87,23 +107,34 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(translations?.t('settings_nav.projects') ?? 'Projects')),
+      appBar: AppBar(
+        title: _selectionMode
+            ? Text('${_selectedIds.length} selected')
+            : Text(translations?.t('settings_nav.projects') ?? 'Projects'),
+        leading: _selectionMode
+            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
+            : null,
+        actions: _selectionMode
+            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
+            : null,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
               itemCount: _projects.length,
               itemBuilder: (context, index) {
                 final project = _projects[index];
+                final selected = _selectedIds.contains(project.id);
                 return ListTile(
+                  selected: selected,
+                  leading: _selectionMode ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(project)) : null,
                   title: Text(project.name),
                   subtitle: project.description == null ? null : Text(project.description!),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(project)),
-                      IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: () => _delete(project)),
-                    ],
-                  ),
+                  trailing: _selectionMode
+                      ? null
+                      : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(project)),
+                  onLongPress: () => _toggleSelection(project),
+                  onTap: _selectionMode ? () => _toggleSelection(project) : null,
                 );
               },
             ),

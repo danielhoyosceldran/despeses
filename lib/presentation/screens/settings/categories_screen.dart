@@ -21,6 +21,20 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final List<Category> _breadcrumb = [];
   List<Category> _children = [];
   bool _loading = true;
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(Category category) {
+    if (category.isDefault) return;
+    setState(() {
+      if (_selectedIds.contains(category.id)) {
+        _selectedIds.remove(category.id);
+      } else {
+        _selectedIds.add(category.id);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -72,21 +86,28 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     _load();
   }
 
-  Future<void> _delete(Category category) async {
+  Future<void> _deleteSelected() async {
     final repo = ref.read(categoryRepositoryProvider);
-    final budgetCount = await repo.budgetCount(category.id);
+    var budgetCount = 0;
+    for (final id in _selectedIds) {
+      budgetCount += await repo.budgetCount(id);
+    }
     if (!mounted) return;
+    final count = _selectedIds.length;
     final message = budgetCount > 0
-        ? 'This category (and its subcategories) has $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete this category?';
+        ? 'These $count categories (and their subcategories) have $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete $count selected categor${count == 1 ? 'y' : 'ies'}?';
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Delete category',
+      title: 'Delete categories',
       message: message,
       destructive: true,
     );
     if (!confirmed) return;
-    await repo.delete(category.id);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -110,7 +131,23 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(translations?.t('settings_nav.categories') ?? 'Categories'),
+        title: _selectionMode
+            ? Text('${_selectedIds.length} selected')
+            : Text(translations?.t('settings_nav.categories') ?? 'Categories'),
+        leading: _selectionMode
+            ? IconButton(
+                icon: const Icon(LucideIcons.x300),
+                onPressed: () => setState(() => _selectedIds.clear()),
+              )
+            : null,
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _deleteSelected,
+                ),
+              ]
+            : null,
       ),
       body: Column(
         children: [
@@ -150,20 +187,28 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       final label = translations == null
                           ? category.name
                           : displayNameFor(translations, name: category.name, isDefault: category.isDefault);
+                      final selected = _selectedIds.contains(category.id);
                       return ListTile(
                         key: ValueKey(category.id),
-                        leading: category.color == null
-                            ? null
-                            : CircleAvatar(backgroundColor: hexToColor(category.color), radius: 8),
+                        selected: selected,
+                        leading: _selectionMode
+                            ? Checkbox(
+                                value: selected,
+                                onChanged: category.isDefault ? null : (_) => _toggleSelection(category),
+                              )
+                            : category.color == null
+                                ? null
+                                : CircleAvatar(backgroundColor: hexToColor(category.color), radius: 8),
                         title: Text(label),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(category)),
-                            IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: () => _delete(category)),
-                          ],
-                        ),
+                        trailing: _selectionMode
+                            ? null
+                            : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(category)),
+                        onLongPress: () => _toggleSelection(category),
                         onTap: () {
+                          if (_selectionMode) {
+                            _toggleSelection(category);
+                            return;
+                          }
                           setState(() => _breadcrumb.add(category));
                           _load();
                         },

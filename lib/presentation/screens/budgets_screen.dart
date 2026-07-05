@@ -22,6 +22,19 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   Map<String, int> _progress = {};
   bool _showActiveOnly = true;
   bool _loading = true;
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(Budget budget) {
+    setState(() {
+      if (_selectedIds.contains(budget.id)) {
+        _selectedIds.remove(budget.id);
+      } else {
+        _selectedIds.add(budget.id);
+      }
+    });
+  }
 
   String get _currentMonthKey {
     final now = DateTime.now();
@@ -57,15 +70,20 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     if (saved == true) _load();
   }
 
-  Future<void> _delete(Budget budget) async {
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Delete budget',
-      message: 'Delete "${budget.name}"?',
+      title: 'Delete budgets',
+      message: 'Delete $count selected budget(s)?',
       destructive: true,
     );
     if (!confirmed) return;
-    await ref.read(budgetRepositoryProvider).delete(budget.id);
+    final repo = ref.read(budgetRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
     _load();
   }
 
@@ -82,14 +100,19 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(t?.t('nav.budgets') ?? 'Budgets'),
-        actions: [
-          IconButton(
-            icon: Icon(_showActiveOnly ? LucideIcons.eye300 : LucideIcons.eyeOff300),
-            tooltip: _showActiveOnly ? 'Showing active' : 'Showing expired',
-            onPressed: () => setState(() => _showActiveOnly = !_showActiveOnly),
-          ),
-        ],
+        title: _selectionMode ? Text('${_selectedIds.length} selected') : Text(t?.t('nav.budgets') ?? 'Budgets'),
+        leading: _selectionMode
+            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
+            : null,
+        actions: _selectionMode
+            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
+            : [
+                IconButton(
+                  icon: Icon(_showActiveOnly ? LucideIcons.eye300 : LucideIcons.eyeOff300),
+                  tooltip: _showActiveOnly ? 'Showing active' : 'Showing expired',
+                  onPressed: () => setState(() => _showActiveOnly = !_showActiveOnly),
+                ),
+              ],
       ),
       floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
       body: _loading
@@ -105,7 +128,10 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     final over = spent > budget.amount;
                     final isDark = Theme.of(context).brightness == Brightness.dark;
                     final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+                    final selected = _selectedIds.contains(budget.id);
                     return ListTile(
+                      selected: selected,
+                      leading: _selectionMode ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(budget)) : null,
                       title: Text(budget.name),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,11 +150,8 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                           ),
                         ],
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(LucideIcons.trash2300),
-                        onPressed: () => _delete(budget),
-                      ),
-                      onTap: () => _openEntry(budget: budget),
+                      onLongPress: () => _toggleSelection(budget),
+                      onTap: () => _selectionMode ? _toggleSelection(budget) : _openEntry(budget: budget),
                     );
                   },
                 ),

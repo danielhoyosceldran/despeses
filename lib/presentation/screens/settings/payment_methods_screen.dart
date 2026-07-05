@@ -18,6 +18,20 @@ class PaymentMethodsScreen extends ConsumerStatefulWidget {
 class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   List<PaymentMethod> _methods = [];
   bool _loading = true;
+  final Set<String> _selectedIds = {};
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
+  void _toggleSelection(PaymentMethod method) {
+    if (method.isDefault) return;
+    setState(() {
+      if (_selectedIds.contains(method.id)) {
+        _selectedIds.remove(method.id);
+      } else {
+        _selectedIds.add(method.id);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -58,15 +72,20 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     _load();
   }
 
-  Future<void> _delete(PaymentMethod method) async {
+  Future<void> _deleteSelected() async {
+    final count = _selectedIds.length;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Delete payment method',
-      message: 'Expenses using it will keep their data but lose this payment method reference.',
+      title: 'Delete payment methods',
+      message: 'Delete $count selected payment method(s)? Expenses using them will keep their data but lose the reference.',
       destructive: true,
     );
     if (!confirmed) return;
-    await ref.read(paymentMethodRepositoryProvider).delete(method.id);
+    final repo = ref.read(paymentMethodRepositoryProvider);
+    for (final id in _selectedIds) {
+      await repo.delete(id);
+    }
+    setState(() => _selectedIds.clear());
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -87,7 +106,17 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(translations?.t('settings_nav.payment_methods') ?? 'Payment methods')),
+      appBar: AppBar(
+        title: _selectionMode
+            ? Text('${_selectedIds.length} selected')
+            : Text(translations?.t('settings_nav.payment_methods') ?? 'Payment methods'),
+        leading: _selectionMode
+            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
+            : null,
+        actions: _selectionMode
+            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
+            : null,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ReorderableListView.builder(
@@ -95,19 +124,22 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
               onReorder: _reorder,
               itemBuilder: (context, index) {
                 final method = _methods[index];
+                final selected = _selectedIds.contains(method.id);
                 final label = translations == null
                     ? method.name
                     : displayNameFor(translations, name: method.name, isDefault: method.isDefault);
                 return ListTile(
                   key: ValueKey(method.id),
+                  selected: selected,
+                  leading: _selectionMode
+                      ? Checkbox(value: selected, onChanged: method.isDefault ? null : (_) => _toggleSelection(method))
+                      : null,
                   title: Text(label),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(method, label)),
-                      IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: () => _delete(method)),
-                    ],
-                  ),
+                  trailing: _selectionMode
+                      ? null
+                      : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(method, label)),
+                  onLongPress: () => _toggleSelection(method),
+                  onTap: _selectionMode ? () => _toggleSelection(method) : null,
                 );
               },
             ),
