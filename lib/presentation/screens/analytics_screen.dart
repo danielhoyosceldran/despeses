@@ -103,6 +103,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(currentTabIndexProvider, (previous, next) {
+      if (next == 3 && previous != 3) _load();
+    });
     final translationsAsync = ref.watch(translationsProvider);
     final translations = translationsAsync.asData?.value;
     final profileAsync = ref.watch(profileStreamProvider);
@@ -218,6 +221,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           label: _categorySlices[i].isDirect ? 'Direct' : (_categoryLabels[_categorySlices[i].categoryId] ?? ''),
           amountCents: _categorySlices[i].amountCents,
           currency: currency,
+          canDrill: !_categorySlices[i].isDirect &&
+              _categorySlices[i].categoryId != null &&
+              _categoryHasChildren[_categorySlices[i].categoryId] == true,
+          onTap: () {
+            final categoryId = _categorySlices[i].categoryId;
+            if (categoryId != null) _drillInto(categoryId);
+          },
         ),
     ];
   }
@@ -266,27 +276,35 @@ class _SliceLegendRow extends StatelessWidget {
     required this.label,
     required this.amountCents,
     required this.currency,
+    this.canDrill = false,
+    this.onTap,
   });
 
   final Color color;
   final String label;
   final int amountCents;
   final String currency;
+  final bool canDrill;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(width: 12, height: 12, color: color),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label)),
-          Text(
-            '${(amountCents / 100).toStringAsFixed(2)} $currency',
-            style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
-          ),
-        ],
+    return InkWell(
+      onTap: canDrill ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(width: 12, height: 12, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label)),
+            Text(
+              '${(amountCents / 100).toStringAsFixed(2)} $currency',
+              style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+            ),
+            if (canDrill) const Icon(LucideIcons.chevronRight300, size: 16),
+          ],
+        ),
       ),
     );
   }

@@ -57,6 +57,13 @@ final profileRepositoryProvider = Provider<ProfileRepository>(
 
 final backupServiceProvider = Provider<BackupService>((ref) => BackupService());
 
+/// Index of the currently selected bottom-nav branch — the shell's
+/// IndexedStack keeps every branch's State alive across tab switches, so
+/// screens that need to refresh on becoming visible again (e.g. Analytics
+/// after an expense was added on another tab) watch this instead of relying
+/// on initState.
+final currentTabIndexProvider = StateProvider<int>((ref) => 0);
+
 final analyticsRepositoryProvider = Provider<AnalyticsRepository>(
   (ref) => AnalyticsRepository(ref.watch(databaseProvider), ref.watch(categoryRepositoryProvider)),
 );

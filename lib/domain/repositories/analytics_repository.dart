@@ -70,11 +70,9 @@ class AnalyticsRepository {
       if (amount != 0) slices.add(CategorySlice(categoryId: child.id, amountCents: amount));
     }
 
-    if (parentId != null) {
-      final direct = expenses.where((e) => e.categoryId == parentId);
-      final amount = _signedSum(direct.toList());
-      if (amount != 0) slices.add(CategorySlice(categoryId: parentId, amountCents: amount, isDirect: true));
-    }
+    final direct = expenses.where((e) => e.categoryId == parentId);
+    final amount = _signedSum(direct.toList());
+    if (amount != 0) slices.add(CategorySlice(categoryId: parentId, amountCents: amount, isDirect: true));
 
     return slices;
   }

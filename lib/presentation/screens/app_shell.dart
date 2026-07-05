@@ -34,6 +34,13 @@ class AppShell extends ConsumerWidget {
     final translationsAsync = ref.watch(translationsProvider);
     final t = translationsAsync.asData?.value;
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final notifier = ref.read(currentTabIndexProvider.notifier);
+      if (notifier.state != navigationShell.currentIndex) {
+        notifier.state = navigationShell.currentIndex;
+      }
+    });
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
