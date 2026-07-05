@@ -1,7 +1,6 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
@@ -9,7 +8,11 @@ import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
+import '../widgets/amount_text.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/entity_form_dialog.dart' show chartPalette;
+import '../widgets/month_header_bar.dart';
+import '../widgets/thin_progress_bar.dart';
 import 'expense_entry/expense_entry_screen.dart';
 
 /// Month-scoped overview (plan §3.3): swipe/arrow month navigation, totals in
@@ -147,11 +150,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? AppColors.dark : AppColors.light;
+
     return Scaffold(
       appBar: AppBar(
         title: _selectionMode
             ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('nav.dashboard') ?? 'Dashboard'),
+            : Text(
+                (translations?.t('nav.dashboard') ?? 'Dashboard').toUpperCase(),
+                style: appHeaderStyle(colors),
+              ),
+        centerTitle: true,
         leading: _selectionMode
             ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
             : null,
@@ -165,14 +175,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       body: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
-              Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-              IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
-            ],
-          ),
+          MonthHeaderBar(month: _month, onChangeMonth: _changeMonth),
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -269,19 +272,20 @@ class _MonthPage extends ConsumerWidget {
               ),
             ),
             if (active.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text('Active budgets', style: TextStyle(fontWeight: FontWeight.w600)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text('ACTIVE BUDGETS', style: appHeaderStyle(colors)),
               ),
               for (final budget in active)
                 _BudgetProgressTile(
                   budget: budget,
                   spent: budgetProgress[budget.id] ?? 0,
                 ),
+              Divider(color: colors.divider, height: 1),
             ],
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text('Transactions', style: TextStyle(fontWeight: FontWeight.w600)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text('TRANSACTIONS', style: appHeaderStyle(colors)),
             ),
             if (expenses.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No transactions')),
             for (final expense in expenses)
@@ -310,17 +314,14 @@ class _TotalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? AppColors.dark : AppColors.light;
     return Expanded(
       child: Column(
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          Text(
-            '${(value / 100).toStringAsFixed(2)} $currency',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: color,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-          ),
+          Text(label.toUpperCase(), style: appHeaderStyle(colors, fontSize: 10)),
+          const SizedBox(height: 4),
+          AmountText(amountCents: value, color: color, style: Theme.of(context).textTheme.titleMedium),
         ],
       ),
     );
@@ -339,17 +340,16 @@ class _BudgetProgressTile extends ConsumerWidget {
     final over = spent > budget.amount;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+    final categoryColor = chartPalette[(budget.categoryId ?? budget.id).hashCode % chartPalette.length];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(budget.name),
+          const SizedBox(height: 6),
+          ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
           const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: ratio,
-            color: over ? semantic.over : Theme.of(context).colorScheme.primary,
-          ),
           Text(
             '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
             style: TextStyle(
@@ -395,21 +395,27 @@ class _ExpenseRow extends ConsumerWidget {
       _ => semantic.expense,
     };
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
+    final colors = isDark ? AppColors.dark : AppColors.light;
 
-    return ListTile(
-      selected: selected,
-      leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
-      title: Text(title),
-      subtitle: FutureBuilder<String?>(
-        future: _categoryLabel(ref),
-        builder: (context, snapshot) => Text(snapshot.data ?? ''),
-      ),
-      trailing: Text(
-        '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
-        style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
-      ),
-      onTap: onTap,
-      onLongPress: onLongPress,
+    return Column(
+      children: [
+        ListTile(
+          selected: selected,
+          leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
+          title: Text(title),
+          subtitle: FutureBuilder<String?>(
+            future: _categoryLabel(ref),
+            builder: (context, snapshot) => Text(snapshot.data ?? ''),
+          ),
+          trailing: Text(
+            '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
+            style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
+          ),
+          onTap: onTap,
+          onLongPress: onLongPress,
+        ),
+        Divider(color: colors.divider, height: 1),
+      ],
     );
   }
 

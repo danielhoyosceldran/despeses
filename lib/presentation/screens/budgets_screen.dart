@@ -6,6 +6,8 @@ import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/entity_form_dialog.dart' show chartPalette;
+import '../widgets/thin_progress_bar.dart';
 import 'budget_entry/budget_entry_screen.dart';
 
 /// Budget list (plan §3.5): progress bar per budget, active/expired filter,
@@ -98,9 +100,18 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       return _showActiveOnly ? active : !active;
     }).toList();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? AppColors.dark : AppColors.light;
+
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode ? Text('${_selectedIds.length} selected') : Text(t?.t('nav.budgets') ?? 'Budgets'),
+        title: _selectionMode
+            ? Text('${_selectedIds.length} selected')
+            : Text(
+                (t?.t('nav.budgets') ?? 'Budgets').toUpperCase(),
+                style: appHeaderStyle(colors),
+              ),
+        centerTitle: true,
         leading: _selectionMode
             ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
             : null,
@@ -128,30 +139,36 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     final over = spent > budget.amount;
                     final isDark = Theme.of(context).brightness == Brightness.dark;
                     final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+                    final categoryColor = chartPalette[(budget.categoryId ?? budget.id).hashCode % chartPalette.length];
                     final selected = _selectedIds.contains(budget.id);
-                    return ListTile(
-                      selected: selected,
-                      leading: _selectionMode ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(budget)) : null,
-                      title: Text(budget.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          LinearProgressIndicator(
-                            value: ratio,
-                            color: over ? semantic.over : Theme.of(context).colorScheme.primary,
+                    return Column(
+                      children: [
+                        ListTile(
+                          selected: selected,
+                          leading: _selectionMode
+                              ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(budget))
+                              : null,
+                          title: Text(budget.name),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 6),
+                              ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
+                                style: TextStyle(
+                                  color: over ? semantic.over : null,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
-                            style: TextStyle(
-                              color: over ? semantic.over : null,
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                        ],
-                      ),
-                      onLongPress: () => _toggleSelection(budget),
-                      onTap: () => _selectionMode ? _toggleSelection(budget) : _openEntry(budget: budget),
+                          onLongPress: () => _toggleSelection(budget),
+                          onTap: () => _selectionMode ? _toggleSelection(budget) : _openEntry(budget: budget),
+                        ),
+                        Divider(color: colors.divider, height: 1),
+                      ],
                     );
                   },
                 ),

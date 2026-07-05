@@ -2,14 +2,16 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/analytics_repository.dart';
+import '../widgets/amount_text.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
+import '../widgets/month_header_bar.dart';
 
 enum _Dimension { category, tags }
 
@@ -111,18 +113,20 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? AppColors.dark : AppColors.light;
+
     return Scaffold(
-      appBar: AppBar(title: Text(translations?.t('analytics.title') ?? 'Analytics')),
+      appBar: AppBar(
+        title: Text(
+          (translations?.t('analytics.title') ?? 'Analytics').toUpperCase(),
+          style: appHeaderStyle(colors),
+        ),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
-              Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-              IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
-            ],
-          ),
+          MonthHeaderBar(month: _month, onChangeMonth: _changeMonth),
           SegmentedButton<_Dimension>(
             segments: [
               ButtonSegment(
@@ -203,16 +207,16 @@ class _MonthAnalyticsPage extends ConsumerWidget {
             if (!labelsSnapshot.hasData) return const Center(child: CircularProgressIndicator());
             final (categoryLabels, categoryHasChildren, tagLabels) = labelsSnapshot.data!;
 
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final colors = isDark ? AppColors.dark : AppColors.light;
+
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                Text('TOTAL SPENT'.toUpperCase(), style: appHeaderStyle(colors), textAlign: TextAlign.center),
+                const SizedBox(height: 4),
                 Center(
-                  child: Text(
-                    '${(total / 100).toStringAsFixed(2)} $currency',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                  ),
+                  child: AmountText(amountCents: total, currency: currency, style: Theme.of(context).textTheme.displaySmall),
                 ),
                 const SizedBox(height: 16),
                 if (dimension == _Dimension.category)
@@ -287,30 +291,39 @@ class _MonthAnalyticsPage extends ConsumerWidget {
         ),
       SizedBox(
         height: 240,
-        child: PieChart(
-          PieChartData(
-            sections: [
-              for (var i = 0; i < categorySlices.length; i++)
-                PieChartSectionData(
-                  value: categorySlices[i].amountCents.abs().toDouble(),
-                  color: chartPalette[i % chartPalette.length],
-                  title: '',
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PieChart(
+              PieChartData(
+                centerSpaceRadius: 70,
+                sectionsSpace: 2,
+                sections: [
+                  for (var i = 0; i < categorySlices.length; i++)
+                    PieChartSectionData(
+                      value: categorySlices[i].amountCents.abs().toDouble(),
+                      color: chartPalette[i % chartPalette.length],
+                      title: '',
+                      radius: 40,
+                    ),
+                ],
+                pieTouchData: PieTouchData(
+                  touchCallback: (event, response) {
+                    if (!event.isInterestedForInteractions) return;
+                    final index = response?.touchedSection?.touchedSectionIndex;
+                    if (index == null || index < 0) return;
+                    final slice = categorySlices[index];
+                    if (!slice.isDirect &&
+                        slice.categoryId != null &&
+                        categoryHasChildren[slice.categoryId] == true) {
+                      onDrillInto(slice.categoryId!);
+                    }
+                  },
                 ),
-            ],
-            pieTouchData: PieTouchData(
-              touchCallback: (event, response) {
-                if (!event.isInterestedForInteractions) return;
-                final index = response?.touchedSection?.touchedSectionIndex;
-                if (index == null || index < 0) return;
-                final slice = categorySlices[index];
-                if (!slice.isDirect &&
-                    slice.categoryId != null &&
-                    categoryHasChildren[slice.categoryId] == true) {
-                  onDrillInto(slice.categoryId!);
-                }
-              },
+              ),
             ),
-          ),
+            Text('100%', style: Theme.of(context).textTheme.headlineMedium),
+          ],
         ),
       ),
       const SizedBox(height: 12),

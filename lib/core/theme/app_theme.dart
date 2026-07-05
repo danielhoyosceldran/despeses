@@ -89,6 +89,17 @@ class AppSpacing {
   static const xxxl = 64.0;
 }
 
+/// Uppercase, letter-spaced mono style for page titles and section labels
+/// (e.g. "AJUSTES", "PRESUPUESTOS ACTIVOS") — mirrors the `labelSmall` mono
+/// treatment but sized for headers rather than inline captions.
+TextStyle appHeaderStyle(AppColors colors, {double fontSize = 13}) => TextStyle(
+      fontFamily: 'JetBrainsMono',
+      fontSize: fontSize,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 1.2,
+      color: colors.textMuted,
+    );
+
 class AppTheme {
   static ThemeData light() => _build(AppColors.light, Brightness.light);
   static ThemeData dark() => _build(AppColors.dark, Brightness.dark);
@@ -135,8 +146,22 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.surface,
         elevation: 0,
-        indicatorColor: colors.surfaceAlt,
+        indicatorColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontFamily: 'JetBrainsMono',
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.4,
+            color: selected ? colors.accent : colors.textMuted,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(color: selected ? colors.accent : colors.textMuted, size: 22);
+        }),
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
