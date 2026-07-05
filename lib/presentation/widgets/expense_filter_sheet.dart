@@ -1,0 +1,208 @@
+import 'package:flutter/material.dart';
+
+import '../../core/i18n/display_name.dart';
+import '../../core/i18n/translations.dart';
+import '../../data/database.dart';
+import '../../domain/repositories/expense_repository.dart';
+
+/// Filter sheet for the Expenses list (plan §3.4): every filter here is
+/// applied entirely in SQL by `ExpenseRepository.list` — no client-side
+/// "partial filter" warning like the web app has.
+Future<ExpenseFilters?> showExpenseFilterSheet(
+  BuildContext context, {
+  required ExpenseFilters initial,
+  required List<Category> categories,
+  required List<Tag> tags,
+  required List<PaymentMethod> paymentMethods,
+  required List<Event> events,
+  required List<Project> projects,
+  required Translations translations,
+}) {
+  return showModalBottomSheet<ExpenseFilters>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => _ExpenseFilterSheet(
+      initial: initial,
+      categories: categories,
+      tags: tags,
+      paymentMethods: paymentMethods,
+      events: events,
+      projects: projects,
+      translations: translations,
+    ),
+  );
+}
+
+class _ExpenseFilterSheet extends StatefulWidget {
+  const _ExpenseFilterSheet({
+    required this.initial,
+    required this.categories,
+    required this.tags,
+    required this.paymentMethods,
+    required this.events,
+    required this.projects,
+    required this.translations,
+  });
+
+  final ExpenseFilters initial;
+  final List<Category> categories;
+  final List<Tag> tags;
+  final List<PaymentMethod> paymentMethods;
+  final List<Event> events;
+  final List<Project> projects;
+  final Translations translations;
+
+  @override
+  State<_ExpenseFilterSheet> createState() => _ExpenseFilterSheetState();
+}
+
+class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
+  late String? _type = widget.initial.type;
+  late String? _categoryId = widget.initial.categoryId;
+  late String? _tagId = widget.initial.tagId;
+  late String? _paymentMethodId = widget.initial.paymentMethodId;
+  late String? _eventId = widget.initial.eventId;
+  late String? _projectId = widget.initial.projectId;
+  late DateTime? _dateFrom = widget.initial.dateFrom;
+  late DateTime? _dateTo = widget.initial.dateTo;
+
+  String _label(dynamic entity) => displayNameFor(
+        widget.translations,
+        name: entity.name as String,
+        isDefault: entity.isDefault as bool,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Filters', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              initialValue: _type,
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Any')),
+                DropdownMenuItem(value: 'expense', child: Text('Expense')),
+                DropdownMenuItem(value: 'income', child: Text('Income')),
+                DropdownMenuItem(value: 'refund', child: Text('Refund')),
+              ],
+              onChanged: (v) => setState(() => _type = v),
+            ),
+            DropdownButtonFormField<String?>(
+              initialValue: _categoryId,
+              decoration: const InputDecoration(labelText: 'Category'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Any')),
+                for (final c in widget.categories) DropdownMenuItem(value: c.id, child: Text(_label(c))),
+              ],
+              onChanged: (v) => setState(() => _categoryId = v),
+            ),
+            DropdownButtonFormField<String?>(
+              initialValue: _tagId,
+              decoration: const InputDecoration(labelText: 'Tag'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Any')),
+                for (final t in widget.tags) DropdownMenuItem(value: t.id, child: Text(_label(t))),
+              ],
+              onChanged: (v) => setState(() => _tagId = v),
+            ),
+            DropdownButtonFormField<String?>(
+              initialValue: _paymentMethodId,
+              decoration: const InputDecoration(labelText: 'Payment method'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Any')),
+                for (final p in widget.paymentMethods) DropdownMenuItem(value: p.id, child: Text(_label(p))),
+              ],
+              onChanged: (v) => setState(() => _paymentMethodId = v),
+            ),
+            DropdownButtonFormField<String?>(
+              initialValue: _eventId,
+              decoration: const InputDecoration(labelText: 'Event'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Any')),
+                for (final e in widget.events) DropdownMenuItem(value: e.id, child: Text(e.name)),
+              ],
+              onChanged: (v) => setState(() => _eventId = v),
+            ),
+            DropdownButtonFormField<String?>(
+              initialValue: _projectId,
+              decoration: const InputDecoration(labelText: 'Project'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Any')),
+                for (final p in widget.projects) DropdownMenuItem(value: p.id, child: Text(p.name)),
+              ],
+              onChanged: (v) => setState(() => _projectId = v),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _dateFrom ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setState(() => _dateFrom = picked);
+                    },
+                    child: Text(_dateFrom == null ? 'From' : _dateFrom.toString().split(' ').first),
+                  ),
+                ),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _dateTo ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setState(() => _dateTo = picked);
+                    },
+                    child: Text(_dateTo == null ? 'To' : _dateTo.toString().split(' ').first),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(const ExpenseFilters()),
+                    child: const Text('Clear'),
+                  ),
+                ),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(
+                      ExpenseFilters(
+                        type: _type,
+                        categoryId: _categoryId,
+                        tagId: _tagId,
+                        paymentMethodId: _paymentMethodId,
+                        eventId: _eventId,
+                        projectId: _projectId,
+                        dateFrom: _dateFrom,
+                        dateTo: _dateTo,
+                      ),
+                    ),
+                    child: const Text('Apply'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
