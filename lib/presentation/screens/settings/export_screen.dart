@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -144,13 +145,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _busy ? null : _exportCsv,
-              icon: const Icon(Icons.table_chart_outlined),
+              icon: const Icon(LucideIcons.table300),
               label: const Text('Export CSV'),
             ),
             const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: _busy ? null : _exportPdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined),
+              icon: const Icon(LucideIcons.fileText300),
               label: const Text('Export PDF'),
             ),
             if (_busy) const Padding(padding: EdgeInsets.only(top: 16), child: LinearProgressIndicator()),

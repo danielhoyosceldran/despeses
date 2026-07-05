@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
 class YearMonth {
@@ -59,9 +60,9 @@ class _MonthPickerContentState extends State<MonthPickerContent> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _year--)),
+              IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => setState(() => _year--)),
               Text('$_year', style: Theme.of(context).textTheme.titleMedium),
-              IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => setState(() => _year++)),
+              IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => setState(() => _year++)),
             ],
           ),
         ),

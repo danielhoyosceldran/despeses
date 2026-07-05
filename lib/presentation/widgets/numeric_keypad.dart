@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -82,7 +83,7 @@ class NumericKeypad extends StatelessWidget {
                 children: [
                   Text(nextLabel),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward, size: 16),
+                  const Icon(LucideIcons.arrowRight300, size: 16),
                 ],
               ),
             ),

@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,12 +31,12 @@ class SettingsScreen extends ConsumerWidget {
           for (final (key, fallback, path) in items)
             ListTile(
               title: Text(t?.t(key) ?? fallback),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(LucideIcons.chevronRight300),
               onTap: () => context.push(path),
             ),
           ListTile(
             title: const Text('Backup'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(LucideIcons.chevronRight300),
             onTap: () => context.push('/settings/backup'),
           ),
         ],

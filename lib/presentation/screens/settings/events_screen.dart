@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -99,14 +100,14 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(icon: const Icon(Icons.edit), onPressed: () => _edit(event)),
-                      IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _delete(event)),
+                      IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(event)),
+                      IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: () => _delete(event)),
                     ],
                   ),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }
 }

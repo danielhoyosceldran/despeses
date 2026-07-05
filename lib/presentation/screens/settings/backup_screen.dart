@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -80,7 +81,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         child: ListView(
           children: [
             ListTile(
-              leading: const Icon(Icons.upload_outlined),
+              leading: const Icon(LucideIcons.upload300),
               title: const Text('Export backup'),
               subtitle: const Text('Copies the local database and opens the share sheet'),
               trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator()) : null,
@@ -88,7 +89,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.download_outlined),
+              leading: const Icon(LucideIcons.download300),
               title: const Text('Restore backup'),
               subtitle: const Text('Pick a .sqlite file — this overwrites all current data'),
               onTap: _busy ? null : _import,

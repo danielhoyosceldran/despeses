@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,9 +124,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1)),
+                      IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
                       Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-                      IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1)),
+                      IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
                     ],
                   ),
                   Center(
@@ -169,7 +170,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(LucideIcons.arrowLeft300),
               onPressed: () {
                 setState(() => _breadcrumb.removeLast());
                 _load();

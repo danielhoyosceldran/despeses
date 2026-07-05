@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,11 +15,11 @@ class AppShell extends ConsumerWidget {
 
   static const _labels = ['Dashboard', 'Expenses', 'Budgets', 'Analytics', 'Settings'];
   static const _icons = [
-    Icons.dashboard_outlined,
-    Icons.receipt_long_outlined,
-    Icons.pie_chart_outline,
-    Icons.bar_chart_outlined,
-    Icons.settings_outlined,
+    LucideIcons.layoutDashboard300,
+    LucideIcons.receipt300,
+    LucideIcons.pieChart300,
+    LucideIcons.barChart2300,
+    LucideIcons.settings300,
   ];
   static const _keys = [
     'nav.dashboard',

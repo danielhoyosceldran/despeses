@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -269,7 +270,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop()),
+        leading: IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => Navigator.of(context).pop()),
         title: Text(_isEdit ? (translations?.t('budgets.edit') ?? 'Edit budget') : (translations?.t('budgets.new') ?? 'New budget')),
       ),
       body: Column(
@@ -286,7 +287,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.euro, color: colors.accent),
+                  leading: Icon(LucideIcons.euro300, color: colors.accent),
                   title: Text(translations?.t('budgets.limit') ?? 'Limit'),
                   trailing: Text(
                     '${(_amountCents / 100).toStringAsFixed(2)} $currency',
@@ -320,7 +321,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                     _dimensionValueLabel ?? (translations?.t('budgets.select_value') ?? 'Select value'),
                     style: TextStyle(color: _isEdit ? colors.textDisabled : colors.text),
                   ),
-                  trailing: Icon(Icons.chevron_right, color: _isEdit ? colors.textDisabled : colors.accent),
+                  trailing: Icon(LucideIcons.chevronRight300, color: _isEdit ? colors.textDisabled : colors.accent),
                   onTap: _isEdit ? null : _openDimensionValuePanel,
                 ),
                 const SizedBox(height: 16),
@@ -340,7 +341,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(_startsMonth == null ? (translations?.t('budgets.starts_month') ?? 'Start month') : _startsMonth!.key),
-                    trailing: Icon(Icons.chevron_right, color: _isEdit ? colors.textDisabled : colors.accent),
+                    trailing: Icon(LucideIcons.chevronRight300, color: _isEdit ? colors.textDisabled : colors.accent),
                     onTap: _isEdit
                         ? null
                         : () => _openMonthPanel(
@@ -359,8 +360,8 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (_endsMonth != null && !_isEdit)
-                          IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _endsMonth = null)),
-                        Icon(Icons.chevron_right, color: _isEdit ? colors.textDisabled : colors.accent),
+                          IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _endsMonth = null)),
+                        Icon(LucideIcons.chevronRight300, color: _isEdit ? colors.textDisabled : colors.accent),
                       ],
                     ),
                     onTap: _isEdit

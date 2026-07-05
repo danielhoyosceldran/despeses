@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -288,7 +289,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(LucideIcons.arrowLeft300),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: SegmentedButton<String>(
@@ -361,7 +362,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         return ListView(
           children: [
             ListTile(
-              leading: Icon(Icons.euro, color: _typeColor(colors, semantic)),
+              leading: Icon(LucideIcons.euro300, color: _typeColor(colors, semantic)),
               title: Text(translations?.t('expenses.amount') ?? 'Amount'),
               trailing: Text(
                 (_amountCents / 100).toStringAsFixed(2),
@@ -371,28 +372,28 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(Icons.calendar_today, color: colors.textMuted),
+              leading: Icon(LucideIcons.calendar300, color: colors.textMuted),
               title: Text(translations?.t('expenses.date') ?? 'Date'),
               trailing: Text(_date == null ? (translations?.t('expenses.select') ?? 'Select') : DateFormat.yMMMd().format(_date!)),
               onTap: _openDatePanel,
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(Icons.category_outlined, color: colors.textMuted),
+              leading: Icon(LucideIcons.shapes300, color: colors.textMuted),
               title: Text(translations?.t('expenses.category') ?? 'Category'),
               trailing: Text(labels?.category ?? (translations?.t('expenses.select') ?? 'Select')),
               onTap: () => _openStep('category'),
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(Icons.payment_outlined, color: colors.textMuted),
+              leading: Icon(LucideIcons.creditCard300, color: colors.textMuted),
               title: Text(translations?.t('expenses.payment_method') ?? 'Payment method'),
               trailing: Text(labels?.paymentMethod ?? (translations?.t('expenses.select') ?? 'Select')),
               onTap: () => _openStep('paymentMethod'),
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(Icons.label_outline, color: colors.textMuted),
+              leading: Icon(LucideIcons.tag300, color: colors.textMuted),
               title: Text(translations?.t('expenses.tags') ?? 'Tags'),
               trailing: Text(
                 _tagIds.isEmpty
@@ -404,14 +405,14 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(Icons.event_outlined, color: colors.textMuted),
+              leading: Icon(LucideIcons.calendar300, color: colors.textMuted),
               title: Text(translations?.t('expenses.event') ?? 'Event'),
               trailing: Text(labels?.event ?? (translations?.t('expenses.none') ?? 'None')),
               onTap: () => _openStep('event'),
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(Icons.work_outline, color: colors.textMuted),
+              leading: Icon(LucideIcons.briefcase300, color: colors.textMuted),
               title: Text(translations?.t('expenses.project') ?? 'Project'),
               trailing: Text(labels?.project ?? (translations?.t('expenses.none') ?? 'None')),
               onTap: () => _openStep('project'),
@@ -527,12 +528,12 @@ class _DatePanelState extends State<_DatePanel> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(LucideIcons.chevronLeft300),
                 onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)),
               ),
               Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
               IconButton(
-                icon: const Icon(Icons.chevron_right),
+                icon: const Icon(LucideIcons.chevronRight300),
                 onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)),
               ),
             ],

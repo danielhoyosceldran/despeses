@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -134,7 +135,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       appBar: AppBar(title: Text(translations?.t('nav.dashboard') ?? 'Dashboard')),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openEntry(),
-        child: const Icon(Icons.add),
+        child: const Icon(LucideIcons.plus300),
       ),
       body: GestureDetector(
         onHorizontalDragEnd: (details) {
@@ -149,9 +150,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1)),
+                      IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
                       Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-                      IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1)),
+                      IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
                     ],
                   ),
                   Padding(
@@ -299,7 +300,7 @@ class _ExpenseRow extends ConsumerWidget {
             '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
             style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
           ),
-          IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete),
+          IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: onDelete),
         ],
       ),
       onTap: onTap,

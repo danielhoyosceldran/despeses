@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -124,7 +125,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.add, size: 20),
+                                icon: const Icon(LucideIcons.plus300, size: 20),
                                 onPressed: () => _create(group.id),
                               ),
                             ],
@@ -149,9 +150,9 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(icon: const Icon(Icons.edit), onPressed: () => _edit(tag, label)),
+                                  IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(tag, label)),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline),
+                                    icon: const Icon(LucideIcons.trash2300),
                                     onPressed: () => _delete(tag),
                                   ),
                                 ],

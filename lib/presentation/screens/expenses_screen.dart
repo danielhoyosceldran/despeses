@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -119,12 +120,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         title: Text(t?.t('nav.expenses') ?? 'Expenses'),
         actions: [
           IconButton(
-            icon: Icon(hasActiveFilters ? Icons.filter_alt : Icons.filter_alt_outlined),
+            icon: Icon(hasActiveFilters ? LucideIcons.filter300 : LucideIcons.filter300),
             onPressed: _openFilters,
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _expenses.isEmpty
@@ -186,7 +187,7 @@ class _ExpenseTile extends ConsumerWidget {
             '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
             style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
           ),
-          IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete),
+          IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: onDelete),
         ],
       ),
       onTap: onTap,

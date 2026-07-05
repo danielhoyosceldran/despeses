@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -103,14 +104,14 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(icon: const Icon(Icons.edit), onPressed: () => _edit(method, label)),
-                      IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _delete(method)),
+                      IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(method, label)),
+                      IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: () => _delete(method)),
                     ],
                   ),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }
 }

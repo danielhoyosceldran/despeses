@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -119,7 +120,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(LucideIcons.arrowLeft300),
                     onPressed: () {
                       setState(() => _breadcrumb.removeLast());
                       _load();
@@ -158,8 +159,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(icon: const Icon(Icons.edit), onPressed: () => _edit(category)),
-                            IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _delete(category)),
+                            IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(category)),
+                            IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: () => _delete(category)),
                           ],
                         ),
                         onTap: () {
@@ -174,7 +175,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       ),
       floatingActionButton: _breadcrumb.length >= 3
           ? null
-          : FloatingActionButton(onPressed: _create, child: const Icon(Icons.add)),
+          : FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }
 }

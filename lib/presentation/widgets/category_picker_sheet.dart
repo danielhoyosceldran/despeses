@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/i18n/display_name.dart';
@@ -87,7 +88,7 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
       children: [
         if (_breadcrumb.isNotEmpty)
           ListTile(
-            leading: Icon(Icons.arrow_back, color: colors.text),
+            leading: Icon(LucideIcons.arrowLeft300, color: colors.text),
             title: Text(_breadcrumb.map(_label).join(' > ')),
             onTap: () {
               setState(() => _breadcrumb.removeLast());
@@ -108,7 +109,7 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
                     final category = _children[index];
                     return ListTile(
                       title: Text(_label(category)),
-                      trailing: Icon(Icons.chevron_right, color: colors.accent),
+                      trailing: Icon(LucideIcons.chevronRight300, color: colors.accent),
                       onTap: () => _tap(category),
                     );
                   },

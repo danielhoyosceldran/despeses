@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -84,13 +85,13 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
         title: Text(t?.t('nav.budgets') ?? 'Budgets'),
         actions: [
           IconButton(
-            icon: Icon(_showActiveOnly ? Icons.visibility : Icons.visibility_off),
+            icon: Icon(_showActiveOnly ? LucideIcons.eye300 : LucideIcons.eyeOff300),
             tooltip: _showActiveOnly ? 'Showing active' : 'Showing expired',
             onPressed: () => setState(() => _showActiveOnly = !_showActiveOnly),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : visible.isEmpty
@@ -124,7 +125,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                         ],
                       ),
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
+                        icon: const Icon(LucideIcons.trash2300),
                         onPressed: () => _delete(budget),
                       ),
                       onTap: () => _openEntry(budget: budget),
