@@ -5,12 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/i18n/display_name.dart';
+import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/analytics_repository.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 
 enum _Dimension { category, tags }
+
+/// Large enough that the user can't scroll past either edge in a session;
+/// each page index maps to a calendar month offset from [_baseMonth].
+const int _kInitialPage = 6000;
 
 /// Analytics v1 (plan §3.6): month nav (arrows + swipe, like Dashboard),
 /// total spent, category pie with drill-down (root → sub → subsub, "direct"
@@ -23,36 +28,211 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
+  late final DateTime _baseMonth;
+  late final PageController _pageController;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   _Dimension _dimension = _Dimension.category;
   final List<Category> _breadcrumb = [];
 
-  int _total = 0;
-  List<CategorySlice> _categorySlices = [];
-  List<TagSlice> _tagSlices = [];
-  Map<String, String> _categoryLabels = {};
-  Map<String, String> _tagLabels = {};
-  Map<String, bool> _categoryHasChildren = {};
-  bool _loading = true;
+  final Map<String, (int, List<CategorySlice>, List<TagSlice>)> _analyticsCache = {};
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _baseMonth = DateTime(_month.year, _month.month);
+    _pageController = PageController(initialPage: _kInitialPage);
+    _prefetchAdjacent();
   }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  DateTime _monthForPage(int page) => DateTime(_baseMonth.year, _baseMonth.month + (page - _kInitialPage));
 
   String? get _currentParentId => _breadcrumb.isEmpty ? null : _breadcrumb.last.id;
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  String _cacheKey(DateTime month, String? parentId) =>
+      '${month.year}-${month.month.toString().padLeft(2, '0')}|${parentId ?? ''}';
+
+  Future<(int, List<CategorySlice>, List<TagSlice>)> _fetchMonthAnalytics(DateTime month, String? parentId) async {
+    final key = _cacheKey(month, parentId);
+    final cached = _analyticsCache[key];
+    if (cached != null) return cached;
     final analytics = ref.read(analyticsRepositoryProvider);
-    final translations = await ref.read(translationsProvider.future);
     final profile = await ref.read(profileRepositoryProvider).get();
+    final total = await analytics.monthTotal(month, profile.currency);
+    final categorySlices = await analytics.categoryBreakdown(month, parentId, profile.currency);
+    final tagSlices = await analytics.tagBreakdown(month, profile.currency);
+    final result = (total, categorySlices, tagSlices);
+    _analyticsCache[key] = result;
+    return result;
+  }
 
-    final total = await analytics.monthTotal(_month, profile.currency);
-    final categorySlices = await analytics.categoryBreakdown(_month, _currentParentId, profile.currency);
-    final tagSlices = await analytics.tagBreakdown(_month, profile.currency);
+  Future<void> _prefetchAdjacent() async {
+    await _fetchMonthAnalytics(DateTime(_month.year, _month.month - 1), null);
+    await _fetchMonthAnalytics(DateTime(_month.year, _month.month + 1), null);
+  }
 
+  void _changeMonth(int delta) {
+    final target = (_pageController.page ?? _kInitialPage.toDouble()).round() + delta;
+    _pageController.animateToPage(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+  }
+
+  void _onPageChanged(int page) {
+    setState(() {
+      _month = _monthForPage(page);
+      _breadcrumb.clear();
+    });
+    _prefetchAdjacent();
+  }
+
+  Future<void> _drillInto(String categoryId) async {
+    final allCategories = await ref.read(referenceDataCacheProvider).categories();
+    final node = allCategories.where((c) => c.id == categoryId);
+    if (node.isEmpty) return;
+    setState(() => _breadcrumb.add(node.first));
+  }
+
+  void _popBreadcrumb() => setState(() => _breadcrumb.removeLast());
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(currentTabIndexProvider, (previous, next) {
+      if (next == 3 && previous != 3) {
+        setState(() => _analyticsCache.clear());
+        _prefetchAdjacent();
+      }
+    });
+    final translationsAsync = ref.watch(translationsProvider);
+    final translations = translationsAsync.asData?.value;
+    final profileAsync = ref.watch(profileStreamProvider);
+    final currency = profileAsync.asData?.value.currency ?? 'EUR';
+
+    return Scaffold(
+      appBar: AppBar(title: Text(translations?.t('analytics.title') ?? 'Analytics')),
+      body: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
+              Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
+              IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
+            ],
+          ),
+          SegmentedButton<_Dimension>(
+            segments: [
+              ButtonSegment(
+                value: _Dimension.category,
+                label: Text(translations?.t('analytics.dim_category') ?? 'By Category'),
+              ),
+              ButtonSegment(
+                value: _Dimension.tags,
+                label: Text(translations?.t('analytics.dim_tag') ?? 'By Tag'),
+              ),
+            ],
+            selected: {_dimension},
+            onSelectionChanged: (s) => setState(() => _dimension = s.first),
+          ),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                final month = _monthForPage(index);
+                final isCurrent = index == (_pageController.hasClients ? (_pageController.page?.round() ?? _kInitialPage) : _kInitialPage);
+                return _MonthAnalyticsPage(
+                  key: ValueKey('${_cacheKey(month, null)}-page'),
+                  month: month,
+                  parentId: isCurrent ? _currentParentId : null,
+                  breadcrumb: isCurrent ? _breadcrumb : const [],
+                  dimension: _dimension,
+                  currency: currency,
+                  translations: translations,
+                  fetch: _fetchMonthAnalytics,
+                  onDrillInto: _drillInto,
+                  onPopBreadcrumb: _popBreadcrumb,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthAnalyticsPage extends ConsumerWidget {
+  const _MonthAnalyticsPage({
+    required super.key,
+    required this.month,
+    required this.parentId,
+    required this.breadcrumb,
+    required this.dimension,
+    required this.currency,
+    required this.translations,
+    required this.fetch,
+    required this.onDrillInto,
+    required this.onPopBreadcrumb,
+  });
+
+  final DateTime month;
+  final String? parentId;
+  final List<Category> breadcrumb;
+  final _Dimension dimension;
+  final String currency;
+  final Translations? translations;
+  final Future<(int, List<CategorySlice>, List<TagSlice>)> Function(DateTime month, String? parentId) fetch;
+  final Future<void> Function(String categoryId) onDrillInto;
+  final VoidCallback onPopBreadcrumb;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<(int, List<CategorySlice>, List<TagSlice>)>(
+      future: fetch(month, parentId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final (total, categorySlices, tagSlices) = snapshot.data!;
+
+        return FutureBuilder<(Map<String, String>, Map<String, bool>, Map<String, String>)>(
+          future: _resolveLabels(ref, categorySlices, tagSlices),
+          builder: (context, labelsSnapshot) {
+            if (!labelsSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+            final (categoryLabels, categoryHasChildren, tagLabels) = labelsSnapshot.data!;
+
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Center(
+                  child: Text(
+                    '${(total / 100).toStringAsFixed(2)} $currency',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (dimension == _Dimension.category)
+                  ..._buildCategoryView(context, categorySlices, categoryLabels, categoryHasChildren, currency),
+                if (dimension == _Dimension.tags) ..._buildTagView(tagSlices, tagLabels, currency),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<(Map<String, String>, Map<String, bool>, Map<String, String>)> _resolveLabels(
+    WidgetRef ref,
+    List<CategorySlice> categorySlices,
+    List<TagSlice> tagSlices,
+  ) async {
+    final loaded = this.translations ?? await ref.read(translationsProvider.future);
+    final translations = loaded!;
     final allCategories = await ref.read(referenceDataCacheProvider).categories();
     final categoryById = {for (final c in allCategories) c.id: c};
     final categoryLabels = <String, String>{};
@@ -72,119 +252,34 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           slice.tagId: displayNameFor(translations, name: tagById[slice.tagId]!.name, isDefault: tagById[slice.tagId]!.isDefault),
     };
 
-    if (!mounted) return;
-    setState(() {
-      _total = total;
-      _categorySlices = categorySlices;
-      _tagSlices = tagSlices;
-      _categoryLabels = categoryLabels;
-      _tagLabels = tagLabels;
-      _categoryHasChildren = hasChildren;
-      _loading = false;
-    });
+    return (categoryLabels, hasChildren, tagLabels);
   }
 
-  void _changeMonth(int delta) {
-    setState(() {
-      _month = DateTime(_month.year, _month.month + delta);
-      _breadcrumb.clear();
-    });
-    _load();
-  }
-
-  Future<void> _drillInto(String categoryId) async {
-    if (_categoryHasChildren[categoryId] != true) return; // leaf slices don't drill further
-    final allCategories = await ref.read(referenceDataCacheProvider).categories();
-    final node = allCategories.where((c) => c.id == categoryId);
-    if (node.isEmpty) return;
-    setState(() => _breadcrumb.add(node.first));
-    _load();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(currentTabIndexProvider, (previous, next) {
-      if (next == 3 && previous != 3) _load();
-    });
-    final translationsAsync = ref.watch(translationsProvider);
-    final translations = translationsAsync.asData?.value;
-    final profileAsync = ref.watch(profileStreamProvider);
-    final currency = profileAsync.asData?.value.currency ?? 'EUR';
-
-    return Scaffold(
-      appBar: AppBar(title: Text(translations?.t('analytics.title') ?? 'Analytics')),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          if (velocity > 200) _changeMonth(-1);
-          if (velocity < -200) _changeMonth(1);
-        },
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
-                      Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-                      IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
-                    ],
-                  ),
-                  Center(
-                    child: Text(
-                      '${(_total / 100).toStringAsFixed(2)} $currency',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SegmentedButton<_Dimension>(
-                    segments: [
-                      ButtonSegment(
-                        value: _Dimension.category,
-                        label: Text(translations?.t('analytics.dim_category') ?? 'By Category'),
-                      ),
-                      ButtonSegment(
-                        value: _Dimension.tags,
-                        label: Text(translations?.t('analytics.dim_tag') ?? 'By Tag'),
-                      ),
-                    ],
-                    selected: {_dimension},
-                    onSelectionChanged: (s) => setState(() => _dimension = s.first),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_dimension == _Dimension.category) ..._buildCategoryView(translations, currency),
-                  if (_dimension == _Dimension.tags) ..._buildTagView(translations, currency),
-                ],
-              ),
-      ),
-    );
-  }
-
-  List<Widget> _buildCategoryView(dynamic translations, String currency) {
-    if (_categorySlices.isEmpty) {
+  List<Widget> _buildCategoryView(
+    BuildContext context,
+    List<CategorySlice> categorySlices,
+    Map<String, String> categoryLabels,
+    Map<String, bool> categoryHasChildren,
+    String currency,
+  ) {
+    if (categorySlices.isEmpty) {
       return [Center(child: Text(translations?.t('analytics.empty_category') ?? 'No category data.'))];
     }
     return [
-      if (_breadcrumb.isNotEmpty)
+      if (breadcrumb.isNotEmpty)
         Row(
           children: [
             IconButton(
               icon: const Icon(LucideIcons.arrowLeft300),
-              onPressed: () {
-                setState(() => _breadcrumb.removeLast());
-                _load();
-              },
+              onPressed: onPopBreadcrumb,
             ),
             Expanded(
               child: Text(
-                _breadcrumb
-                    .map((c) => translations == null
-                        ? c.name
-                        : displayNameFor(translations, name: c.name, isDefault: c.isDefault))
+                breadcrumb
+                    .map((c) {
+                      final t = translations;
+                      return t == null ? c.name : displayNameFor(t, name: c.name, isDefault: c.isDefault);
+                    })
                     .join(' > '),
               ),
             ),
@@ -195,9 +290,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         child: PieChart(
           PieChartData(
             sections: [
-              for (var i = 0; i < _categorySlices.length; i++)
+              for (var i = 0; i < categorySlices.length; i++)
                 PieChartSectionData(
-                  value: _categorySlices[i].amountCents.abs().toDouble(),
+                  value: categorySlices[i].amountCents.abs().toDouble(),
                   color: chartPalette[i % chartPalette.length],
                   title: '',
                 ),
@@ -207,33 +302,37 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                 if (!event.isInterestedForInteractions) return;
                 final index = response?.touchedSection?.touchedSectionIndex;
                 if (index == null || index < 0) return;
-                final slice = _categorySlices[index];
-                if (!slice.isDirect && slice.categoryId != null) _drillInto(slice.categoryId!);
+                final slice = categorySlices[index];
+                if (!slice.isDirect &&
+                    slice.categoryId != null &&
+                    categoryHasChildren[slice.categoryId] == true) {
+                  onDrillInto(slice.categoryId!);
+                }
               },
             ),
           ),
         ),
       ),
       const SizedBox(height: 12),
-      for (var i = 0; i < _categorySlices.length; i++)
+      for (var i = 0; i < categorySlices.length; i++)
         _SliceLegendRow(
           color: chartPalette[i % chartPalette.length],
-          label: _categorySlices[i].isDirect ? 'Direct' : (_categoryLabels[_categorySlices[i].categoryId] ?? ''),
-          amountCents: _categorySlices[i].amountCents,
+          label: categorySlices[i].isDirect ? 'Direct' : (categoryLabels[categorySlices[i].categoryId] ?? ''),
+          amountCents: categorySlices[i].amountCents,
           currency: currency,
-          canDrill: !_categorySlices[i].isDirect &&
-              _categorySlices[i].categoryId != null &&
-              _categoryHasChildren[_categorySlices[i].categoryId] == true,
+          canDrill: !categorySlices[i].isDirect &&
+              categorySlices[i].categoryId != null &&
+              categoryHasChildren[categorySlices[i].categoryId] == true,
           onTap: () {
-            final categoryId = _categorySlices[i].categoryId;
-            if (categoryId != null) _drillInto(categoryId);
+            final categoryId = categorySlices[i].categoryId;
+            if (categoryId != null) onDrillInto(categoryId);
           },
         ),
     ];
   }
 
-  List<Widget> _buildTagView(dynamic translations, String currency) {
-    if (_tagSlices.isEmpty) {
+  List<Widget> _buildTagView(List<TagSlice> tagSlices, Map<String, String> tagLabels, String currency) {
+    if (tagSlices.isEmpty) {
       return [Center(child: Text(translations?.t('analytics.empty_tag') ?? 'No tag data.'))];
     }
     return [
@@ -242,9 +341,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         child: PieChart(
           PieChartData(
             sections: [
-              for (var i = 0; i < _tagSlices.length; i++)
+              for (var i = 0; i < tagSlices.length; i++)
                 PieChartSectionData(
-                  value: _tagSlices[i].amountCents.abs().toDouble(),
+                  value: tagSlices[i].amountCents.abs().toDouble(),
                   color: chartPalette[i % chartPalette.length],
                   title: '',
                 ),
@@ -259,11 +358,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
           style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
         ),
       ),
-      for (var i = 0; i < _tagSlices.length; i++)
+      for (var i = 0; i < tagSlices.length; i++)
         _SliceLegendRow(
           color: chartPalette[i % chartPalette.length],
-          label: _tagLabels[_tagSlices[i].tagId] ?? '',
-          amountCents: _tagSlices[i].amountCents,
+          label: tagLabels[tagSlices[i].tagId] ?? '',
+          amountCents: tagSlices[i].amountCents,
           currency: currency,
         ),
     ];

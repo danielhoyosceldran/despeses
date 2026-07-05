@@ -22,28 +22,43 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
+/// Large enough that the user can't scroll past either edge in a session;
+/// each page index maps to a calendar month offset from [_baseMonth].
+const int _kInitialPage = 6000;
+
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  late final DateTime _baseMonth;
+  late final PageController _pageController;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
 
   final Map<String, List<Expense>> _expenseCache = {};
-  List<Expense> _expenses = [];
   List<Budget> _allBudgets = [];
   Map<String, int> _budgetProgress = {};
-  bool _loading = true;
 
-  String get _monthKey => '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
+  String _monthKeyOf(DateTime month) => '${month.year}-${month.month.toString().padLeft(2, '0')}';
+  String get _monthKey => _monthKeyOf(_month);
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _baseMonth = DateTime(_month.year, _month.month);
+    _pageController = PageController(initialPage: _kInitialPage);
+    _loadBudgets();
     _prefetchAdjacent();
   }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  DateTime _monthForPage(int page) => DateTime(_baseMonth.year, _baseMonth.month + (page - _kInitialPage));
 
   DateTime _monthBounds(DateTime month) => DateTime(month.year, month.month + 1, 0);
 
   Future<List<Expense>> _fetchMonth(DateTime month) async {
-    final key = '${month.year}-${month.month.toString().padLeft(2, '0')}';
+    final key = _monthKeyOf(month);
     if (_expenseCache.containsKey(key)) return _expenseCache[key]!;
     final repo = ref.read(expenseRepositoryProvider);
     final expenses = await repo.listAll(
@@ -58,28 +73,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     await _fetchMonth(DateTime(_month.year, _month.month + 1));
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final expenses = await _fetchMonth(_month);
+  Future<void> _loadBudgets() async {
     final budgetRepo = ref.read(budgetRepositoryProvider);
     final allBudgets = await budgetRepo.listAll();
-    final active = allBudgets.where((b) => budgetRepo.isActiveForMonth(b, _monthKey)).toList();
     final progress = <String, int>{};
-    for (final budget in active) {
+    for (final budget in allBudgets) {
       progress[budget.id] = await budgetRepo.calculateProgress(budget);
     }
     if (!mounted) return;
     setState(() {
-      _expenses = expenses;
-      _allBudgets = active;
+      _allBudgets = allBudgets;
       _budgetProgress = progress;
-      _loading = false;
     });
   }
 
   void _changeMonth(int delta) {
-    setState(() => _month = DateTime(_month.year, _month.month + delta));
-    _load();
+    final target = (_pageController.page ?? _kInitialPage.toDouble()).round() + delta;
+    _pageController.animateToPage(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+  }
+
+  void _onPageChanged(int page) {
+    setState(() => _month = _monthForPage(page));
     _prefetchAdjacent();
   }
 
@@ -88,8 +102,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       MaterialPageRoute(builder: (_) => ExpenseEntryScreen(expenseId: expenseId)),
     );
     if (saved == true) {
-      _expenseCache.remove(_monthKey);
-      _load();
+      setState(() => _expenseCache.remove(_monthKey));
+      _loadBudgets();
     }
   }
 
@@ -102,8 +116,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
     if (!confirmed) return;
     await ref.read(expenseRepositoryProvider).delete(expense.id);
-    _expenseCache.remove(_monthKey);
-    _load();
+    setState(() => _expenseCache.remove(_monthKey));
+    _loadBudgets();
   }
 
   @override
@@ -113,84 +127,137 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
-    var spent = 0;
-    var income = 0;
-    for (final e in _expenses) {
-      if (e.currency != currency) continue;
-      switch (e.type) {
-        case 'expense':
-          spent += e.amount;
-        case 'refund':
-          spent -= e.amount;
-        case 'income':
-          income += e.amount;
-      }
-    }
-    final balance = income - spent;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
-    final colors = isDark ? AppColors.dark : AppColors.light;
-
     return Scaffold(
       appBar: AppBar(title: Text(translations?.t('nav.dashboard') ?? 'Dashboard')),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openEntry(),
         child: const Icon(LucideIcons.plus300),
       ),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          if (velocity > 200) _changeMonth(-1);
-          if (velocity < -200) _changeMonth(1);
-        },
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
+      body: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
+              Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
+              IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
+            ],
+          ),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                final month = _monthForPage(index);
+                return _MonthPage(
+                  key: ValueKey(_monthKeyOf(month)),
+                  month: month,
+                  fetchExpenses: _fetchMonth,
+                  allBudgets: _allBudgets,
+                  budgetProgress: _budgetProgress,
+                  currency: currency,
+                  translations: translations,
+                  onOpenEntry: _openEntry,
+                  onDelete: _delete,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthPage extends ConsumerWidget {
+  const _MonthPage({
+    required super.key,
+    required this.month,
+    required this.fetchExpenses,
+    required this.allBudgets,
+    required this.budgetProgress,
+    required this.currency,
+    required this.translations,
+    required this.onOpenEntry,
+    required this.onDelete,
+  });
+
+  final DateTime month;
+  final Future<List<Expense>> Function(DateTime month) fetchExpenses;
+  final List<Budget> allBudgets;
+  final Map<String, int> budgetProgress;
+  final String currency;
+  final Translations? translations;
+  final Future<void> Function({String? expenseId}) onOpenEntry;
+  final Future<void> Function(Expense expense) onDelete;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<List<Expense>>(
+      future: fetchExpenses(month),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final expenses = snapshot.data!;
+
+        var spent = 0;
+        var income = 0;
+        for (final e in expenses) {
+          if (e.currency != currency) continue;
+          switch (e.type) {
+            case 'expense':
+              spent += e.amount;
+            case 'refund':
+              spent -= e.amount;
+            case 'income':
+              income += e.amount;
+          }
+        }
+        final balance = income - spent;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+        final colors = isDark ? AppColors.dark : AppColors.light;
+        final budgetRepo = ref.read(budgetRepositoryProvider);
+        final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
+        final active = allBudgets.where((b) => budgetRepo.isActiveForMonth(b, monthKey)).toList();
+
+        return ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => _changeMonth(-1)),
-                      Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-                      IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => _changeMonth(1)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        _TotalTile(label: 'Spent', value: spent, currency: currency, color: semantic.expense),
-                        _TotalTile(label: 'Income', value: income, currency: currency, color: semantic.income),
-                        _TotalTile(label: 'Balance', value: balance, currency: currency, color: colors.text),
-                      ],
-                    ),
-                  ),
-                  if (_allBudgets.isNotEmpty) ...[
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                      child: Text('Active budgets', style: TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    for (final budget in _allBudgets)
-                      _BudgetProgressTile(
-                        budget: budget,
-                        spent: _budgetProgress[budget.id] ?? 0,
-                      ),
-                  ],
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                    child: Text('Transactions', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                  if (_expenses.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No transactions')),
-                  for (final expense in _expenses)
-                    _ExpenseRow(
-                      expense: expense,
-                      translations: translations,
-                      onTap: () => _openEntry(expenseId: expense.id),
-                      onDelete: () => _delete(expense),
-                    ),
+                  _TotalTile(label: 'Spent', value: spent, currency: currency, color: semantic.expense),
+                  _TotalTile(label: 'Income', value: income, currency: currency, color: semantic.income),
+                  _TotalTile(label: 'Balance', value: balance, currency: currency, color: colors.text),
                 ],
               ),
-      ),
+            ),
+            if (active.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text('Active budgets', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              for (final budget in active)
+                _BudgetProgressTile(
+                  budget: budget,
+                  spent: budgetProgress[budget.id] ?? 0,
+                ),
+            ],
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text('Transactions', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            if (expenses.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No transactions')),
+            for (final expense in expenses)
+              _ExpenseRow(
+                expense: expense,
+                translations: translations,
+                onTap: () => onOpenEntry(expenseId: expense.id),
+                onDelete: () => onDelete(expense),
+              ),
+          ],
+        );
+      },
     );
   }
 }
