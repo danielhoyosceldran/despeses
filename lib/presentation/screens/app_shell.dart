@@ -13,7 +13,13 @@ class AppShell extends ConsumerWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  static const _labels = ['Dashboard', 'Expenses', 'Budgets', 'Analytics', 'Settings'];
+  static const _labels = [
+    'Dashboard',
+    'Expenses',
+    'Budgets',
+    'Analytics',
+    'Settings',
+  ];
   static const _icons = [
     LucideIcons.layoutDashboard300,
     LucideIcons.receipt300,
@@ -42,20 +48,57 @@ class AppShell extends ConsumerWidget {
     });
 
     return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
-        ),
-        destinations: [
-          for (var i = 0; i < _labels.length; i++)
-            NavigationDestination(
-              icon: Icon(_icons[i]),
-              label: t?.t(_keys[i]) ?? _labels[i],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final slide = Tween<Offset>(
+            begin: const Offset(0.06, 0),
+            end: Offset.zero,
+          ).animate(animation);
+          return ClipRect(
+            child: SlideTransition(
+              position: slide,
+              child: FadeTransition(opacity: animation, child: child),
             ),
-        ],
+          );
+        },
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          children: [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
+        child: KeyedSubtree(
+          key: ValueKey(navigationShell.currentIndex),
+          child: navigationShell,
+        ),
+      ),
+      bottomNavigationBar: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity.abs() < 200) return;
+          final delta = velocity < 0 ? 1 : -1;
+          final target = navigationShell.currentIndex + delta;
+          if (target < 0 || target >= _labels.length) return;
+          navigationShell.goBranch(target);
+        },
+        child: NavigationBar(
+          selectedIndex: navigationShell.currentIndex,
+          onDestinationSelected: (index) => navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          ),
+          destinations: [
+            for (var i = 0; i < _labels.length; i++)
+              NavigationDestination(
+                icon: Icon(_icons[i]),
+                label: t?.t(_keys[i]) ?? _labels[i],
+              ),
+          ],
+        ),
       ),
     );
   }
