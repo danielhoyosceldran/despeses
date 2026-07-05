@@ -58,6 +58,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   /// Which field currently has its panel open, if any.
   String? _openPanel;
   Widget? _panelContent;
+  GlobalKey<TagPickerContentState>? _tagPickerKey;
 
   @override
   void initState() {
@@ -203,9 +204,11 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         final groups = await ref.read(referenceDataCacheProvider).tagGroups();
         final tags = await ref.read(referenceDataCacheProvider).tags();
         if (!mounted) return;
+        _tagPickerKey = GlobalKey<TagPickerContentState>();
         setState(() {
           _openPanel = 'tags';
           _panelContent = TagPickerContent(
+            key: _tagPickerKey,
             groups: groups,
             tags: tags,
             initialSelectedIds: _tagIds,
@@ -349,16 +352,35 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         children: [
           Expanded(child: _buildFieldsView(translations, colors, semantic, currency)),
           if (_openPanel != null)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _canSave ? _save : null,
-                child: Text(translations?.t('common.save') ?? 'Save'),
-              ),
-            ),
+            _openPanel == 'tags'
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _canSave ? _save : null,
+                          child: Text(translations?.t('common.save') ?? 'Save'),
+                        ),
+                      ),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            _tagPickerKey?.currentState?.confirm();
+                          },
+                          child: Text(translations?.t('common.next') ?? 'Next'),
+                        ),
+                      ),
+                    ],
+                  )
+                : SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _canSave ? _save : null,
+                      child: Text(translations?.t('common.save') ?? 'Save'),
+                    ),
+                  ),
           BottomActionPanel(
             isOpen: _openPanel != null,
-            maxHeight: _openPanel == 'amount' ? 4 * 56 : 340,
+            maxHeight: 4 * 56,
             child: _openPanel == 'amount'
                 ? NumericKeypad(
                     amountCents: _amountCents,

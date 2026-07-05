@@ -51,11 +51,17 @@ class TagPickerContent extends StatefulWidget {
   final ValueChanged<List<String>> onDone;
 
   @override
-  State<TagPickerContent> createState() => _TagPickerContentState();
+  State<TagPickerContent> createState() => TagPickerContentState();
 }
 
-class _TagPickerContentState extends State<TagPickerContent> {
+/// Public so the host screen can read the current selection and trigger
+/// [onDone] from an external "Next" button placed next to Save.
+class TagPickerContentState extends State<TagPickerContent> {
   late final Set<String> _selected = widget.initialSelectedIds.toSet();
+
+  List<String> get selectedIds => _selected.toList();
+
+  void confirm() => widget.onDone(selectedIds);
 
   @override
   Widget build(BuildContext context) {
@@ -104,16 +110,6 @@ class _TagPickerContentState extends State<TagPickerContent> {
                     ),
                   ),
             ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => widget.onDone(_selected.toList()),
-              child: Text(widget.translations.t('common.next')),
-            ),
           ),
         ),
       ],

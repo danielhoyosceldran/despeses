@@ -64,7 +64,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   }
 
   Future<void> _openEntry({Budget? budget}) async {
-    final saved = await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(
       MaterialPageRoute(builder: (_) => BudgetEntryScreen(budget: budget)),
     );
     if (saved == true) _load();

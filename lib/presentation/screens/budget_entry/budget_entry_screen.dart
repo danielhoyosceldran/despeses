@@ -412,7 +412,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
             ),
           BottomActionPanel(
             isOpen: _openPanel != null,
-            maxHeight: _openPanel == 'amount' ? 4 * 56 : 340,
+            maxHeight: 4 * 56,
             child: _openPanel == 'amount'
                 ? NumericKeypad(
                     amountCents: _amountCents,
