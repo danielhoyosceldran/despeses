@@ -28,7 +28,16 @@ class ExpenseEntryScreen extends ConsumerStatefulWidget {
   ConsumerState<ExpenseEntryScreen> createState() => _ExpenseEntryScreenState();
 }
 
-const _fieldStepOrder = ['category', 'paymentMethod', 'tags', 'event', 'project'];
+const _fieldStepOrder = [
+  'amount',
+  'category',
+  'paymentMethod',
+  'tags',
+  'event',
+  'project',
+  'description',
+  'notes',
+];
 
 class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   String _type = 'expense';
@@ -41,6 +50,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   List<String> _tagIds = [];
   final _descriptionController = TextEditingController();
   final _notesController = TextEditingController();
+  final _descriptionFocus = FocusNode();
+  final _notesFocus = FocusNode();
 
   bool _loadingExisting = false;
 
@@ -51,6 +62,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   @override
   void initState() {
     super.initState();
+    _descriptionController.addListener(() => setState(() {}));
     if (widget.expenseId != null) {
       _loadExisting(widget.expenseId!);
     } else {
@@ -62,6 +74,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   void dispose() {
     _descriptionController.dispose();
     _notesController.dispose();
+    _descriptionFocus.dispose();
+    _notesFocus.dispose();
     super.dispose();
   }
 
@@ -106,7 +120,6 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         onSelected: (picked) {
           setState(() => _date = picked);
           _closePanel();
-          _openNextStep('date_sentinel');
         },
       );
     });
@@ -121,6 +134,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     final projects = await cache.projects();
 
     final available = <String>{
+      'amount',
+      'description',
+      'notes',
       if (categories.isNotEmpty) 'category',
       if (paymentMethods.isNotEmpty) 'paymentMethod',
       if (tags.isNotEmpty) 'tags',
@@ -131,11 +147,23 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     final startIndex = _fieldStepOrder.indexOf(afterStep) + 1;
     for (var i = startIndex; i < _fieldStepOrder.length; i++) {
       final step = _fieldStepOrder[i];
-      if (available.contains(step)) {
-        if (mounted) await _openStep(step);
-        return;
+      if (!available.contains(step)) continue;
+      if (!mounted) return;
+      switch (step) {
+        case 'amount':
+          _openAmountPanel();
+        case 'description':
+          _closePanel();
+          _descriptionFocus.requestFocus();
+        case 'notes':
+          _closePanel();
+          _notesFocus.requestFocus();
+        default:
+          await _openStep(step);
       }
+      return;
     }
+    _closePanel();
   }
 
   Future<void> _openStep(String step) async {
@@ -217,13 +245,19 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             onSelected: (selected) {
               setState(() => _projectId = selected.id);
               _closePanel();
+              _openNextStep('project');
             },
           );
         });
     }
   }
 
-  bool get _canSave => _amountCents > 0 && _date != null;
+  bool get _canSave =>
+      _amountCents > 0 &&
+      _date != null &&
+      _categoryId != null &&
+      _paymentMethodId != null &&
+      _descriptionController.text.trim().isNotEmpty;
 
   Future<void> _save() async {
     if (!_canSave) return;
@@ -314,35 +348,43 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       body: Column(
         children: [
           Expanded(child: _buildFieldsView(translations, colors, semantic, currency)),
+          if (_openPanel != null)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _canSave ? _save : null,
+                child: Text(translations?.t('common.save') ?? 'Save'),
+              ),
+            ),
           BottomActionPanel(
             isOpen: _openPanel != null,
-            maxHeight: _openPanel == 'amount' ? 400 : 340,
+            maxHeight: _openPanel == 'amount' ? 4 * 56 : 340,
             child: _openPanel == 'amount'
                 ? NumericKeypad(
                     amountCents: _amountCents,
-                    currency: 'EUR',
                     nextLabel: translations?.t('common.next') ?? 'Next',
                     onAmountChanged: (v) => setState(() => _amountCents = v),
                     onNext: () {
                       _closePanel();
-                      if (_date == null) _openDatePanel();
+                      _openNextStep('amount');
                     },
                   )
                 : _panelContent,
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _canSave ? _save : null,
-                  child: Text(translations?.t('common.save') ?? 'Save'),
+          if (_openPanel == null)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _canSave ? _save : null,
+                    child: Text(translations?.t('common.save') ?? 'Save'),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -361,68 +403,79 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
 
         return ListView(
           children: [
-            ListTile(
-              leading: Icon(LucideIcons.euro300, color: _typeColor(colors, semantic)),
-              title: Text(translations?.t('expenses.amount') ?? 'Amount'),
-              trailing: Text(
-                (_amountCents / 100).toStringAsFixed(2),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: _typeColor(colors, semantic)),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      title: Text(_date == null ? (translations?.t('expenses.select') ?? 'Select') : DateFormat.yMMMd().format(_date!)),
+                      onTap: _openDatePanel,
+                    ),
+                  ),
+                  VerticalDivider(width: 1, color: colors.divider),
+                  Expanded(
+                    child: ListTile(
+                      title: Text(
+                        '${(_amountCents / 100).toStringAsFixed(2)} $currency',
+                        style: TextStyle(color: _typeColor(colors, semantic)),
+                      ),
+                      onTap: _openAmountPanel,
+                    ),
+                  ),
+                ],
               ),
-              onTap: _openAmountPanel,
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(LucideIcons.calendar300, color: colors.textMuted),
-              title: Text(translations?.t('expenses.date') ?? 'Date'),
-              trailing: Text(_date == null ? (translations?.t('expenses.select') ?? 'Select') : DateFormat.yMMMd().format(_date!)),
-              onTap: _openDatePanel,
-            ),
-            Divider(height: 1, color: colors.divider),
-            ListTile(
-              leading: Icon(LucideIcons.shapes300, color: colors.textMuted),
-              title: Text(translations?.t('expenses.category') ?? 'Category'),
-              trailing: Text(labels?.category ?? (translations?.t('expenses.select') ?? 'Select')),
+              title: Text(labels?.category ?? (translations?.t('expenses.select') ?? 'Select')),
               onTap: () => _openStep('category'),
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(LucideIcons.creditCard300, color: colors.textMuted),
-              title: Text(translations?.t('expenses.payment_method') ?? 'Payment method'),
-              trailing: Text(labels?.paymentMethod ?? (translations?.t('expenses.select') ?? 'Select')),
+              title: Text(labels?.paymentMethod ?? (translations?.t('expenses.select') ?? 'Select')),
               onTap: () => _openStep('paymentMethod'),
             ),
             Divider(height: 1, color: colors.divider),
             ListTile(
-              leading: Icon(LucideIcons.tag300, color: colors.textMuted),
-              title: Text(translations?.t('expenses.tags') ?? 'Tags'),
-              trailing: Text(
+              title: Text(
                 _tagIds.isEmpty
-                    ? (translations?.t('expenses.none') ?? 'None')
+                    ? (translations?.t('expenses.tags') ?? 'Tags')
                     : (translations?.t('expenses.selected_count').replaceAll('{{count}}', '${_tagIds.length}') ??
                         '${_tagIds.length} selected'),
               ),
               onTap: () => _openStep('tags'),
             ),
             Divider(height: 1, color: colors.divider),
-            ListTile(
-              leading: Icon(LucideIcons.calendar300, color: colors.textMuted),
-              title: Text(translations?.t('expenses.event') ?? 'Event'),
-              trailing: Text(labels?.event ?? (translations?.t('expenses.none') ?? 'None')),
-              onTap: () => _openStep('event'),
-            ),
-            Divider(height: 1, color: colors.divider),
-            ListTile(
-              leading: Icon(LucideIcons.briefcase300, color: colors.textMuted),
-              title: Text(translations?.t('expenses.project') ?? 'Project'),
-              trailing: Text(labels?.project ?? (translations?.t('expenses.none') ?? 'None')),
-              onTap: () => _openStep('project'),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      title: Text(labels?.event ?? (translations?.t('expenses.event') ?? 'Event')),
+                      onTap: () => _openStep('event'),
+                    ),
+                  ),
+                  VerticalDivider(width: 1, color: colors.divider),
+                  Expanded(
+                    child: ListTile(
+                      title: Text(labels?.project ?? (translations?.t('expenses.project') ?? 'Project')),
+                      onTap: () => _openStep('project'),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Divider(height: 1, color: colors.divider),
             Padding(
               padding: const EdgeInsets.all(16),
               child: TextField(
                 controller: _descriptionController,
+                focusNode: _descriptionFocus,
                 maxLength: 300,
+                textInputAction: TextInputAction.next,
+                onSubmitted: (_) => _notesFocus.requestFocus(),
                 decoration: InputDecoration(labelText: translations?.t('common.description') ?? 'Description'),
               ),
             ),
@@ -430,6 +483,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 controller: _notesController,
+                focusNode: _notesFocus,
                 maxLength: 1000,
                 maxLines: 3,
                 decoration: InputDecoration(labelText: translations?.t('expenses.notes') ?? 'Notes'),
@@ -448,9 +502,15 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     String? categoryLabel;
     if (_categoryId != null) {
       final categories = await cache.categories();
-      final match = categories.where((c) => c.id == _categoryId);
-      if (match.isNotEmpty) {
-        categoryLabel = displayNameFor(translations, name: match.first.name, isDefault: match.first.isDefault);
+      final byId = {for (final c in categories) c.id: c};
+      final chain = <Category>[];
+      var current = byId[_categoryId];
+      while (current != null) {
+        chain.insert(0, current);
+        current = current.parentId == null ? null : byId[current.parentId];
+      }
+      if (chain.isNotEmpty) {
+        categoryLabel = chain.map((c) => displayNameFor(translations, name: c.name, isDefault: c.isDefault)).join(' > ');
       }
     }
 

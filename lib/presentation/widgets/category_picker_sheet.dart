@@ -88,17 +88,13 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
       children: [
         if (_breadcrumb.isNotEmpty)
           ListTile(
+            dense: true,
             leading: Icon(LucideIcons.arrowLeft300, color: colors.text),
             title: Text(_breadcrumb.map(_label).join(' > ')),
             onTap: () {
               setState(() => _breadcrumb.removeLast());
               _load();
             },
-          ),
-        if (_breadcrumb.isNotEmpty)
-          ListTile(
-            title: Text('Use "${_label(_breadcrumb.last)}" directly'),
-            onTap: () => widget.onSelected(_breadcrumb.last),
           ),
         Expanded(
           child: _loading
@@ -107,15 +103,92 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
                   itemCount: _children.length,
                   itemBuilder: (context, index) {
                     final category = _children[index];
-                    return ListTile(
-                      title: Text(_label(category)),
-                      trailing: Icon(LucideIcons.chevronRight300, color: colors.accent),
-                      onTap: () => _tap(category),
+                    return _BreadcrumbRow(
+                      breadcrumbLabels: _breadcrumb.map(_label).toList(),
+                      childLabel: _label(category),
+                      colors: colors,
+                      onBreadcrumbTap: (i) => widget.onSelected(_breadcrumb[i]),
+                      onChildTap: () => _tap(category),
                     );
                   },
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// One selectable row of the drill-down grid: a narrow column per already
+/// chosen ancestor (breadcrumb), the most recent one highlighted, plus a wide
+/// column for the current level's candidate.
+class _BreadcrumbRow extends StatelessWidget {
+  const _BreadcrumbRow({
+    required this.breadcrumbLabels,
+    required this.childLabel,
+    required this.colors,
+    required this.onBreadcrumbTap,
+    required this.onChildTap,
+  });
+
+  final List<String> breadcrumbLabels;
+  final String childLabel;
+  final AppColors colors;
+  final ValueChanged<int> onBreadcrumbTap;
+  final VoidCallback onChildTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final lastIndex = breadcrumbLabels.length - 1;
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          for (var i = 0; i < breadcrumbLabels.length; i++)
+            SizedBox(
+              width: 64,
+              child: _Cell(
+                label: breadcrumbLabels[i],
+                highlighted: i == lastIndex,
+                colors: colors,
+                onTap: () => onBreadcrumbTap(i),
+              ),
+            ),
+          Expanded(
+            child: _Cell(label: childLabel, highlighted: false, colors: colors, onTap: onChildTap),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Cell extends StatelessWidget {
+  const _Cell({required this.label, required this.highlighted, required this.colors, required this.onTap});
+
+  final String label;
+  final bool highlighted;
+  final AppColors colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(1),
+      color: highlighted ? colors.accent : colors.surfaceAlt,
+      child: InkWell(
+        onTap: onTap,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: highlighted ? Colors.white : colors.text),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

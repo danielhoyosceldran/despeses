@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/feature_flags.dart';
 import '../../core/providers/app_providers.dart';
 
 /// Bottom nav with 5 tabs: Dashboard · Expenses · Budgets · Analytics ·
@@ -33,6 +34,14 @@ class AppShell extends ConsumerWidget {
     'nav.budgets',
     'nav.analytics',
     'nav.settings',
+  ];
+
+  static final _visibleIndices = [
+    0,
+    if (FeatureFlags.showExpensesScreen) 1,
+    2,
+    3,
+    4,
   ];
 
   @override
@@ -81,18 +90,22 @@ class AppShell extends ConsumerWidget {
           final velocity = details.primaryVelocity ?? 0;
           if (velocity.abs() < 200) return;
           final delta = velocity < 0 ? 1 : -1;
-          final target = navigationShell.currentIndex + delta;
-          if (target < 0 || target >= _labels.length) return;
-          navigationShell.goBranch(target);
+          final currentPos = _visibleIndices.indexOf(navigationShell.currentIndex);
+          final targetPos = currentPos + delta;
+          if (targetPos < 0 || targetPos >= _visibleIndices.length) return;
+          navigationShell.goBranch(_visibleIndices[targetPos]);
         },
         child: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          ),
+          selectedIndex: _visibleIndices.indexOf(navigationShell.currentIndex),
+          onDestinationSelected: (pos) {
+            final index = _visibleIndices[pos];
+            navigationShell.goBranch(
+              index,
+              initialLocation: index == navigationShell.currentIndex,
+            );
+          },
           destinations: [
-            for (var i = 0; i < _labels.length; i++)
+            for (final i in _visibleIndices)
               NavigationDestination(
                 icon: Icon(_icons[i]),
                 label: t?.t(_keys[i]) ?? _labels[i],

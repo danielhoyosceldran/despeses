@@ -405,29 +405,34 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
               ],
             ),
           ),
+          if (_openPanel != null)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+            ),
           BottomActionPanel(
             isOpen: _openPanel != null,
-            maxHeight: _openPanel == 'amount' ? 400 : 340,
+            maxHeight: _openPanel == 'amount' ? 4 * 56 : 340,
             child: _openPanel == 'amount'
                 ? NumericKeypad(
                     amountCents: _amountCents,
-                    currency: currency,
                     nextLabel: translations?.t('common.next') ?? 'Next',
                     onAmountChanged: (v) => setState(() => _amountCents = v),
                     onNext: _closePanel,
                   )
                 : _panelContent,
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+          if (_openPanel == null)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
