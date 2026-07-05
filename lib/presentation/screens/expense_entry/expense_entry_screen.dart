@@ -91,19 +91,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       });
 
   void _openAmountPanel() {
-    final translations = ref.read(translationsProvider).asData?.value;
     setState(() {
       _openPanel = 'amount';
-      _panelContent = NumericKeypad(
-        amountCents: _amountCents,
-        currency: 'EUR',
-        nextLabel: translations?.t('common.next') ?? 'Next',
-        onAmountChanged: (v) => setState(() => _amountCents = v),
-        onNext: () {
-          _closePanel();
-          if (_date == null) _openDatePanel();
-        },
-      );
+      _panelContent = null;
     });
   }
 
@@ -323,7 +313,22 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       body: Column(
         children: [
           Expanded(child: _buildFieldsView(translations, colors, semantic, currency)),
-          BottomActionPanel(isOpen: _openPanel != null, child: _panelContent),
+          BottomActionPanel(
+            isOpen: _openPanel != null,
+            maxHeight: _openPanel == 'amount' ? 400 : 340,
+            child: _openPanel == 'amount'
+                ? NumericKeypad(
+                    amountCents: _amountCents,
+                    currency: 'EUR',
+                    nextLabel: translations?.t('common.next') ?? 'Next',
+                    onAmountChanged: (v) => setState(() => _amountCents = v),
+                    onNext: () {
+                      _closePanel();
+                      if (_date == null) _openDatePanel();
+                    },
+                  )
+                : _panelContent,
+          ),
           SafeArea(
             top: false,
             child: Padding(

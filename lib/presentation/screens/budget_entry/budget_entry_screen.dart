@@ -121,16 +121,9 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
       });
 
   void _openAmountPanel(String currency) {
-    final translations = ref.read(translationsProvider).asData?.value;
     setState(() {
       _openPanel = 'amount';
-      _panelContent = NumericKeypad(
-        amountCents: _amountCents,
-        currency: currency,
-        nextLabel: translations?.t('common.next') ?? 'Next',
-        onAmountChanged: (v) => setState(() => _amountCents = v),
-        onNext: _closePanel,
-      );
+      _panelContent = null;
     });
   }
 
@@ -411,7 +404,19 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
               ],
             ),
           ),
-          BottomActionPanel(isOpen: _openPanel != null, child: _panelContent),
+          BottomActionPanel(
+            isOpen: _openPanel != null,
+            maxHeight: _openPanel == 'amount' ? 400 : 340,
+            child: _openPanel == 'amount'
+                ? NumericKeypad(
+                    amountCents: _amountCents,
+                    currency: currency,
+                    nextLabel: translations?.t('common.next') ?? 'Next',
+                    onAmountChanged: (v) => setState(() => _amountCents = v),
+                    onNext: _closePanel,
+                  )
+                : _panelContent,
+          ),
           SafeArea(
             top: false,
             child: Padding(
