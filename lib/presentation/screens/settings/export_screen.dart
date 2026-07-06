@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../domain/export/export_service.dart';
 import '../../../domain/repositories/expense_repository.dart';
 import '../../widgets/app_toast.dart';
@@ -113,7 +114,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       body: AbsorbPointer(
         absorbing: _busy,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             Row(
               children: [
@@ -142,19 +143,19 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
               ],
               onChanged: (v) => setState(() => _type = v),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: _busy ? null : _exportCsv,
               icon: const Icon(LucideIcons.table300),
               label: const Text('Export CSV'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             FilledButton.icon(
               onPressed: _busy ? null : _exportPdf,
               icon: const Icon(LucideIcons.fileText300),
               label: const Text('Export PDF'),
             ),
-            if (_busy) const Padding(padding: EdgeInsets.only(top: 16), child: LinearProgressIndicator()),
+            if (_busy) const Padding(padding: EdgeInsets.only(top: AppSpacing.md), child: LinearProgressIndicator()),
           ],
         ),
       ),

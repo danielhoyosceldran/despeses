@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_theme.dart';
 
 /// Language, theme, and a read-only currency field (plan §3.8, §6): v1 only
 /// supports EUR, so the currency-change warning/block logic has nothing to
@@ -22,9 +23,9 @@ class ProfileScreen extends ConsumerWidget {
       body: profileAsync.when(
         data: (profile) => ListView(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text('Language', style: TextStyle(fontWeight: FontWeight.w600)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
+              child: Text('Language', style: Theme.of(context).textTheme.titleMedium),
             ),
             for (final code in Translations.supportedLocales)
               RadioListTile<String>(

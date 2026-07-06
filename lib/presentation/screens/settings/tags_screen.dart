@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
@@ -112,12 +113,12 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               children: [
                 for (final group in _groups)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
                           child: Row(
                             children: [
                               Expanded(
@@ -125,7 +126,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                                   translations == null
                                       ? group.name
                                       : tagGroupDisplayName(translations, group.name),
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: Theme.of(context).textTheme.titleMedium,
                                 ),
                               ),
                               IconButton(

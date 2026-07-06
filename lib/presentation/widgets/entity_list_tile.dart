@@ -44,8 +44,7 @@ class EntityListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
     final direction = onEdit != null && confirmDelete != null
         ? DismissDirection.horizontal
         : onEdit != null
@@ -67,14 +66,14 @@ class EntityListTile extends StatelessWidget {
       background: Container(
         color: colors.accent,
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: const Icon(LucideIcons.pencil300, color: Colors.white),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Icon(LucideIcons.pencil300, color: colors.onAccent),
       ),
       secondaryBackground: Container(
         color: Theme.of(context).colorScheme.error,
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: const Icon(LucideIcons.trash2300, color: Colors.white),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Icon(LucideIcons.trash2300, color: colors.onAccent),
       ),
       child: ListTile(
         leading: leadingColor == null ? null : CircleAvatar(backgroundColor: leadingColor, radius: 8),
