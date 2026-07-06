@@ -265,8 +265,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
     final translations = translationsAsync.asData?.value;
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
 
     return Scaffold(
       appBar: AppBar(
@@ -277,7 +276,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               children: [
                 TextField(
                   controller: _nameController,
@@ -406,9 +405,12 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
             ),
           ),
           if (_openPanel != null)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+              ),
             ),
           BottomActionPanel(
             isOpen: _openPanel != null,
@@ -426,7 +428,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
             SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),

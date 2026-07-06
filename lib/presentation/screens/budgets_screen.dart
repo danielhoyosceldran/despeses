@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
+import '../widgets/app_card.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/thin_progress_bar.dart';
@@ -100,17 +101,11 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       return _showActiveOnly ? active : !active;
     }).toList();
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
-
     return Scaffold(
       appBar: AppBar(
         title: _selectionMode
             ? Text('${_selectedIds.length} selected')
-            : Text(
-                (t?.t('nav.budgets') ?? 'Budgets').toUpperCase(),
-                style: appHeaderStyle(colors),
-              ),
+            : Text(t?.t('nav.budgets') ?? 'Budgets'),
         centerTitle: true,
         leading: _selectionMode
             ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
@@ -131,44 +126,45 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           : visible.isEmpty
               ? Center(child: Text(_showActiveOnly ? 'No active budgets' : 'No expired budgets'))
               : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
                   itemCount: visible.length,
                   itemBuilder: (context, index) {
                     final budget = visible[index];
                     final spent = _progress[budget.id] ?? 0;
                     final ratio = budget.amount == 0 ? 0.0 : (spent / budget.amount).clamp(0.0, 1.0);
                     final over = spent > budget.amount;
-                    final isDark = Theme.of(context).brightness == Brightness.dark;
-                    final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+                    final semantic = context.semanticColors;
                     final categoryColor = chartPalette[(budget.categoryId ?? budget.id).hashCode % chartPalette.length];
                     final selected = _selectedIds.contains(budget.id);
-                    return Column(
-                      children: [
-                        ListTile(
-                          selected: selected,
-                          leading: _selectionMode
-                              ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(budget))
-                              : null,
-                          title: Text(budget.name),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 6),
-                              ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
-                                style: TextStyle(
-                                  color: over ? semantic.over : null,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ],
-                          ),
-                          onLongPress: () => _toggleSelection(budget),
-                          onTap: () => _selectionMode ? _toggleSelection(budget) : _openEntry(budget: budget),
+                    return AppCard(
+                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      padding: EdgeInsets.zero,
+                      child: ListTile(
+                        selected: selected,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusCard)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                        leading: _selectionMode
+                            ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(budget))
+                            : null,
+                        title: Text(budget.name, style: Theme.of(context).textTheme.labelLarge),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
+                              style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                                    color: over ? semantic.over : null,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                            ),
+                          ],
                         ),
-                        Divider(color: colors.divider, height: 1),
-                      ],
+                        onLongPress: () => _toggleSelection(budget),
+                        onTap: () => _selectionMode ? _toggleSelection(budget) : _openEntry(budget: budget),
+                      ),
                     );
                   },
                 ),
