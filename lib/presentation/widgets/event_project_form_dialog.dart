@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 class EventProjectFormResult {
   const EventProjectFormResult({
     required this.name,
@@ -31,8 +33,6 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(title),
         content: SingleChildScrollView(
           child: Column(
@@ -44,14 +44,14 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
                 autofocus: true,
                 decoration: const InputDecoration(labelText: 'Name'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.smMd),
               TextField(
                 controller: descriptionController,
                 maxLength: 500,
                 maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Description (optional)'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Expanded(

@@ -13,8 +13,6 @@ Future<bool> showConfirmDialog(
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      elevation: 0,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       title: Text(title),
       content: Text(message),
       actions: [

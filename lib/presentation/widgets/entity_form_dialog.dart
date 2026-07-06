@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 /// Chart palette from `STYLE_FLUTTER.md` §2 — reused here as the color picker
 /// choices for categories/tags (only real accent color usage besides the
 /// single app accent).
@@ -57,8 +59,6 @@ Future<EntityFormResult?> showEntityFormDialog(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: Text(title),
         content: SingleChildScrollView(
           child: Column(
@@ -71,7 +71,7 @@ Future<EntityFormResult?> showEntityFormDialog(
                 decoration: const InputDecoration(labelText: 'Name'),
               ),
               if (withIcon) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.smMd),
                 TextField(
                   controller: iconController,
                   maxLength: 50,
@@ -79,10 +79,10 @@ Future<EntityFormResult?> showEntityFormDialog(
                 ),
               ],
               if (withColor) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.smMd),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: [
                     for (final color in chartPalette)
                       GestureDetector(
@@ -92,9 +92,10 @@ Future<EntityFormResult?> showEntityFormDialog(
                           height: 28,
                           decoration: BoxDecoration(
                             color: color,
+                            shape: BoxShape.circle,
                             border: Border.all(
-                              width: selectedColor == colorToHex(color) ? 2 : 0,
-                              color: Colors.black87,
+                              width: selectedColor == colorToHex(color) ? 2.5 : 0,
+                              color: context.appColors.text,
                             ),
                           ),
                         ),

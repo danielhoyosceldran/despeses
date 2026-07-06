@@ -1,6 +1,8 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 class YearMonth {
   const YearMonth(this.year, this.month);
 
@@ -22,7 +24,6 @@ Future<YearMonth?> showMonthPickerDialog(BuildContext context, {YearMonth? initi
   return showDialog<YearMonth>(
     context: context,
     builder: (context) => Dialog(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: SizedBox(
         width: 300,
         height: 340,
@@ -56,7 +57,7 @@ class _MonthPickerContentState extends State<MonthPickerContent> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -68,7 +69,7 @@ class _MonthPickerContentState extends State<MonthPickerContent> {
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: GridView.count(
               crossAxisCount: 3,
               childAspectRatio: 2,
