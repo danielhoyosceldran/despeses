@@ -19,19 +19,20 @@ class BottomActionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).brightness == Brightness.dark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
+      duration: AppDimens.animFast,
+      curve: AppDimens.animCurve,
       constraints: BoxConstraints(maxHeight: isOpen ? maxHeight : 0),
       decoration: BoxDecoration(
         color: colors.surface,
-        border: Border(top: BorderSide(color: colors.border)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppDimens.radiusSheet)),
+        boxShadow: isOpen ? AppShadows.card(colors) : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 180),
+        duration: AppDimens.animFast,
         opacity: isOpen ? 1 : 0,
         child: child ?? const SizedBox.shrink(),
       ),

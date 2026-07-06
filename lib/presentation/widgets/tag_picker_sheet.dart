@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 
 /// Grouped multi-select tag picker (plan §3.1): chips grouped by tag group,
@@ -73,7 +74,7 @@ class TagPickerContentState extends State<TagPickerContent> {
               for (final group in widget.groups)
                 if (widget.tags.any((t) => t.tagGroupId == group.id))
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.md),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -81,10 +82,10 @@ class TagPickerContentState extends State<TagPickerContent> {
                           tagGroupDisplayName(widget.translations, group.name),
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.sm),
                         Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
                           children: [
                             for (final tag in widget.tags.where((t) => t.tagGroupId == group.id))
                               FilterChip(

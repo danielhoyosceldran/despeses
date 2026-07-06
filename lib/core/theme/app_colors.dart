@@ -14,6 +14,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.textMuted,
     required this.textDisabled,
     required this.accent,
+    required this.onAccent,
     required this.shadow,
   });
 
@@ -26,6 +27,9 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color textMuted;
   final Color textDisabled;
   final Color accent;
+
+  /// Foreground color for content sitting on [accent] fills.
+  final Color onAccent;
 
   /// Card shadow color — pre-baked opacity (6% black light / 40% black dark).
   final Color shadow;
@@ -40,6 +44,7 @@ class AppColors extends ThemeExtension<AppColors> {
     textMuted: Color(0xFF8E90A6),
     textDisabled: Color(0xFFBDBFCE),
     accent: Color(0xFF5A31F4),
+    onAccent: Color(0xFFFFFFFF),
     shadow: Color(0x0F000000),
   );
 
@@ -53,6 +58,7 @@ class AppColors extends ThemeExtension<AppColors> {
     textMuted: Color(0xFF6E7085),
     textDisabled: Color(0xFF4A4B5A),
     accent: Color(0xFF7C5CFF),
+    onAccent: Color(0xFFFFFFFF),
     shadow: Color(0x66000000),
   );
 
@@ -67,6 +73,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? textMuted,
     Color? textDisabled,
     Color? accent,
+    Color? onAccent,
     Color? shadow,
   }) {
     return AppColors(
@@ -79,6 +86,7 @@ class AppColors extends ThemeExtension<AppColors> {
       textMuted: textMuted ?? this.textMuted,
       textDisabled: textDisabled ?? this.textDisabled,
       accent: accent ?? this.accent,
+      onAccent: onAccent ?? this.onAccent,
       shadow: shadow ?? this.shadow,
     );
   }
@@ -96,6 +104,7 @@ class AppColors extends ThemeExtension<AppColors> {
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       textDisabled: Color.lerp(textDisabled, other.textDisabled, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
+      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
       shadow: Color.lerp(shadow, other.shadow, t)!,
     );
   }
@@ -153,6 +162,12 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 Color pillBackground(Color semantic) => semantic.withValues(alpha: 0.15);
 
 extension AppThemeContext on BuildContext {
-  AppColors get appColors => Theme.of(this).extension<AppColors>()!;
-  AppSemanticColors get semanticColors => Theme.of(this).extension<AppSemanticColors>()!;
+  /// Falls back on brightness when the extension is missing (e.g. widgets
+  /// pumped under a vanilla [ThemeData] in tests).
+  AppColors get appColors =>
+      Theme.of(this).extension<AppColors>() ??
+      (Theme.of(this).brightness == Brightness.dark ? AppColors.dark : AppColors.light);
+
+  AppSemanticColors get semanticColors =>
+      Theme.of(this).extension<AppSemanticColors>() ?? AppSemanticColors.light;
 }

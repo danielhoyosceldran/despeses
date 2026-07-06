@@ -83,7 +83,7 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).brightness == Brightness.dark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
     return Column(
       children: [
         if (_breadcrumb.isNotEmpty)
@@ -173,18 +173,22 @@ class _Cell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.all(1),
-      color: highlighted ? colors.accent : colors.surfaceAlt,
+      margin: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: highlighted ? colors.accent : colors.surfaceAlt,
+        borderRadius: BorderRadius.circular(AppSpacing.smMd),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(color: highlighted ? Colors.white : colors.text),
+              style: TextStyle(color: highlighted ? colors.onAccent : colors.text),
             ),
           ),
         ),

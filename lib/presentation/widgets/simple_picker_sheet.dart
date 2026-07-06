@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 /// Single-select list sheet (payment method / event / project): tapping an
 /// item selects it and closes immediately (auto-advance, plan §3.1).
 Future<T?> showSimplePickerSheet<T>(
@@ -46,8 +48,8 @@ class SimplePickerContent<T> extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(title, style: Theme.of(context).textTheme.labelLarge),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
         ),
         Expanded(
           child: ListView.builder(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 /// Money-entry keypad (plan §3.1 redesign): 4x4 grid with digits, `00`, `,`,
 /// backspace, a vestigial `-`, and `Next` spanning the last two rows.
 ///
@@ -98,7 +100,12 @@ class _NumericKeypadState extends State<NumericKeypad> {
                 ),
                 Expanded(
                   flex: 2,
-                  child: _Key(key: const ValueKey('keypad_next'), onTap: widget.onNext, child: Text(widget.nextLabel)),
+                  child: _Key(
+                    key: const ValueKey('keypad_next'),
+                    onTap: widget.onNext,
+                    accent: true,
+                    child: Text(widget.nextLabel),
+                  ),
                 ),
               ],
             ),
@@ -127,18 +134,33 @@ class _KeyColumn extends StatelessWidget {
 }
 
 class _Key extends StatelessWidget {
-  const _Key({super.key, required this.child, required this.onTap});
+  const _Key({super.key, required this.child, required this.onTap, this.accent = false});
 
   final Widget child;
   final VoidCallback onTap;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: TextButton(
-        style: TextButton.styleFrom(shape: const RoundedRectangleBorder()),
-        onPressed: onTap,
-        child: DefaultTextStyle.merge(style: Theme.of(context).textTheme.headlineSmall, child: child),
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: SizedBox.expand(
+        child: TextButton(
+          style: TextButton.styleFrom(
+            backgroundColor: accent ? colors.accent : null,
+            foregroundColor: accent ? colors.onAccent : colors.text,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusButton)),
+          ),
+          onPressed: onTap,
+          child: DefaultTextStyle.merge(
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall!
+                .copyWith(color: accent ? colors.onAccent : colors.text),
+            child: child,
+          ),
+        ),
       ),
     );
   }

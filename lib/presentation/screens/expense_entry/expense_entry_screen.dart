@@ -315,9 +315,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     final translations = translationsAsync.asData?.value;
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
-    final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+    final colors = context.appColors;
+    final semantic = context.semanticColors;
 
     if (_loadingExisting) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -352,32 +351,36 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         children: [
           Expanded(child: _buildFieldsView(translations, colors, semantic, currency)),
           if (_openPanel != null)
-            _openPanel == 'tags'
-                ? Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: _canSave ? _save : null,
-                          child: Text(translations?.t('common.save') ?? 'Save'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+              child: _openPanel == 'tags'
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: _canSave ? _save : null,
+                            child: Text(translations?.t('common.save') ?? 'Save'),
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () {
-                            _tagPickerKey?.currentState?.confirm();
-                          },
-                          child: Text(translations?.t('common.next') ?? 'Next'),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () {
+                              _tagPickerKey?.currentState?.confirm();
+                            },
+                            child: Text(translations?.t('common.next') ?? 'Next'),
+                          ),
                         ),
+                      ],
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _canSave ? _save : null,
+                        child: Text(translations?.t('common.save') ?? 'Save'),
                       ),
-                    ],
-                  )
-                : SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _canSave ? _save : null,
-                      child: Text(translations?.t('common.save') ?? 'Save'),
                     ),
-                  ),
+            ),
           BottomActionPanel(
             isOpen: _openPanel != null,
             maxHeight: 4 * 56,
@@ -397,7 +400,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -491,7 +494,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             ),
             Divider(height: 1, color: colors.divider),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: TextField(
                 controller: _descriptionController,
                 focusNode: _descriptionFocus,
@@ -502,7 +505,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
               child: TextField(
                 controller: _notesController,
                 focusNode: _notesFocus,
@@ -594,8 +597,7 @@ class _DatePanelState extends State<_DatePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
     final today = DateTime.now();
     final firstOfMonth = DateTime(_month.year, _month.month, 1);
     final leadingBlanks = (firstOfMonth.weekday - DateTime.monday) % 7;
@@ -661,8 +663,10 @@ class _DayCell extends StatelessWidget {
           width: 32,
           height: 32,
           alignment: Alignment.center,
-          decoration: isToday ? BoxDecoration(border: Border.all(color: accent)) : null,
-          child: Text('$day'),
+          decoration: isToday
+              ? BoxDecoration(color: accent.withValues(alpha: 0.15), shape: BoxShape.circle)
+              : null,
+          child: Text('$day', style: isToday ? TextStyle(color: accent, fontWeight: FontWeight.w600) : null),
         ),
       ),
     );

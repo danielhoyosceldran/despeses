@@ -116,7 +116,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: colors.accent,
-          foregroundColor: Colors.white,
+          foregroundColor: colors.onAccent,
           minimumSize: const Size(64, AppDimens.buttonHeight),
           elevation: 0,
           textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600),
@@ -141,6 +141,8 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusPill)),
         side: BorderSide.none,
         backgroundColor: colors.surfaceAlt,
+        selectedColor: pillBackground(colors.accent),
+        checkmarkColor: colors.accent,
         labelStyle: TextStyle(color: colors.text),
       ),
       snackBarTheme: SnackBarThemeData(
