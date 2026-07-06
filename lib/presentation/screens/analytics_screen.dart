@@ -327,7 +327,7 @@ class _MonthAnalyticsPage extends ConsumerWidget {
           ],
         ),
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: AppSpacing.smMd),
       for (var i = 0; i < categorySlices.length; i++)
         _SliceLegendRow(
           color: chartPalette[i % chartPalette.length],

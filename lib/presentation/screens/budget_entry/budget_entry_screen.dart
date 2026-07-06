@@ -283,7 +283,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                   decoration: InputDecoration(labelText: translations?.t('common.name') ?? 'Name'),
                   onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(LucideIcons.euro300, color: colors.accent),
@@ -294,9 +294,9 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                   ),
                   onTap: () => _openAmountPanel(currency),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 Text(translations?.t('budgets.dimension') ?? 'Dimension', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 SegmentedButton<_Dimension>(
                   segments: [
                     ButtonSegment(value: _Dimension.category, label: Text(translations?.t('budgets.dim_category') ?? 'Category')),
@@ -313,7 +313,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                             _dimensionValueLabel = null;
                           }),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
@@ -323,9 +323,9 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                   trailing: Icon(LucideIcons.chevronRight300, color: _isEdit ? colors.textDisabled : colors.accent),
                   onTap: _isEdit ? null : _openDimensionValuePanel,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 Text(translations?.t('budgets.type') ?? 'Budget type', style: Theme.of(context).textTheme.labelLarge),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 SegmentedButton<_BudgetType>(
                   segments: [
                     ButtonSegment(value: _BudgetType.range, label: Text(translations?.t('budgets.type_range') ?? 'Range')),
@@ -335,7 +335,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                   selected: {_type},
                   onSelectionChanged: _isEdit ? null : (s) => setState(() => _type = s.first),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 if (_type == _BudgetType.range) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -373,7 +373,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                 ],
                 if (_type == _BudgetType.months) ...[
                   Wrap(
-                    spacing: 8,
+                    spacing: AppSpacing.sm,
                     children: [
                       for (final m in _months)
                         Chip(
