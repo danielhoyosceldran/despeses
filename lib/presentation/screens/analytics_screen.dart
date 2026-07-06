@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/analytics_repository.dart';
 import '../widgets/amount_text.dart';
+import '../widgets/app_card.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/month_header_bar.dart';
 
@@ -113,15 +114,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          (translations?.t('analytics.title') ?? 'Analytics').toUpperCase(),
-          style: appHeaderStyle(colors),
-        ),
+        title: Text(translations?.t('analytics.title') ?? 'Analytics'),
         centerTitle: true,
       ),
       body: Column(
@@ -207,21 +202,27 @@ class _MonthAnalyticsPage extends ConsumerWidget {
             if (!labelsSnapshot.hasData) return const Center(child: CircularProgressIndicator());
             final (categoryLabels, categoryHasChildren, tagLabels) = labelsSnapshot.data!;
 
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            final colors = isDark ? AppColors.dark : AppColors.light;
+            final colors = context.appColors;
 
             return ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-                Text('TOTAL SPENT'.toUpperCase(), style: appHeaderStyle(colors), textAlign: TextAlign.center),
-                const SizedBox(height: 4),
+                Text('Total spent', style: appHeaderStyle(colors), textAlign: TextAlign.center),
+                const SizedBox(height: AppSpacing.xs),
                 Center(
                   child: AmountText(amountCents: total, currency: currency, style: Theme.of(context).textTheme.displaySmall),
                 ),
-                const SizedBox(height: 16),
-                if (dimension == _Dimension.category)
-                  ..._buildCategoryView(context, categorySlices, categoryLabels, categoryHasChildren, currency),
-                if (dimension == _Dimension.tags) ..._buildTagView(tagSlices, tagLabels, currency),
+                const SizedBox(height: AppSpacing.md),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (dimension == _Dimension.category)
+                        ..._buildCategoryView(context, categorySlices, categoryLabels, categoryHasChildren, currency),
+                      if (dimension == _Dimension.tags) ..._buildTagView(context, tagSlices, tagLabels, currency),
+                    ],
+                  ),
+                ),
               ],
             );
           },
@@ -344,7 +345,7 @@ class _MonthAnalyticsPage extends ConsumerWidget {
     ];
   }
 
-  List<Widget> _buildTagView(List<TagSlice> tagSlices, Map<String, String> tagLabels, String currency) {
+  List<Widget> _buildTagView(BuildContext context, List<TagSlice> tagSlices, Map<String, String> tagLabels, String currency) {
     if (tagSlices.isEmpty) {
       return [Center(child: Text(translations?.t('analytics.empty_tag') ?? 'No tag data.'))];
     }
@@ -364,11 +365,11 @@ class _MonthAnalyticsPage extends ConsumerWidget {
           ),
         ),
       ),
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Text(
           'A transaction with several tags counts fully in each — slices can add up to more than the month total.',
-          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+          style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic),
         ),
       ),
       for (var i = 0; i < tagSlices.length; i++)
@@ -407,8 +408,8 @@ class _SliceLegendRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Container(width: 12, height: 12, color: color),
-            const SizedBox(width: 8),
+            Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(child: Text(label)),
             Text(
               '${(amountCents / 100).toStringAsFixed(2)} $currency',
