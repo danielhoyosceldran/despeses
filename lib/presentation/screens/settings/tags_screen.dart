@@ -7,6 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
+import '../../widgets/entity_list_tile.dart';
 
 class TagsScreen extends ConsumerStatefulWidget {
   const TagsScreen({super.key});
@@ -19,20 +20,6 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   List<TagGroup> _groups = [];
   Map<String, List<Tag>> _tagsByGroup = {};
   bool _loading = true;
-  final Set<String> _selectedIds = {};
-
-  bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  void _toggleSelection(Tag tag) {
-    if (tag.isDefault) return;
-    setState(() {
-      if (_selectedIds.contains(tag.id)) {
-        _selectedIds.remove(tag.id);
-      } else {
-        _selectedIds.add(tag.id);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -85,25 +72,19 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     _load();
   }
 
-  Future<void> _deleteSelected() async {
-    final repo = ref.read(tagRepositoryProvider);
-    var budgetCount = 0;
-    for (final id in _selectedIds) {
-      budgetCount += await repo.budgetCount(id);
-    }
-    if (!mounted) return;
-    final count = _selectedIds.length;
+  Future<bool> _confirmDelete(Tag tag, String label) async {
+    final budgetCount = await ref.read(tagRepositoryProvider).budgetCount(tag.id);
+    if (!mounted) return false;
     final message = budgetCount > 0
-        ? 'These $count tags have $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete $count selected tag${count == 1 ? '' : 's'}?';
-    final confirmed = await showConfirmDialog(context, title: 'Delete tags', message: message, destructive: true);
-    if (!confirmed) return;
-    for (final id in _selectedIds) {
-      await repo.delete(id);
-    }
-    setState(() => _selectedIds.clear());
+        ? '"$label" has $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete "$label"?';
+    return showConfirmDialog(context, title: 'Delete tag', message: message, destructive: true);
+  }
+
+  Future<void> _delete(Tag tag) async {
+    setState(() => _tagsByGroup[tag.tagGroupId]?.remove(tag));
+    await ref.read(tagRepositoryProvider).delete(tag.id);
     ref.read(referenceDataCacheProvider).invalidate();
-    _load();
   }
 
   Future<void> _reorder(String groupId, int oldIndex, int newIndex) async {
@@ -123,23 +104,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('settings_nav.tags') ?? 'Tags'),
-        leading: _selectionMode
-            ? IconButton(
-                icon: const Icon(LucideIcons.x300),
-                onPressed: () => setState(() => _selectedIds.clear()),
-              )
-            : null,
-        actions: _selectionMode
-            ? [
-                IconButton(
-                  icon: const Icon(LucideIcons.trash2300),
-                  onPressed: _deleteSelected,
-                ),
-              ]
-            : null,
+        title: Text(translations?.t('settings_nav.tags') ?? 'Tags'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -180,24 +145,14 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                             final label = translations == null
                                 ? tag.name
                                 : displayNameFor(translations, name: tag.name, isDefault: tag.isDefault);
-                            final selected = _selectedIds.contains(tag.id);
-                            return ListTile(
+                            return EntityListTile(
                               key: ValueKey(tag.id),
-                              selected: selected,
-                              leading: _selectionMode
-                                  ? Checkbox(
-                                      value: selected,
-                                      onChanged: tag.isDefault ? null : (_) => _toggleSelection(tag),
-                                    )
-                                  : tag.color == null
-                                      ? null
-                                      : CircleAvatar(backgroundColor: hexToColor(tag.color), radius: 8),
-                              title: Text(label),
-                              trailing: _selectionMode
-                                  ? null
-                                  : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(tag, label)),
-                              onLongPress: () => _toggleSelection(tag),
-                              onTap: _selectionMode ? () => _toggleSelection(tag) : null,
+                              id: tag.id,
+                              title: label,
+                              leadingColor: tag.color == null ? null : hexToColor(tag.color),
+                              onEdit: () => _edit(tag, label),
+                              confirmDelete: tag.isDefault ? null : () => _confirmDelete(tag, label),
+                              onDeleted: () => _delete(tag),
                             );
                           },
                         ),

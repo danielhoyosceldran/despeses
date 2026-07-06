@@ -7,6 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
+import '../../widgets/entity_list_tile.dart';
 
 class PaymentMethodsScreen extends ConsumerStatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -18,20 +19,6 @@ class PaymentMethodsScreen extends ConsumerStatefulWidget {
 class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   List<PaymentMethod> _methods = [];
   bool _loading = true;
-  final Set<String> _selectedIds = {};
-
-  bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  void _toggleSelection(PaymentMethod method) {
-    if (method.isDefault) return;
-    setState(() {
-      if (_selectedIds.contains(method.id)) {
-        _selectedIds.remove(method.id);
-      } else {
-        _selectedIds.add(method.id);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -72,22 +59,19 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     _load();
   }
 
-  Future<void> _deleteSelected() async {
-    final count = _selectedIds.length;
-    final confirmed = await showConfirmDialog(
+  Future<bool> _confirmDelete(String label) {
+    return showConfirmDialog(
       context,
-      title: 'Delete payment methods',
-      message: 'Delete $count selected payment method(s)? Expenses using them will keep their data but lose the reference.',
+      title: 'Delete payment method',
+      message: 'Delete "$label"? Expenses using it will keep their data but lose the reference.',
       destructive: true,
     );
-    if (!confirmed) return;
-    final repo = ref.read(paymentMethodRepositoryProvider);
-    for (final id in _selectedIds) {
-      await repo.delete(id);
-    }
-    setState(() => _selectedIds.clear());
+  }
+
+  Future<void> _delete(PaymentMethod method) async {
+    setState(() => _methods.remove(method));
+    await ref.read(paymentMethodRepositoryProvider).delete(method.id);
     ref.read(referenceDataCacheProvider).invalidate();
-    _load();
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
@@ -107,15 +91,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('settings_nav.payment_methods') ?? 'Payment methods'),
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : null,
+        title: Text(translations?.t('settings_nav.payment_methods') ?? 'Payment methods'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -124,22 +100,16 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
               onReorder: _reorder,
               itemBuilder: (context, index) {
                 final method = _methods[index];
-                final selected = _selectedIds.contains(method.id);
                 final label = translations == null
                     ? method.name
                     : displayNameFor(translations, name: method.name, isDefault: method.isDefault);
-                return ListTile(
+                return EntityListTile(
                   key: ValueKey(method.id),
-                  selected: selected,
-                  leading: _selectionMode
-                      ? Checkbox(value: selected, onChanged: method.isDefault ? null : (_) => _toggleSelection(method))
-                      : null,
-                  title: Text(label),
-                  trailing: _selectionMode
-                      ? null
-                      : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(method, label)),
-                  onLongPress: () => _toggleSelection(method),
-                  onTap: _selectionMode ? () => _toggleSelection(method) : null,
+                  id: method.id,
+                  title: label,
+                  onEdit: () => _edit(method, label),
+                  confirmDelete: method.isDefault ? null : () => _confirmDelete(label),
+                  onDeleted: () => _delete(method),
                 );
               },
             ),

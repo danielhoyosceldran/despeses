@@ -8,6 +8,7 @@ import '../../../data/database.dart';
 import '../../../domain/repositories/tag_repository.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
+import '../../widgets/entity_list_tile.dart';
 
 class TagGroupsScreen extends ConsumerStatefulWidget {
   const TagGroupsScreen({super.key});
@@ -19,20 +20,6 @@ class TagGroupsScreen extends ConsumerStatefulWidget {
 class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
   List<TagGroup> _groups = [];
   bool _loading = true;
-  final Set<String> _selectedIds = {};
-
-  bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  void _toggleSelection(TagGroup group) {
-    if (group.name == ungroupedKey) return;
-    setState(() {
-      if (_selectedIds.contains(group.id)) {
-        _selectedIds.remove(group.id);
-      } else {
-        _selectedIds.add(group.id);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -76,24 +63,21 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
     _load();
   }
 
-  Future<void> _deleteSelected() async {
-    final count = _selectedIds.length;
-    final confirmed = await showConfirmDialog(
+  Future<bool> _confirmDelete(String label) {
+    return showConfirmDialog(
       context,
-      title: 'Delete tag groups',
-      message: 'Their tags will be moved to "Ungrouped" first, then these $count group(s) are deleted.',
+      title: 'Delete tag group',
+      message: 'Its tags will be moved to "Ungrouped" first, then "$label" is deleted.',
       destructive: true,
     );
-    if (!confirmed) return;
-    final repo = ref.read(tagGroupRepositoryProvider);
-    for (final id in _selectedIds) {
-      try {
-        await repo.delete(id);
-      } on StateError catch (_) {}
-    }
-    setState(() => _selectedIds.clear());
+  }
+
+  Future<void> _delete(TagGroup group) async {
+    setState(() => _groups.remove(group));
+    try {
+      await ref.read(tagGroupRepositoryProvider).delete(group.id);
+    } on StateError catch (_) {}
     ref.read(referenceDataCacheProvider).invalidate();
-    _load();
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
@@ -113,15 +97,7 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('settings_nav.tag_groups') ?? 'Tag groups'),
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : null,
+        title: Text(translations?.t('settings_nav.tag_groups') ?? 'Tag groups'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -131,25 +107,16 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
               itemBuilder: (context, index) {
                 final group = _groups[index];
                 final isUngrouped = group.name == ungroupedKey;
-                final selected = _selectedIds.contains(group.id);
                 final label = translations == null
                     ? group.name
                     : tagGroupDisplayName(translations, group.name);
-                return ListTile(
+                return EntityListTile(
                   key: ValueKey(group.id),
-                  selected: selected,
-                  leading: _selectionMode
-                      ? Checkbox(value: selected, onChanged: isUngrouped ? null : (_) => _toggleSelection(group))
-                      : null,
-                  title: Text(label),
-                  trailing: isUngrouped || _selectionMode
-                      ? null
-                      : IconButton(
-                          icon: const Icon(LucideIcons.pencil300),
-                          onPressed: () => _rename(group, label),
-                        ),
-                  onLongPress: () => _toggleSelection(group),
-                  onTap: _selectionMode ? () => _toggleSelection(group) : null,
+                  id: group.id,
+                  title: label,
+                  onEdit: isUngrouped ? null : () => _rename(group, label),
+                  confirmDelete: isUngrouped ? null : () => _confirmDelete(label),
+                  onDeleted: () => _delete(group),
                 );
               },
             ),

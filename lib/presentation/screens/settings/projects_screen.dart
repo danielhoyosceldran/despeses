@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
@@ -17,19 +18,6 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   List<Project> _projects = [];
   bool _loading = true;
-  final Set<String> _selectedIds = {};
-
-  bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  void _toggleSelection(Project project) {
-    setState(() {
-      if (_selectedIds.contains(project.id)) {
-        _selectedIds.remove(project.id);
-      } else {
-        _selectedIds.add(project.id);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -80,25 +68,19 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     _load();
   }
 
-  Future<void> _deleteSelected() async {
-    final count = _selectedIds.length;
-    final repo = ref.read(projectRepositoryProvider);
-    var budgetCount = 0;
-    for (final id in _selectedIds) {
-      budgetCount += await repo.budgetCount(id);
-    }
-    if (!mounted) return;
+  Future<bool> _confirmDelete(Project project) async {
+    final budgetCount = await ref.read(projectRepositoryProvider).budgetCount(project.id);
+    if (!mounted) return false;
     final message = budgetCount > 0
-        ? 'These $count projects have $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete $count selected project(s)?';
-    final confirmed = await showConfirmDialog(context, title: 'Delete projects', message: message, destructive: true);
-    if (!confirmed) return;
-    for (final id in _selectedIds) {
-      await repo.delete(id);
-    }
-    setState(() => _selectedIds.clear());
+        ? '"${project.name}" has $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete "${project.name}"?';
+    return showConfirmDialog(context, title: 'Delete project', message: message, destructive: true);
+  }
+
+  Future<void> _delete(Project project) async {
+    setState(() => _projects.remove(project));
+    await ref.read(projectRepositoryProvider).delete(project.id);
     ref.read(referenceDataCacheProvider).invalidate();
-    _load();
   }
 
   @override
@@ -108,15 +90,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('settings_nav.projects') ?? 'Projects'),
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : null,
+        title: Text(translations?.t('settings_nav.projects') ?? 'Projects'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -124,17 +98,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               itemCount: _projects.length,
               itemBuilder: (context, index) {
                 final project = _projects[index];
-                final selected = _selectedIds.contains(project.id);
-                return ListTile(
-                  selected: selected,
-                  leading: _selectionMode ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(project)) : null,
-                  title: Text(project.name),
-                  subtitle: project.description == null ? null : Text(project.description!),
-                  trailing: _selectionMode
-                      ? null
-                      : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(project)),
-                  onLongPress: () => _toggleSelection(project),
-                  onTap: _selectionMode ? () => _toggleSelection(project) : null,
+                return EntityListTile(
+                  id: project.id,
+                  title: project.name,
+                  subtitle: project.description,
+                  onEdit: () => _edit(project),
+                  confirmDelete: () => _confirmDelete(project),
+                  onDeleted: () => _delete(project),
                 );
               },
             ),

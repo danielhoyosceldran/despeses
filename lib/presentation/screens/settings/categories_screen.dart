@@ -7,6 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
+import '../../widgets/entity_list_tile.dart';
 
 /// Drill-down category manager (max 3 levels, plan §3.7): breadcrumb at the
 /// top, reorderable list of the current level's children.
@@ -21,20 +22,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final List<Category> _breadcrumb = [];
   List<Category> _children = [];
   bool _loading = true;
-  final Set<String> _selectedIds = {};
-
-  bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  void _toggleSelection(Category category) {
-    if (category.isDefault) return;
-    setState(() {
-      if (_selectedIds.contains(category.id)) {
-        _selectedIds.remove(category.id);
-      } else {
-        _selectedIds.add(category.id);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -86,30 +73,24 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     _load();
   }
 
-  Future<void> _deleteSelected() async {
-    final repo = ref.read(categoryRepositoryProvider);
-    var budgetCount = 0;
-    for (final id in _selectedIds) {
-      budgetCount += await repo.budgetCount(id);
-    }
-    if (!mounted) return;
-    final count = _selectedIds.length;
+  Future<bool> _confirmDelete(Category category, String label) async {
+    final budgetCount = await ref.read(categoryRepositoryProvider).budgetCount(category.id);
+    if (!mounted) return false;
     final message = budgetCount > 0
-        ? 'These $count categories (and their subcategories) have $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete $count selected categor${count == 1 ? 'y' : 'ies'}?';
-    final confirmed = await showConfirmDialog(
+        ? '"$label" (and its subcategories) has $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete "$label"?';
+    return showConfirmDialog(
       context,
-      title: 'Delete categories',
+      title: 'Delete category',
       message: message,
       destructive: true,
     );
-    if (!confirmed) return;
-    for (final id in _selectedIds) {
-      await repo.delete(id);
-    }
-    setState(() => _selectedIds.clear());
+  }
+
+  Future<void> _delete(Category category) async {
+    setState(() => _children.remove(category));
+    await ref.read(categoryRepositoryProvider).delete(category.id);
     ref.read(referenceDataCacheProvider).invalidate();
-    _load();
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
@@ -131,23 +112,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('settings_nav.categories') ?? 'Categories'),
-        leading: _selectionMode
-            ? IconButton(
-                icon: const Icon(LucideIcons.x300),
-                onPressed: () => setState(() => _selectedIds.clear()),
-              )
-            : null,
-        actions: _selectionMode
-            ? [
-                IconButton(
-                  icon: const Icon(LucideIcons.trash2300),
-                  onPressed: _deleteSelected,
-                ),
-              ]
-            : null,
+        title: Text(translations?.t('settings_nav.categories') ?? 'Categories'),
       ),
       body: Column(
         children: [
@@ -187,28 +152,15 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       final label = translations == null
                           ? category.name
                           : displayNameFor(translations, name: category.name, isDefault: category.isDefault);
-                      final selected = _selectedIds.contains(category.id);
-                      return ListTile(
+                      return EntityListTile(
                         key: ValueKey(category.id),
-                        selected: selected,
-                        leading: _selectionMode
-                            ? Checkbox(
-                                value: selected,
-                                onChanged: category.isDefault ? null : (_) => _toggleSelection(category),
-                              )
-                            : category.color == null
-                                ? null
-                                : CircleAvatar(backgroundColor: hexToColor(category.color), radius: 8),
-                        title: Text(label),
-                        trailing: _selectionMode
-                            ? null
-                            : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(category)),
-                        onLongPress: () => _toggleSelection(category),
+                        id: category.id,
+                        title: label,
+                        leadingColor: category.color == null ? null : hexToColor(category.color),
+                        onEdit: () => _edit(category),
+                        confirmDelete: category.isDefault ? null : () => _confirmDelete(category, label),
+                        onDeleted: () => _delete(category),
                         onTap: () {
-                          if (_selectionMode) {
-                            _toggleSelection(category);
-                            return;
-                          }
                           setState(() => _breadcrumb.add(category));
                           _load();
                         },

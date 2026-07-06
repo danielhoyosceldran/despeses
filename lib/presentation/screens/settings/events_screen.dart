@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
 
 class EventsScreen extends ConsumerStatefulWidget {
@@ -17,19 +18,6 @@ class EventsScreen extends ConsumerStatefulWidget {
 class _EventsScreenState extends ConsumerState<EventsScreen> {
   List<Event> _events = [];
   bool _loading = true;
-  final Set<String> _selectedIds = {};
-
-  bool get _selectionMode => _selectedIds.isNotEmpty;
-
-  void _toggleSelection(Event event) {
-    setState(() {
-      if (_selectedIds.contains(event.id)) {
-        _selectedIds.remove(event.id);
-      } else {
-        _selectedIds.add(event.id);
-      }
-    });
-  }
 
   @override
   void initState() {
@@ -80,25 +68,19 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     _load();
   }
 
-  Future<void> _deleteSelected() async {
-    final count = _selectedIds.length;
-    final repo = ref.read(eventRepositoryProvider);
-    var budgetCount = 0;
-    for (final id in _selectedIds) {
-      budgetCount += await repo.budgetCount(id);
-    }
-    if (!mounted) return;
+  Future<bool> _confirmDelete(Event event) async {
+    final budgetCount = await ref.read(eventRepositoryProvider).budgetCount(event.id);
+    if (!mounted) return false;
     final message = budgetCount > 0
-        ? 'These $count events have $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete $count selected event(s)?';
-    final confirmed = await showConfirmDialog(context, title: 'Delete events', message: message, destructive: true);
-    if (!confirmed) return;
-    for (final id in _selectedIds) {
-      await repo.delete(id);
-    }
-    setState(() => _selectedIds.clear());
+        ? '"${event.name}" has $budgetCount budget(s) that will also be deleted. Continue?'
+        : 'Delete "${event.name}"?';
+    return showConfirmDialog(context, title: 'Delete event', message: message, destructive: true);
+  }
+
+  Future<void> _delete(Event event) async {
+    setState(() => _events.remove(event));
+    await ref.read(eventRepositoryProvider).delete(event.id);
     ref.read(referenceDataCacheProvider).invalidate();
-    _load();
   }
 
   @override
@@ -108,15 +90,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(translations?.t('settings_nav.events') ?? 'Events'),
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : null,
+        title: Text(translations?.t('settings_nav.events') ?? 'Events'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -124,17 +98,13 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
               itemCount: _events.length,
               itemBuilder: (context, index) {
                 final event = _events[index];
-                final selected = _selectedIds.contains(event.id);
-                return ListTile(
-                  selected: selected,
-                  leading: _selectionMode ? Checkbox(value: selected, onChanged: (_) => _toggleSelection(event)) : null,
-                  title: Text(event.name),
-                  subtitle: event.description == null ? null : Text(event.description!),
-                  trailing: _selectionMode
-                      ? null
-                      : IconButton(icon: const Icon(LucideIcons.pencil300), onPressed: () => _edit(event)),
-                  onLongPress: () => _toggleSelection(event),
-                  onTap: _selectionMode ? () => _toggleSelection(event) : null,
+                return EntityListTile(
+                  id: event.id,
+                  title: event.name,
+                  subtitle: event.description,
+                  onEdit: () => _edit(event),
+                  confirmDelete: () => _confirmDelete(event),
+                  onDeleted: () => _delete(event),
                 );
               },
             ),
