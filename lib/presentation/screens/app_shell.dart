@@ -108,7 +108,7 @@ class AppShell extends ConsumerWidget {
             for (final i in _visibleIndices)
               NavigationDestination(
                 icon: Icon(_icons[i]),
-                label: (t?.t(_keys[i]) ?? _labels[i]).toUpperCase(),
+                label: t?.t(_keys[i]) ?? _labels[i],
               ),
           ],
         ),

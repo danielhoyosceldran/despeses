@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/amount_text.dart';
+import '../widgets/app_card.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/month_header_bar.dart';
@@ -150,17 +151,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
-
     return Scaffold(
       appBar: AppBar(
         title: _selectionMode
             ? Text('${_selectedIds.length} selected')
-            : Text(
-                (translations?.t('nav.dashboard') ?? 'Dashboard').toUpperCase(),
-                style: appHeaderStyle(colors),
-              ),
+            : Text(translations?.t('nav.dashboard') ?? 'Dashboard'),
         centerTitle: true,
         leading: _selectionMode
             ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
@@ -252,17 +247,16 @@ class _MonthPage extends ConsumerWidget {
           }
         }
         final balance = income - spent;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
-        final colors = isDark ? AppColors.dark : AppColors.light;
+        final semantic = context.semanticColors;
+        final colors = context.appColors;
         final budgetRepo = ref.read(budgetRepositoryProvider);
         final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
         final active = allBudgets.where((b) => budgetRepo.isActiveForMonth(b, monthKey)).toList();
 
         return ListView(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            AppCard(
               child: Row(
                 children: [
                   _TotalTile(label: 'Spent', value: spent, currency: currency, color: semantic.expense),
@@ -273,29 +267,45 @@ class _MonthPage extends ConsumerWidget {
             ),
             if (active.isNotEmpty) ...[
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text('ACTIVE BUDGETS', style: appHeaderStyle(colors)),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.lg, AppSpacing.sm, AppSpacing.sm),
+                child: Text('Active budgets', style: appHeaderStyle(colors)),
               ),
-              for (final budget in active)
-                _BudgetProgressTile(
-                  budget: budget,
-                  spent: budgetProgress[budget.id] ?? 0,
+              AppCard(
+                child: Column(
+                  children: [
+                    for (final budget in active)
+                      _BudgetProgressTile(
+                        budget: budget,
+                        spent: budgetProgress[budget.id] ?? 0,
+                      ),
+                  ],
                 ),
-              Divider(color: colors.divider, height: 1),
+              ),
             ],
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text('TRANSACTIONS', style: appHeaderStyle(colors)),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.lg, AppSpacing.sm, AppSpacing.sm),
+              child: Text('Transactions', style: appHeaderStyle(colors)),
             ),
-            if (expenses.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No transactions')),
-            for (final expense in expenses)
-              _ExpenseRow(
-                expense: expense,
-                translations: translations,
-                selectionMode: selectionMode,
-                selected: selectedIds.contains(expense.id),
-                onTap: () => selectionMode ? onToggleSelection(expense) : onOpenEntry(expenseId: expense.id),
-                onLongPress: () => onToggleSelection(expense),
+            if (expenses.isEmpty)
+              const Padding(padding: EdgeInsets.all(AppSpacing.md), child: Text('No transactions'))
+            else
+              AppCard(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                child: Column(
+                  children: [
+                    for (final (i, expense) in expenses.indexed) ...[
+                      if (i > 0) Divider(color: colors.divider, height: 1, indent: AppSpacing.md, endIndent: AppSpacing.md),
+                      _ExpenseRow(
+                        expense: expense,
+                        translations: translations,
+                        selectionMode: selectionMode,
+                        selected: selectedIds.contains(expense.id),
+                        onTap: () => selectionMode ? onToggleSelection(expense) : onOpenEntry(expenseId: expense.id),
+                        onLongPress: () => onToggleSelection(expense),
+                      ),
+                    ],
+                  ],
+                ),
               ),
           ],
         );
@@ -314,13 +324,11 @@ class _TotalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
     return Expanded(
       child: Column(
         children: [
-          Text(label.toUpperCase(), style: appHeaderStyle(colors, fontSize: 10)),
-          const SizedBox(height: 4),
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: AppSpacing.xs),
           AmountText(amountCents: value, color: color, style: Theme.of(context).textTheme.titleMedium),
         ],
       ),
@@ -338,24 +346,23 @@ class _BudgetProgressTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ratio = budget.amount == 0 ? 0.0 : (spent / budget.amount).clamp(0.0, 1.0);
     final over = spent > budget.amount;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+    final semantic = context.semanticColors;
     final categoryColor = chartPalette[(budget.categoryId ?? budget.id).hashCode % chartPalette.length];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(budget.name),
-          const SizedBox(height: 6),
+          Text(budget.name, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: AppSpacing.sm),
           ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
-            style: TextStyle(
-              color: over ? semantic.over : null,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                  color: over ? semantic.over : null,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
           ),
         ],
       ),
@@ -387,35 +394,28 @@ class _ExpenseRow extends ConsumerWidget {
       'refund' => '±',
       _ => '-',
     };
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+    final semantic = context.semanticColors;
     final color = switch (expense.type) {
       'income' => semantic.income,
       'refund' => semantic.refund,
       _ => semantic.expense,
     };
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
-    final colors = isDark ? AppColors.dark : AppColors.light;
 
-    return Column(
-      children: [
-        ListTile(
-          selected: selected,
-          leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
-          title: Text(title),
-          subtitle: FutureBuilder<String?>(
-            future: _categoryLabel(ref),
-            builder: (context, snapshot) => Text(snapshot.data ?? ''),
-          ),
-          trailing: Text(
-            '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
-            style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
-          ),
-          onTap: onTap,
-          onLongPress: onLongPress,
-        ),
-        Divider(color: colors.divider, height: 1),
-      ],
+    return ListTile(
+      selected: selected,
+      leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
+      title: Text(title),
+      subtitle: FutureBuilder<String?>(
+        future: _categoryLabel(ref),
+        builder: (context, snapshot) => Text(snapshot.data ?? ''),
+      ),
+      trailing: Text(
+        '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
+        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontFeatures: const [FontFeature.tabularFigures()]),
+      ),
+      onTap: onTap,
+      onLongPress: onLongPress,
     );
   }
 

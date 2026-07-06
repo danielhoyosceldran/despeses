@@ -14,8 +14,7 @@ class AmountText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
     final base = style ?? Theme.of(context).textTheme.displaySmall!;
     final parts = (amountCents / 100).toStringAsFixed(2).split('.');
     return RichText(
