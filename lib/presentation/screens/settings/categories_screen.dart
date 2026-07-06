@@ -158,7 +158,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                         title: label,
                         leadingColor: category.color == null ? null : hexToColor(category.color),
                         onEdit: () => _edit(category),
-                        confirmDelete: category.isDefault ? null : () => _confirmDelete(category, label),
+                        confirmDelete: () => _confirmDelete(category, label),
                         onDeleted: () => _delete(category),
                         onTap: () {
                           setState(() => _breadcrumb.add(category));

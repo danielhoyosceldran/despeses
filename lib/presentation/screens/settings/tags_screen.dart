@@ -151,7 +151,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                               title: label,
                               leadingColor: tag.color == null ? null : hexToColor(tag.color),
                               onEdit: () => _edit(tag, label),
-                              confirmDelete: tag.isDefault ? null : () => _confirmDelete(tag, label),
+                              confirmDelete: () => _confirmDelete(tag, label),
                               onDeleted: () => _delete(tag),
                             );
                           },

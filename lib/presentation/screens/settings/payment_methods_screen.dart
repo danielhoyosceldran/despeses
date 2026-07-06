@@ -108,7 +108,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
                   id: method.id,
                   title: label,
                   onEdit: () => _edit(method, label),
-                  confirmDelete: method.isDefault ? null : () => _confirmDelete(label),
+                  confirmDelete: () => _confirmDelete(label),
                   onDeleted: () => _delete(method),
                 );
               },
