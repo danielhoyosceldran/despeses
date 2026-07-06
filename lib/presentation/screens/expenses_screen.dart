@@ -143,7 +143,10 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
             : [
                 IconButton(
-                  icon: Icon(hasActiveFilters ? LucideIcons.filter300 : LucideIcons.filter300),
+                  icon: Icon(
+                    LucideIcons.filter300,
+                    color: hasActiveFilters ? context.appColors.accent : null,
+                  ),
                   onPressed: _openFilters,
                 ),
               ],
@@ -154,12 +157,13 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           : _expenses.isEmpty
               ? const Center(child: Text('No transactions'))
               : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
                   itemCount: _expenses.length + 1,
                   itemBuilder: (context, index) {
                     if (index == _expenses.length) {
                       if (!_hasMore) return const SizedBox.shrink();
                       return Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Center(
                           child: TextButton(onPressed: _loadMore, child: const Text('Load more')),
                         ),
@@ -202,8 +206,8 @@ class _ExpenseTile extends ConsumerWidget {
       'refund' => '±',
       _ => '-',
     };
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
+    final semantic = context.semanticColors;
+    final colors = context.appColors;
     final color = switch (expense.type) {
       'income' => semantic.income,
       'refund' => semantic.refund,
@@ -211,17 +215,25 @@ class _ExpenseTile extends ConsumerWidget {
     };
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
 
-    return ListTile(
-      selected: selected,
-      leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
-      title: Text(title),
-      subtitle: Text(DateFormat.yMMMd().format(expense.date)),
-      trailing: Text(
-        '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
-        style: TextStyle(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppDimens.radiusButton),
       ),
-      onTap: onTap,
-      onLongPress: onLongPress,
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        selected: selected,
+        leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
+        title: Text(title),
+        subtitle: Text(DateFormat.yMMMd().format(expense.date)),
+        trailing: Text(
+          '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
+          style: TextStyle(color: color, fontWeight: FontWeight.w600, fontFeatures: const [FontFeature.tabularFigures()]),
+        ),
+        onTap: onTap,
+        onLongPress: onLongPress,
+      ),
     );
   }
 }

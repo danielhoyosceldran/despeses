@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
 
@@ -76,13 +77,13 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Filters', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
+            Text('Filters', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String?>(
               initialValue: _type,
               decoration: const InputDecoration(labelText: 'Type'),
@@ -94,6 +95,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               ],
               onChanged: (v) => setState(() => _type = v),
             ),
+            const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _categoryId,
               decoration: const InputDecoration(labelText: 'Category'),
@@ -103,6 +105,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               ],
               onChanged: (v) => setState(() => _categoryId = v),
             ),
+            const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _tagId,
               decoration: const InputDecoration(labelText: 'Tag'),
@@ -112,6 +115,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               ],
               onChanged: (v) => setState(() => _tagId = v),
             ),
+            const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _paymentMethodId,
               decoration: const InputDecoration(labelText: 'Payment method'),
@@ -121,6 +125,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               ],
               onChanged: (v) => setState(() => _paymentMethodId = v),
             ),
+            const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _eventId,
               decoration: const InputDecoration(labelText: 'Event'),
@@ -130,6 +135,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               ],
               onChanged: (v) => setState(() => _eventId = v),
             ),
+            const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _projectId,
               decoration: const InputDecoration(labelText: 'Project'),
@@ -139,7 +145,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               ],
               onChanged: (v) => setState(() => _projectId = v),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.smMd),
             Row(
               children: [
                 Expanded(
@@ -172,7 +178,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(
@@ -181,6 +187,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
                     child: const Text('Clear'),
                   ),
                 ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(

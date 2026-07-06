@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
-/// Flat list row with an accent-tinted leading icon, title, and trailing
-/// chevron, separated by a hairline divider — replaces the boxed `ListTile`
-/// + `Card` look with the mockups' flush divider list.
+/// List row with the leading icon in an accent-tinted circle, title, and
+/// trailing chevron, optionally separated by a hairline divider — meant to
+/// be stacked inside an [AppCard]-style grouped list.
 class HairlineListTile extends StatelessWidget {
   const HairlineListTile({
     super.key,
@@ -26,12 +26,16 @@ class HairlineListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colors = isDark ? AppColors.dark : AppColors.light;
+    final colors = context.appColors;
     return Column(
       children: [
         ListTile(
-          leading: Icon(icon, color: colors.accent),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: pillBackground(colors.accent), shape: BoxShape.circle),
+            child: Icon(icon, color: colors.accent, size: 20),
+          ),
           title: Text(title),
           subtitle: subtitle == null ? null : Text(subtitle!),
           trailing: trailing ?? Icon(LucideIcons.chevronRight300, color: colors.textMuted),
