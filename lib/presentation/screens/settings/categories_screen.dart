@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
@@ -118,24 +119,31 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         children: [
           if (_breadcrumb.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(LucideIcons.arrowLeft300),
+                    icon: const Icon(LucideIcons.arrowLeft300, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: context.appColors.surfaceAlt,
+                      foregroundColor: context.appColors.text,
+                      shape: const CircleBorder(),
+                    ),
                     onPressed: () {
                       setState(() => _breadcrumb.removeLast());
                       _load();
                     },
                   ),
+                  const SizedBox(width: AppSpacing.smMd),
                   Expanded(
                     child: Text(
                       _breadcrumb
                           .map((c) => translations == null
                               ? c.name
                               : displayNameFor(translations, name: c.name, isDefault: c.isDefault))
-                          .join(' > '),
+                          .join('  ›  '),
                       overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                 ],
