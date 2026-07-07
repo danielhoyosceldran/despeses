@@ -7,8 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/hairline_list_tile.dart';
 
 /// Backup/restore (plan §5.4, v1 scope): copy the local `.sqlite` file and
 /// share it, or overwrite the live database from a previously shared file.
@@ -79,20 +82,31 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       body: AbsorbPointer(
         absorbing: _busy,
         child: ListView(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
           children: [
-            ListTile(
-              leading: const Icon(LucideIcons.upload300),
-              title: const Text('Export backup'),
-              subtitle: const Text('Copies the local database and opens the share sheet'),
-              trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator()) : null,
-              onTap: _busy ? null : _export,
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(LucideIcons.download300),
-              title: const Text('Restore backup'),
-              subtitle: const Text('Pick a .sqlite file — this overwrites all current data'),
-              onTap: _busy ? null : _import,
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: Column(
+                children: [
+                  HairlineListTile(
+                    icon: LucideIcons.upload300,
+                    title: 'Export backup',
+                    subtitle: 'Copies the local database and opens the share sheet',
+                    trailing: _busy
+                        ? const SizedBox(
+                            width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : null,
+                    onTap: _busy ? null : _export,
+                  ),
+                  HairlineListTile(
+                    icon: LucideIcons.download300,
+                    title: 'Restore backup',
+                    subtitle: 'Pick a .sqlite file — this overwrites all current data',
+                    onTap: _busy ? null : _import,
+                    showDivider: false,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
