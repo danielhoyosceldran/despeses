@@ -154,6 +154,15 @@ class AppTheme {
         color: colors.accent,
         linearTrackColor: colors.surfaceAlt,
       ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.accent,
+        foregroundColor: colors.onAccent,
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusButton)),
+      ),
     );
   }
 
