@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -51,12 +52,14 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
                 maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Description (optional)'),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.smMd),
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
-                      onPressed: () async {
+                    child: _DateField(
+                      label: startsAt == null ? 'Start date' : _formatDate(startsAt!),
+                      isSet: startsAt != null,
+                      onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: startsAt ?? DateTime.now(),
@@ -65,14 +68,14 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
                         );
                         if (picked != null) setState(() => startsAt = picked);
                       },
-                      child: Text(startsAt == null
-                          ? 'Start date'
-                          : '${startsAt!.year}-${startsAt!.month.toString().padLeft(2, '0')}-${startsAt!.day.toString().padLeft(2, '0')}'),
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: TextButton(
-                      onPressed: () async {
+                    child: _DateField(
+                      label: endsAt == null ? 'End date' : _formatDate(endsAt!),
+                      isSet: endsAt != null,
+                      onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: endsAt ?? DateTime.now(),
@@ -81,9 +84,6 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
                         );
                         if (picked != null) setState(() => endsAt = picked);
                       },
-                      child: Text(endsAt == null
-                          ? 'End date'
-                          : '${endsAt!.year}-${endsAt!.month.toString().padLeft(2, '0')}-${endsAt!.day.toString().padLeft(2, '0')}'),
                     ),
                   ),
                 ],
@@ -114,4 +114,45 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
       ),
     ),
   );
+}
+
+String _formatDate(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Filled tappable field matching the input style, used to open a date picker.
+class _DateField extends StatelessWidget {
+  const _DateField({required this.label, required this.isSet, required this.onTap});
+
+  final String label;
+  final bool isSet;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surfaceAlt,
+      borderRadius: BorderRadius.circular(AppDimens.radiusButton),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.radiusButton),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.smMd, vertical: AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(LucideIcons.calendar300, size: 18, color: colors.textMuted),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: isSet ? colors.text : colors.textMuted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
