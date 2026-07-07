@@ -53,37 +53,98 @@ class _MonthPickerContentState extends State<MonthPickerContent> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm, horizontal: AppSpacing.sm),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(icon: const Icon(LucideIcons.chevronLeft300), onPressed: () => setState(() => _year--)),
+              _YearChevron(icon: LucideIcons.chevronLeft300, onPressed: () => setState(() => _year--)),
               Text('$_year', style: Theme.of(context).textTheme.titleMedium),
-              IconButton(icon: const Icon(LucideIcons.chevronRight300), onPressed: () => setState(() => _year++)),
+              _YearChevron(icon: LucideIcons.chevronRight300, onPressed: () => setState(() => _year++)),
             ],
           ),
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: GridView.count(
               crossAxisCount: 3,
               childAspectRatio: 2,
+              mainAxisSpacing: AppSpacing.sm,
+              crossAxisSpacing: AppSpacing.sm,
               children: [
                 for (var m = 1; m <= 12; m++)
-                  TextButton(
-                    onPressed: () => widget.onSelected(YearMonth(_year, m)),
-                    child: Text(_monthAbbrev(m)),
+                  _MonthCell(
+                    label: _monthAbbrev(m),
+                    selected: widget.initial?.year == _year && widget.initial?.month == m,
+                    onTap: () => widget.onSelected(YearMonth(_year, m)),
+                    colors: colors,
                   ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _YearChevron extends StatelessWidget {
+  const _YearChevron({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return IconButton(
+      icon: Icon(icon, size: 20),
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: colors.surfaceAlt,
+        foregroundColor: colors.text,
+        shape: const CircleBorder(),
+      ),
+    );
+  }
+}
+
+class _MonthCell extends StatelessWidget {
+  const _MonthCell({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.colors,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? pillBackground(colors.accent) : colors.surfaceAlt,
+      borderRadius: BorderRadius.circular(AppDimens.radiusButton),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.radiusButton),
+        onTap: onTap,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? colors.accent : colors.text,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
