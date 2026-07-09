@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/feature_flags.dart';
 import '../../core/providers/app_providers.dart';
+import '../widgets/app_toast.dart';
 
 /// Bottom nav with 5 tabs: Dashboard · Expenses · Budgets · Analytics ·
 /// Settings. The web app only routes 4 (Expenses is dead code there); here it
@@ -80,17 +81,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           return;
         }
         _lastBackAt = now;
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.clearSnackBars();
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              t?.t('exit.toast') ?? 'Press back again to exit',
-            ),
-            duration: _exitWindow,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showAppToast(context, t?.t('exit.toast') ?? 'Press back again to exit');
       },
       child: Scaffold(
       body: AnimatedSwitcher(

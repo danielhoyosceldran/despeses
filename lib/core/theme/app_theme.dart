@@ -147,6 +147,7 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.surfaceAlt,
+        contentTextStyle: TextStyle(color: colors.text),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusButton)),
       ),
