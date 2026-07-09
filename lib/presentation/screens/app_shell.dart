@@ -1,5 +1,6 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,10 +10,19 @@ import '../../core/providers/app_providers.dart';
 /// Bottom nav with 5 tabs: Dashboard · Expenses · Budgets · Analytics ·
 /// Settings. The web app only routes 4 (Expenses is dead code there); here it
 /// gets its own tab (plan §6, §3.4). Export lives inside Settings.
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  /// Window in which a second back press confirms exit ("press back again").
+  static const _exitWindow = Duration(seconds: 2);
+  DateTime? _lastBackAt;
 
   static const _labels = [
     'Dashboard',
@@ -45,9 +55,10 @@ class AppShell extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final translationsAsync = ref.watch(translationsProvider);
     final t = translationsAsync.asData?.value;
+    final navigationShell = widget.navigationShell;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final notifier = ref.read(currentTabIndexProvider.notifier);
@@ -56,7 +67,32 @@ class AppShell extends ConsumerWidget {
       }
     });
 
-    return Scaffold(
+    return PopScope(
+      // The shell is the root route: when there is nothing left to pop, a
+      // system back press would close the app. Require a second back press
+      // within a short window before actually exiting ("press back again").
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        final now = DateTime.now();
+        if (_lastBackAt != null && now.difference(_lastBackAt!) < _exitWindow) {
+          SystemNavigator.pop();
+          return;
+        }
+        _lastBackAt = now;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              t?.t('exit.toast') ?? 'Press back again to exit',
+            ),
+            duration: _exitWindow,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+      child: Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 280),
         switchInCurve: Curves.easeOutCubic,
@@ -112,6 +148,7 @@ class AppShell extends ConsumerWidget {
               ),
           ],
         ),
+      ),
       ),
     );
   }

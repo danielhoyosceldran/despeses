@@ -263,5 +263,8 @@
     "ios_hint": "Premi Condividi poi \"Aggiungi a Home\"",
     "install": "Installa",
     "dismiss": "Chiudi"
+  },
+  "exit": {
+    "toast": "Premi di nuovo indietro per uscire"
   }
 }

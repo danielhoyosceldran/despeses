@@ -263,5 +263,8 @@
     "ios_hint": "Tap the Share button then \"Add to Home Screen\"",
     "install": "Install",
     "dismiss": "Dismiss"
+  },
+  "exit": {
+    "toast": "Press back again to exit"
   }
 }

@@ -263,5 +263,8 @@
     "ios_hint": "Appuyez sur Partager puis \"Sur l'écran d'accueil\"",
     "install": "Installer",
     "dismiss": "Fermer"
+  },
+  "exit": {
+    "toast": "Appuyez à nouveau pour quitter"
   }
 }

@@ -263,5 +263,8 @@
     "ios_hint": "Prem el botó Compartir i després \"Afegir a l'inici\"",
     "install": "Instal·lar",
     "dismiss": "Tancar"
+  },
+  "exit": {
+    "toast": "Torna a prémer enrere per sortir"
   }
 }
