@@ -20,7 +20,7 @@ class DespesesApp extends ConsumerWidget {
     final themeMode = profileAsync.asData?.value.theme == 'dark' ? ThemeMode.dark : ThemeMode.light;
 
     return MaterialApp.router(
-      title: 'despeses',
+      title: 'canut finances',
       routerConfig: appRouter,
       themeMode: themeMode,
       theme: AppTheme.light(),
