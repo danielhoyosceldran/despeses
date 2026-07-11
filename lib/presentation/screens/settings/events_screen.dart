@@ -7,6 +7,7 @@ import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
+import '../../widgets/page_title_header.dart';
 
 class EventsScreen extends ConsumerStatefulWidget {
   const EventsScreen({super.key});
@@ -85,29 +86,33 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final translationsAsync = ref.watch(translationsProvider);
-    final translations = translationsAsync.asData?.value;
-
+    final translations = ref.watch(translationsProvider).asData?.value;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('settings_nav.events') ?? 'Events'),
+      appBar: AppBar(),
+      body: Column(
+        children: [
+          PageTitleHeader(translations?.t('settings_nav.events') ?? 'Events'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    itemCount: _events.length,
+                    itemBuilder: (context, index) {
+                      final event = _events[index];
+                      return EntityListTile(
+                        id: event.id,
+                        title: event.name,
+                        subtitle: event.description,
+                        onEdit: () => _edit(event),
+                        confirmDelete: () => _confirmDelete(event),
+                        onDeleted: () => _delete(event),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _events.length,
-              itemBuilder: (context, index) {
-                final event = _events[index];
-                return EntityListTile(
-                  id: event.id,
-                  title: event.name,
-                  subtitle: event.description,
-                  onEdit: () => _edit(event),
-                  confirmDelete: () => _confirmDelete(event),
-                  onDeleted: () => _delete(event),
-                );
-              },
-            ),
       floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }

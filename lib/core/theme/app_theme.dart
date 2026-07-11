@@ -6,14 +6,33 @@ import 'app_dimens.dart';
 export 'app_colors.dart';
 export 'app_dimens.dart';
 
-/// Section/page header label style. Kept as a helper because it is used
-/// across screens; now plain Inter (mono accent removed with the redesign).
-TextStyle appHeaderStyle(AppColors colors, {double fontSize = 13}) => TextStyle(
+/// Section/day header label style: uppercase, semibold, tracking-wide, muted
+/// (the mock's `text-xs font-semibold uppercase tracking-wide`). Apply
+/// `.toUpperCase()` to the text at the call site.
+TextStyle appHeaderStyle(AppColors colors, {double fontSize = 12}) => TextStyle(
       fontFamily: 'Inter',
       fontSize: fontSize,
       fontWeight: FontWeight.w600,
-      letterSpacing: 0.3,
+      letterSpacing: 0.5,
       color: colors.textMuted,
+    );
+
+/// Display face for money and headlines (Clash Display), tracking-tight with
+/// tabular figures. Use for balances, amounts, budget names, modal titles.
+TextStyle appDisplay(
+  AppColors colors, {
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w500,
+  Color? color,
+}) =>
+    TextStyle(
+      fontFamily: 'ClashDisplay',
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: -0.5,
+      height: 1.0,
+      color: color ?? colors.text,
+      fontFeatures: const [FontFeature.tabularFigures()],
     );
 
 /// Revolut-style theme: flat background, rounded cards with one soft shadow,
@@ -86,8 +105,8 @@ class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontFamily: 'Inter',
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
             color: selected ? colors.accent : colors.textMuted,
           );
         }),
@@ -98,7 +117,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surfaceAlt,
+        fillColor: colors.mutedFill(0.30), // bg-muted/30
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppDimens.radiusButton),
           borderSide: BorderSide.none,
@@ -119,7 +138,7 @@ class AppTheme {
           foregroundColor: colors.onAccent,
           minimumSize: const Size(64, AppDimens.buttonHeight),
           elevation: 0,
-          textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w500),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusButton)),
         ),
       ),
@@ -132,9 +151,12 @@ class AppTheme {
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
           side: BorderSide.none,
-          backgroundColor: colors.surfaceAlt,
-          selectedBackgroundColor: colors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusPill)),
+          backgroundColor: colors.mutedFill(0.5), // bg-muted/50 track
+          selectedBackgroundColor: colors.surface, // active segment = bg-card
+          foregroundColor: colors.textMuted,
+          selectedForegroundColor: colors.text,
+          textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
       chipTheme: ChipThemeData(
@@ -162,27 +184,28 @@ class AppTheme {
         focusElevation: 0,
         hoverElevation: 0,
         highlightElevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.radiusButton)),
+        // Circular FAB (mock `rounded-full`). Shadow + scale-on-press are added
+        // by the FAB wrapper widget, not the theme.
+        shape: const CircleBorder(),
       ),
     );
   }
 
+  // Two-tier type: Clash Display for money/headlines (display* + headline* +
+  // titleLarge), Inter for UI/body. Money-bearing display styles carry tabular
+  // figures. UI weight is predominantly medium (500), per the mock.
   static TextTheme _textTheme(AppColors colors) {
     return TextTheme(
-      displaySmall: TextStyle(
-        fontFamily: 'Inter',
-        fontSize: 34,
-        fontWeight: FontWeight.w700,
-        color: colors.text,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-      headlineMedium: TextStyle(fontFamily: 'Inter', fontSize: 28, fontWeight: FontWeight.w700, color: colors.text),
-      headlineSmall: TextStyle(fontFamily: 'Inter', fontSize: 22, fontWeight: FontWeight.w700, color: colors.text),
-      titleLarge: TextStyle(fontFamily: 'Inter', fontSize: 20, fontWeight: FontWeight.w700, color: colors.text),
-      titleMedium: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w600, color: colors.text),
-      labelLarge: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w600, color: colors.text),
-      bodyMedium: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w400, color: colors.text),
-      bodySmall: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w400, color: colors.textMuted),
+      displayLarge: appDisplay(colors, fontSize: 60), // balance hero (expanded)
+      displayMedium: appDisplay(colors, fontSize: 48), // analytics total
+      displaySmall: appDisplay(colors, fontSize: 34), // keypad / big totals
+      headlineMedium: appDisplay(colors, fontSize: 28),
+      headlineSmall: appDisplay(colors, fontSize: 22),
+      titleLarge: appDisplay(colors, fontSize: 20), // display section titles
+      titleMedium: TextStyle(fontFamily: 'Inter', fontSize: 17, fontWeight: FontWeight.w500, color: colors.text, height: 1.5),
+      labelLarge: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w500, color: colors.text, height: 1.5),
+      bodyMedium: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w400, color: colors.text, height: 1.5),
+      bodySmall: TextStyle(fontFamily: 'Inter', fontSize: 13, fontWeight: FontWeight.w400, color: colors.textMuted, height: 1.5),
       labelSmall: TextStyle(
         fontFamily: 'Inter',
         fontSize: 12,

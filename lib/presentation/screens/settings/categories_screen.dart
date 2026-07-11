@@ -9,6 +9,7 @@ import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
+import '../../widgets/page_title_header.dart';
 
 /// Drill-down category manager (max 3 levels, plan §3.7): breadcrumb at the
 /// top, reorderable list of the current level's children.
@@ -112,12 +113,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('settings_nav.categories') ?? 'Categories'),
-      ),
+      appBar: AppBar(),
       body: Column(
         children: [
-          if (_breadcrumb.isNotEmpty)
+          if (_breadcrumb.isEmpty)
+            PageTitleHeader(translations?.t('settings_nav.categories') ?? 'Categories')
+          else
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               child: Row(
@@ -153,6 +154,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : ReorderableListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    buildDefaultDragHandles: false,
                     itemCount: _children.length,
                     onReorder: _reorder,
                     itemBuilder: (context, index) {
@@ -160,11 +163,14 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       final label = translations == null
                           ? category.name
                           : displayNameFor(translations, name: category.name, isDefault: category.isDefault);
-                      return EntityListTile(
+                      return ReorderableDelayedDragStartListener(
                         key: ValueKey(category.id),
+                        index: index,
+                        child: EntityListTile(
                         id: category.id,
                         title: label,
                         leadingColor: category.color == null ? null : hexToColor(category.color),
+                        icon: category.icon,
                         onEdit: () => _edit(category),
                         confirmDelete: () => _confirmDelete(category, label),
                         onDeleted: () => _delete(category),
@@ -172,6 +178,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                           setState(() => _breadcrumb.add(category));
                           _load();
                         },
+                        ),
                       );
                     },
                   ),

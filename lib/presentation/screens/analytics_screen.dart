@@ -115,10 +115,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('analytics.title') ?? 'Analytics'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(),
       body: Column(
         children: [
           MonthHeaderBar(month: _month, onChangeMonth: _changeMonth),

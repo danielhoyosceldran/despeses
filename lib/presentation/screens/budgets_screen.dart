@@ -92,8 +92,6 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final translationsAsync = ref.watch(translationsProvider);
-    final t = translationsAsync.asData?.value;
     final repo = ref.read(budgetRepositoryProvider);
 
     final visible = _budgets.where((b) {
@@ -103,9 +101,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode
-            ? Text('${_selectedIds.length} selected')
-            : Text(t?.t('nav.budgets') ?? 'Budgets'),
+        title: _selectionMode ? Text('${_selectedIds.length} selected') : null,
         centerTitle: true,
         leading: _selectionMode
             ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))

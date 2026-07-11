@@ -31,35 +31,47 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Foreground color for content sitting on [accent] fills.
   final Color onAccent;
 
-  /// Card shadow color — pre-baked opacity (6% black light / 40% black dark).
+  /// Card shadow color — pre-baked opacity (12% black light / 40% black dark).
   final Color shadow;
 
+  /// Hairline divider — [border] at 50% of its current alpha (the mock's
+  /// default `border/50`). Use for card outlines, row separators, inputs.
+  Color get borderSoft => border.withValues(alpha: border.a * 0.5);
+
+  /// Translucent muted fill (`bg-muted/30|50|80`): stat tiles, form fields,
+  /// search pill, the active nav pill.
+  Color mutedFill([double opacity = 0.3]) => surfaceAlt.withValues(alpha: opacity);
+
+  // Mono-ink palette from the "Innovative Style Proposal" mock (theme.css).
+  // Neutral oklch(L 0 0) grays converted to sRGB. Accent is near-black ink in
+  // light and inverts to near-white in dark. Borders stay translucent so the
+  // 50% "hairline" (divider / borderSoft) reads correctly over any surface.
   static const light = AppColors(
-    bg: Color(0xFFF7F7FA),
+    bg: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
-    surfaceAlt: Color(0xFFF0F1F5),
-    border: Color(0xFFE8E9F0),
-    divider: Color(0xFFEEEFF4),
-    text: Color(0xFF191C32),
-    textMuted: Color(0xFF8E90A6),
-    textDisabled: Color(0xFFBDBFCE),
-    accent: Color(0xFF5A31F4),
+    surfaceAlt: Color(0xFFECECF0), // --muted
+    border: Color(0x1A000000), // rgba(0,0,0,0.10)
+    divider: Color(0x0D000000), // border at 50% → rgba(0,0,0,0.05)
+    text: Color(0xFF252525), // --foreground oklch(0.145)
+    textMuted: Color(0xFF717182), // --muted-foreground
+    textDisabled: Color(0xFFB0B1BC),
+    accent: Color(0xFF030213), // --primary (ink)
     onAccent: Color(0xFFFFFFFF),
-    shadow: Color(0x0F000000),
+    shadow: Color(0x1F000000), // 12% black
   );
 
   static const dark = AppColors(
-    bg: Color(0xFF0D0E12),
-    surface: Color(0xFF1A1B23),
-    surfaceAlt: Color(0xFF23242E),
-    border: Color(0xFF262733),
-    divider: Color(0xFF22232C),
-    text: Color(0xFFF2F3F7),
-    textMuted: Color(0xFF6E7085),
-    textDisabled: Color(0xFF4A4B5A),
-    accent: Color(0xFF7C5CFF),
-    onAccent: Color(0xFFFFFFFF),
-    shadow: Color(0x66000000),
+    bg: Color(0xFF252525), // oklch(0.145)
+    surface: Color(0xFF252525),
+    surfaceAlt: Color(0xFF404040), // --muted oklch(0.269)
+    border: Color(0xFF404040), // oklch(0.269)
+    divider: Color(0x80404040), // border at 50%
+    text: Color(0xFFFAFAFA), // --foreground oklch(0.985)
+    textMuted: Color(0xFFB5B5B5), // --muted-foreground oklch(0.708)
+    textDisabled: Color(0xFF7F7F7F), // oklch(0.5)
+    accent: Color(0xFFFAFAFA), // --primary inverts to near-white
+    onAccent: Color(0xFF343434), // --primary-foreground oklch(0.205)
+    shadow: Color(0x66000000), // 40% black
   );
 
   @override
@@ -126,11 +138,13 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   final Color refund;
   final Color over;
 
+  // Tailwind 500 palette from the mock. Refund is rendered in the neutral text
+  // color (see AmountText), so this value is a fallback only.
   static const light = AppSemanticColors(
-    income: Color(0xFF00C48C),
-    expense: Color(0xFFFF4757),
-    refund: Color(0xFFFFB020),
-    over: Color(0xFFFF4757),
+    income: Color(0xFF10B981), // emerald 500
+    expense: Color(0xFFF43F5E), // rose 500
+    refund: Color(0xFFF59E0B), // amber 500 (fallback; refund shown neutral)
+    over: Color(0xFFF43F5E), // rose 500
   );
 
   static const dark = light;
@@ -161,6 +175,24 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 /// full color as foreground.
 Color pillBackground(Color semantic) => semantic.withValues(alpha: 0.15);
 
+/// Colored icon-chip fill from the mock: data color at 10% opacity, full color
+/// as the icon tint (e.g. `bg-emerald-500/10`).
+Color iconChipBackground(Color c) => c.withValues(alpha: 0.10);
+
+/// Data-accent palette (Tailwind 500). Used only for category icon chips,
+/// budget progress fills and donut slices — never as a UI surface fill.
+class AppDataColors {
+  const AppDataColors._();
+  static const emerald = Color(0xFF10B981);
+  static const rose = Color(0xFFF43F5E);
+  static const purple = Color(0xFF8B5CF6);
+  static const amber = Color(0xFFF59E0B);
+  static const blue = Color(0xFF3B82F6);
+
+  /// Cycle used when assigning colors to budgets/series without an explicit one.
+  static const cycle = [emerald, purple, amber, blue, rose];
+}
+
 extension AppThemeContext on BuildContext {
   /// Falls back on brightness when the extension is missing (e.g. widgets
   /// pumped under a vanilla [ThemeData] in tests).
@@ -170,4 +202,12 @@ extension AppThemeContext on BuildContext {
 
   AppSemanticColors get semanticColors =>
       Theme.of(this).extension<AppSemanticColors>() ?? AppSemanticColors.light;
+
+  /// Amount color by transaction type. Income = emerald, expense = rose,
+  /// **refund = neutral foreground** (per the mock — no dedicated color).
+  Color amountColorForType(String type) => switch (type) {
+        'income' => semanticColors.income,
+        'refund' => appColors.text,
+        _ => semanticColors.expense,
+      };
 }

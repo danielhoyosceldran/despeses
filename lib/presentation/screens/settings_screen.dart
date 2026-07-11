@@ -28,10 +28,7 @@ class SettingsScreen extends ConsumerWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(t?.t('nav.settings') ?? 'Settings'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
         children: [

@@ -8,6 +8,7 @@ import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
+import '../../widgets/page_title_header.dart';
 
 class PaymentMethodsScreen extends ConsumerStatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -90,29 +91,40 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('settings_nav.payment_methods') ?? 'Payment methods'),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ReorderableListView.builder(
-              itemCount: _methods.length,
-              onReorder: _reorder,
-              itemBuilder: (context, index) {
+      appBar: AppBar(),
+      body: Column(
+        children: [
+          PageTitleHeader(translations?.t('settings_nav.payment_methods') ?? 'Payment methods'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ReorderableListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    buildDefaultDragHandles: false,
+                    itemCount: _methods.length,
+                    onReorder: _reorder,
+                    itemBuilder: (context, index) {
                 final method = _methods[index];
                 final label = translations == null
                     ? method.name
                     : displayNameFor(translations, name: method.name, isDefault: method.isDefault);
-                return EntityListTile(
+                return ReorderableDelayedDragStartListener(
                   key: ValueKey(method.id),
-                  id: method.id,
-                  title: label,
-                  onEdit: () => _edit(method, label),
-                  confirmDelete: () => _confirmDelete(label),
-                  onDeleted: () => _delete(method),
+                  index: index,
+                  child: EntityListTile(
+                    id: method.id,
+                    title: label,
+                    icon: method.icon,
+                    onEdit: () => _edit(method, label),
+                    confirmDelete: () => _confirmDelete(label),
+                    onDeleted: () => _delete(method),
+                  ),
                 );
               },
-            ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }

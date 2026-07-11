@@ -35,10 +35,8 @@ class ThinProgressBar extends StatelessWidget {
                 height: height,
                 width: constraints.maxWidth * animatedValue,
                 decoration: BoxDecoration(
+                  color: fillColor,
                   borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                  gradient: LinearGradient(
-                    colors: [fillColor.withValues(alpha: 0.75), fillColor],
-                  ),
                 ),
               ),
             ],

@@ -28,7 +28,8 @@ class BottomActionPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(AppDimens.radiusSheet)),
-        boxShadow: isOpen ? AppShadows.card(colors) : null,
+        border: Border(top: BorderSide(color: colors.border, width: 1)),
+        boxShadow: isOpen ? AppShadows.sheet(colors) : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: AnimatedOpacity(

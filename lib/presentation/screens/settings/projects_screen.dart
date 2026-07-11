@@ -7,6 +7,7 @@ import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
+import '../../widgets/page_title_header.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -85,29 +86,33 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final translationsAsync = ref.watch(translationsProvider);
-    final translations = translationsAsync.asData?.value;
-
+    final translations = ref.watch(translationsProvider).asData?.value;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('settings_nav.projects') ?? 'Projects'),
+      appBar: AppBar(),
+      body: Column(
+        children: [
+          PageTitleHeader(translations?.t('settings_nav.projects') ?? 'Projects'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    itemCount: _projects.length,
+                    itemBuilder: (context, index) {
+                      final project = _projects[index];
+                      return EntityListTile(
+                        id: project.id,
+                        title: project.name,
+                        subtitle: project.description,
+                        onEdit: () => _edit(project),
+                        confirmDelete: () => _confirmDelete(project),
+                        onDeleted: () => _delete(project),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _projects.length,
-              itemBuilder: (context, index) {
-                final project = _projects[index];
-                return EntityListTile(
-                  id: project.id,
-                  title: project.name,
-                  subtitle: project.description,
-                  onEdit: () => _edit(project),
-                  confirmDelete: () => _confirmDelete(project),
-                  onDeleted: () => _delete(project),
-                );
-              },
-            ),
       floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }

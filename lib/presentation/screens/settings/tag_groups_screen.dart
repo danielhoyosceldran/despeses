@@ -9,6 +9,7 @@ import '../../../domain/repositories/tag_repository.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
+import '../../widgets/page_title_header.dart';
 
 class TagGroupsScreen extends ConsumerStatefulWidget {
   const TagGroupsScreen({super.key});
@@ -96,30 +97,40 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('settings_nav.tag_groups') ?? 'Tag groups'),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ReorderableListView.builder(
-              itemCount: _groups.length,
-              onReorder: _reorder,
-              itemBuilder: (context, index) {
+      appBar: AppBar(),
+      body: Column(
+        children: [
+          PageTitleHeader(translations?.t('settings_nav.tag_groups') ?? 'Tag groups'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ReorderableListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    buildDefaultDragHandles: false,
+                    itemCount: _groups.length,
+                    onReorder: _reorder,
+                    itemBuilder: (context, index) {
                 final group = _groups[index];
                 final isUngrouped = group.name == ungroupedKey;
                 final label = translations == null
                     ? group.name
                     : tagGroupDisplayName(translations, group.name);
-                return EntityListTile(
+                return ReorderableDelayedDragStartListener(
                   key: ValueKey(group.id),
-                  id: group.id,
-                  title: label,
-                  onEdit: isUngrouped ? null : () => _rename(group, label),
-                  confirmDelete: isUngrouped ? null : () => _confirmDelete(label),
-                  onDeleted: () => _delete(group),
+                  index: index,
+                  child: EntityListTile(
+                    id: group.id,
+                    title: label,
+                    onEdit: isUngrouped ? null : () => _rename(group, label),
+                    confirmDelete: isUngrouped ? null : () => _confirmDelete(label),
+                    onDeleted: () => _delete(group),
+                  ),
                 );
               },
-            ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(onPressed: _create, child: const Icon(LucideIcons.plus300)),
     );
   }

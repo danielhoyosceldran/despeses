@@ -9,6 +9,7 @@ import '../../../data/database.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
+import '../../widgets/page_title_header.dart';
 
 class TagsScreen extends ConsumerStatefulWidget {
   const TagsScreen({super.key});
@@ -104,14 +105,17 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(translations?.t('settings_nav.tags') ?? 'Tags'),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              children: [
-                for (final group in _groups)
+      appBar: AppBar(),
+      body: Column(
+        children: [
+          PageTitleHeader(translations?.t('settings_nav.tags') ?? 'Tags'),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                    children: [
+                      for (final group in _groups)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Column(
@@ -139,6 +143,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                         ReorderableListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
+                          buildDefaultDragHandles: false,
                           itemCount: _tagsByGroup[group.id]?.length ?? 0,
                           onReorder: (oldIndex, newIndex) => _reorder(group.id, oldIndex, newIndex),
                           itemBuilder: (context, index) {
@@ -146,22 +151,29 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                             final label = translations == null
                                 ? tag.name
                                 : displayNameFor(translations, name: tag.name, isDefault: tag.isDefault);
-                            return EntityListTile(
+                            return ReorderableDelayedDragStartListener(
                               key: ValueKey(tag.id),
-                              id: tag.id,
-                              title: label,
-                              leadingColor: tag.color == null ? null : hexToColor(tag.color),
-                              onEdit: () => _edit(tag, label),
-                              confirmDelete: () => _confirmDelete(tag, label),
-                              onDeleted: () => _delete(tag),
+                              index: index,
+                              child: EntityListTile(
+                                id: tag.id,
+                                title: label,
+                                leadingColor: tag.color == null ? null : hexToColor(tag.color),
+                                icon: tag.icon,
+                                onEdit: () => _edit(tag, label),
+                                confirmDelete: () => _confirmDelete(tag, label),
+                                onDeleted: () => _delete(tag),
+                              ),
                             );
                           },
                         ),
                       ],
                     ),
                   ),
-              ],
-            ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

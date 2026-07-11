@@ -122,8 +122,6 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final translationsAsync = ref.watch(translationsProvider);
-    final t = translationsAsync.asData?.value;
     final hasActiveFilters = _filters.type != null ||
         _filters.categoryId != null ||
         _filters.tagId != null ||
@@ -135,7 +133,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: _selectionMode ? Text('${_selectedIds.length} selected') : Text(t?.t('nav.expenses') ?? 'Expenses'),
+        title: _selectionMode ? Text('${_selectedIds.length} selected') : null,
         leading: _selectionMode
             ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
             : null,
@@ -206,13 +204,8 @@ class _ExpenseTile extends ConsumerWidget {
       'refund' => '±',
       _ => '-',
     };
-    final semantic = context.semanticColors;
     final colors = context.appColors;
-    final color = switch (expense.type) {
-      'income' => semantic.income,
-      'refund' => semantic.refund,
-      _ => semantic.expense,
-    };
+    final color = context.amountColorForType(expense.type);
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
 
     return Container(

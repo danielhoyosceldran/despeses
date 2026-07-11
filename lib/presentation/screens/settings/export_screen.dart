@@ -110,7 +110,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     final t = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(t?.t('settings_nav.export') ?? 'Export')),
+      appBar: AppBar(),
       body: AbsorbPointer(
         absorbing: _busy,
         child: ListView(

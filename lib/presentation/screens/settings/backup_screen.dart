@@ -78,7 +78,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Backup')),
+      appBar: AppBar(),
       body: AbsorbPointer(
         absorbing: _busy,
         child: ListView(

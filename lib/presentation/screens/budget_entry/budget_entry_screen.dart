@@ -270,7 +270,6 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => Navigator.of(context).pop()),
-        title: Text(_isEdit ? (translations?.t('budgets.edit') ?? 'Edit budget') : (translations?.t('budgets.new') ?? 'New budget')),
       ),
       body: Column(
         children: [
