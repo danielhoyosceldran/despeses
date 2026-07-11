@@ -11,7 +11,6 @@ import '../../data/database.dart';
 import '../../domain/repositories/analytics_repository.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
-import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/month_header_bar.dart';
 
 enum _Dimension { category, tags }
@@ -200,26 +199,53 @@ class _MonthAnalyticsPage extends ConsumerWidget {
             final (categoryLabels, categoryHasChildren, tagLabels) = labelsSnapshot.data!;
 
             final colors = context.appColors;
+            final isCategory = dimension == _Dimension.category;
+            final empty = isCategory ? categorySlices.isEmpty : tagSlices.isEmpty;
+            final legend = isCategory
+                ? _categoryLegend(categorySlices, categoryLabels, categoryHasChildren, currency)
+                : _tagLegend(tagSlices, tagLabels, currency);
 
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
-                Text('Total spent', style: appHeaderStyle(colors), textAlign: TextAlign.center),
-                const SizedBox(height: AppSpacing.xs),
-                Center(
-                  child: AmountText(amountCents: total, currency: currency, style: Theme.of(context).textTheme.displaySmall),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                AppCard(
+                // Total + donut live inside the rounded panel; legend below it.
+                AppCard.large(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (dimension == _Dimension.category)
-                        ..._buildCategoryView(context, categorySlices, categoryLabels, categoryHasChildren, currency),
-                      if (dimension == _Dimension.tags) ..._buildTagView(context, tagSlices, tagLabels, currency),
+                      Text('TOTAL SPENT', style: appHeaderStyle(colors)),
+                      const SizedBox(height: AppSpacing.sm),
+                      AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 48)),
+                      if (!empty) ...[
+                        if (isCategory && breadcrumb.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          _breadcrumbRow(context),
+                        ],
+                        const SizedBox(height: AppSpacing.md),
+                        SizedBox(
+                          height: 240,
+                          child: isCategory
+                              ? _categoryChart(categorySlices, categoryHasChildren)
+                              : _tagChart(tagSlices),
+                        ),
+                      ],
                     ],
                   ),
                 ),
+                if (empty)
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Center(
+                      child: Text(isCategory
+                          ? (translations?.t('analytics.empty_category') ?? 'No category data.')
+                          : (translations?.t('analytics.empty_tag') ?? 'No tag data.')),
+                    ),
+                  )
+                else ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  ...legend,
+                  if (!isCategory) _tagDisclaimer(context),
+                ],
               ],
             );
           },
@@ -257,126 +283,129 @@ class _MonthAnalyticsPage extends ConsumerWidget {
     return (categoryLabels, hasChildren, tagLabels);
   }
 
-  List<Widget> _buildCategoryView(
-    BuildContext context,
-    List<CategorySlice> categorySlices,
-    Map<String, String> categoryLabels,
-    Map<String, bool> categoryHasChildren,
-    String currency,
-  ) {
-    if (categorySlices.isEmpty) {
-      return [Center(child: Text(translations?.t('analytics.empty_category') ?? 'No category data.'))];
-    }
-    return [
-      if (breadcrumb.isNotEmpty)
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(LucideIcons.arrowLeft300),
-              onPressed: onPopBreadcrumb,
+  Widget _breadcrumbRow(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      children: [
+        // Circular back button (mock chevron button style).
+        Material(
+          color: colors.surfaceAlt,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPopBreadcrumb,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Icon(LucideIcons.arrowLeft300, size: 18, color: colors.text),
             ),
-            Expanded(
-              child: Text(
-                breadcrumb
-                    .map((c) {
-                      final t = translations;
-                      return t == null ? c.name : displayNameFor(t, name: c.name, isDefault: c.isDefault);
-                    })
-                    .join(' > '),
-              ),
-            ),
-          ],
+          ),
         ),
-      SizedBox(
-        height: 240,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            PieChart(
-              PieChartData(
-                centerSpaceRadius: 70,
-                sectionsSpace: 2,
-                sections: [
-                  for (var i = 0; i < categorySlices.length; i++)
-                    PieChartSectionData(
-                      value: categorySlices[i].amountCents.abs().toDouble(),
-                      color: chartPalette[i % chartPalette.length],
-                      title: '',
-                      radius: 40,
-                    ),
-                ],
-                pieTouchData: PieTouchData(
-                  touchCallback: (event, response) {
-                    if (!event.isInterestedForInteractions) return;
-                    final index = response?.touchedSection?.touchedSectionIndex;
-                    if (index == null || index < 0) return;
-                    final slice = categorySlices[index];
-                    if (!slice.isDirect &&
-                        slice.categoryId != null &&
-                        categoryHasChildren[slice.categoryId] == true) {
-                      onDrillInto(slice.categoryId!);
-                    }
-                  },
-                ),
-              ),
+        const SizedBox(width: AppSpacing.smMd),
+        Expanded(
+          child: Text(
+            breadcrumb.map((c) {
+              final t = translations;
+              return t == null ? c.name : displayNameFor(t, name: c.name, isDefault: c.isDefault);
+            }).join('  ›  '),
+            style: Theme.of(context).textTheme.labelLarge,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _categoryChart(List<CategorySlice> slices, Map<String, bool> hasChildren) {
+    return PieChart(
+      PieChartData(
+        centerSpaceRadius: 60,
+        sectionsSpace: 5,
+        sections: [
+          for (var i = 0; i < slices.length; i++)
+            PieChartSectionData(
+              value: slices[i].amountCents.abs().toDouble(),
+              color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+              title: '',
+              radius: 20,
             ),
-            Text('100%', style: Theme.of(context).textTheme.headlineMedium),
-          ],
+        ],
+        pieTouchData: PieTouchData(
+          touchCallback: (event, response) {
+            if (!event.isInterestedForInteractions) return;
+            final index = response?.touchedSection?.touchedSectionIndex;
+            if (index == null || index < 0) return;
+            final slice = slices[index];
+            if (!slice.isDirect && slice.categoryId != null && hasChildren[slice.categoryId] == true) {
+              onDrillInto(slice.categoryId!);
+            }
+          },
         ),
       ),
-      const SizedBox(height: AppSpacing.smMd),
-      for (var i = 0; i < categorySlices.length; i++)
+    );
+  }
+
+  Widget _tagChart(List<TagSlice> slices) {
+    return PieChart(
+      PieChartData(
+        centerSpaceRadius: 60,
+        sectionsSpace: 5,
+        sections: [
+          for (var i = 0; i < slices.length; i++)
+            PieChartSectionData(
+              value: slices[i].amountCents.abs().toDouble(),
+              color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+              title: '',
+              radius: 20,
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _categoryLegend(
+    List<CategorySlice> slices,
+    Map<String, String> labels,
+    Map<String, bool> hasChildren,
+    String currency,
+  ) {
+    return [
+      for (var i = 0; i < slices.length; i++)
         _SliceLegendRow(
-          color: chartPalette[i % chartPalette.length],
-          label: categorySlices[i].isDirect ? 'Direct' : (categoryLabels[categorySlices[i].categoryId] ?? ''),
-          amountCents: categorySlices[i].amountCents,
+          color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+          label: slices[i].isDirect ? 'Direct' : (labels[slices[i].categoryId] ?? ''),
+          amountCents: slices[i].amountCents,
           currency: currency,
-          canDrill: !categorySlices[i].isDirect &&
-              categorySlices[i].categoryId != null &&
-              categoryHasChildren[categorySlices[i].categoryId] == true,
+          canDrill: !slices[i].isDirect &&
+              slices[i].categoryId != null &&
+              hasChildren[slices[i].categoryId] == true,
           onTap: () {
-            final categoryId = categorySlices[i].categoryId;
+            final categoryId = slices[i].categoryId;
             if (categoryId != null) onDrillInto(categoryId);
           },
         ),
     ];
   }
 
-  List<Widget> _buildTagView(BuildContext context, List<TagSlice> tagSlices, Map<String, String> tagLabels, String currency) {
-    if (tagSlices.isEmpty) {
-      return [Center(child: Text(translations?.t('analytics.empty_tag') ?? 'No tag data.'))];
-    }
+  List<Widget> _tagLegend(List<TagSlice> slices, Map<String, String> labels, String currency) {
     return [
-      SizedBox(
-        height: 240,
-        child: PieChart(
-          PieChartData(
-            sections: [
-              for (var i = 0; i < tagSlices.length; i++)
-                PieChartSectionData(
-                  value: tagSlices[i].amountCents.abs().toDouble(),
-                  color: chartPalette[i % chartPalette.length],
-                  title: '',
-                ),
-            ],
-          ),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-        child: Text(
-          'A transaction with several tags counts fully in each — slices can add up to more than the month total.',
-          style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic),
-        ),
-      ),
-      for (var i = 0; i < tagSlices.length; i++)
+      for (var i = 0; i < slices.length; i++)
         _SliceLegendRow(
-          color: chartPalette[i % chartPalette.length],
-          label: tagLabels[tagSlices[i].tagId] ?? '',
-          amountCents: tagSlices[i].amountCents,
+          color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+          label: labels[slices[i].tagId] ?? '',
+          amountCents: slices[i].amountCents,
           currency: currency,
         ),
     ];
+  }
+
+  Widget _tagDisclaimer(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Text(
+        'A transaction with several tags counts fully in each — slices can add up to more than the month total.',
+        style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic),
+      ),
+    );
   }
 }
 
@@ -399,20 +428,27 @@ class _SliceLegendRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return InkWell(
       onTap: canDrill ? onTap : null,
+      borderRadius: BorderRadius.circular(AppDimens.radiusButton),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.smMd, horizontal: AppSpacing.xs),
         child: Row(
           children: [
             Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(label)),
+            const SizedBox(width: AppSpacing.smMd),
+            Expanded(child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
             Text(
               '${(amountCents / 100).toStringAsFixed(2)} $currency',
-              style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+              style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
             ),
-            if (canDrill) const Icon(LucideIcons.chevronRight300, size: 16),
+            if (canDrill) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Icon(LucideIcons.chevronRight300, size: 16, color: colors.textMuted),
+            ],
           ],
         ),
       ),

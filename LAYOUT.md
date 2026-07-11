@@ -58,10 +58,8 @@ Structural reference for every screen: layout and UI elements only — **no visu
 - **AppBar**: empty.
 - **Body** Column: `MonthHeaderBar` + `SegmentedButton` (By Category / By Tag) + Expanded month `PageView`.
 - **Each page** (ListView):
-  1. "Total spent" centered header + large centered amount.
-  2. `AppCard`:
-     - **Category view**: optional breadcrumb Row (back + path); 240px donut `PieChart` (center label, tap slice to drill); legend rows (dot, label, amount, optional drill chevron).
-     - **Tag view**: 240px `PieChart`, disclaimer line, legend rows (no drill).
+  1. `AppCard.large` panel: centered "Total spent" label + large centered amount; then (when data) optional breadcrumb Row (circular back + path, category view only) and a 240px donut `PieChart` (tap slice to drill in category view).
+  2. Below the panel: legend rows (dot, label, amount, optional drill chevron). Tag view adds a disclaimer line. Empty state text when no data.
 
 ### Settings (`settings_screen.dart`)
 - **AppBar**: empty.
