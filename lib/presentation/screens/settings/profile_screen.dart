@@ -45,9 +45,8 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   for (final (index, code) in Translations.supportedLocales.indexed)
-                    _LanguageRow(
+                    _OptionRow(
                       label: _languageNames[code] ?? code.toUpperCase(),
-                      code: code,
                       selected: profile.language == code,
                       showDivider: index != Translations.supportedLocales.length - 1,
                       onTap: () => ref.read(profileRepositoryProvider).setLanguage(code),
@@ -61,19 +60,20 @@ class ProfileScreen extends ConsumerWidget {
             AppCard(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               clip: true,
-              child: HairlineListTile(
-                icon: LucideIcons.moon300,
-                title: t?.t('profile.theme_dark') ?? 'Dark theme',
-                showDivider: false,
-                onTap: () => ref
-                    .read(profileRepositoryProvider)
-                    .setTheme(profile.theme == 'dark' ? 'light' : 'dark'),
-                trailing: Switch(
-                  value: profile.theme == 'dark',
-                  activeThumbColor: context.appColors.accent,
-                  onChanged: (value) =>
-                      ref.read(profileRepositoryProvider).setTheme(value ? 'dark' : 'light'),
-                ),
+              child: Column(
+                children: [
+                  for (final (index, (value, fallback)) in const [
+                    ('light', 'Light'),
+                    ('dark', 'Dark'),
+                    ('system', 'System'),
+                  ].indexed)
+                    _OptionRow(
+                      label: t?.t('profile.theme_$value') ?? fallback,
+                      selected: profile.theme == value,
+                      showDivider: index != 2,
+                      onTap: () => ref.read(profileRepositoryProvider).setTheme(value),
+                    ),
+                ],
               ),
             ),
 
@@ -118,19 +118,17 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Single language option: label + trailing accent check when selected,
+/// Single selectable option: label + trailing accent check when selected,
 /// hairline divider between rows. Matches [HairlineListTile] metrics.
-class _LanguageRow extends StatelessWidget {
-  const _LanguageRow({
+class _OptionRow extends StatelessWidget {
+  const _OptionRow({
     required this.label,
-    required this.code,
     required this.selected,
     required this.showDivider,
     required this.onTap,
   });
 
   final String label;
-  final String code;
   final bool selected;
   final bool showDivider;
   final VoidCallback onTap;

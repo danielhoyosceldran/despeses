@@ -17,7 +17,11 @@ class DespesesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileStreamProvider);
     final locale = profileAsync.asData?.value.language;
-    final themeMode = profileAsync.asData?.value.theme == 'dark' ? ThemeMode.dark : ThemeMode.light;
+    final themeMode = switch (profileAsync.asData?.value.theme) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => ThemeMode.system,
+    };
 
     return MaterialApp.router(
       title: 'canut finances',

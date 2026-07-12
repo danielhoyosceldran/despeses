@@ -4,7 +4,7 @@
     "expenses": "Despeses",
     "budgets": "Pressupostos",
     "analytics": "Analítiques",
-    "settings": "Ajustos",
+    "settings": "Gestió",
     "export": "Exportar",
     "main": "Navegació principal"
   },
@@ -112,7 +112,8 @@
     "primary_color": "Color principal",
     "theme": "Tema",
     "theme_light": "Clar",
-    "theme_dark": "Fosc"
+    "theme_dark": "Fosc",
+    "theme_system": "Sistema"
   },
   "budgets": {
     "add": "Afegir pressupost",

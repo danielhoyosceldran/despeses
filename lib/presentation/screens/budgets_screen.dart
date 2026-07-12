@@ -26,6 +26,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   Map<String, int> _progress = {};
   bool _showActiveOnly = true;
   bool _loading = true;
+  String _query = '';
   final Set<String> _selectedIds = {};
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
@@ -96,9 +97,11 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     final repo = ref.read(budgetRepositoryProvider);
     final t = ref.watch(translationsProvider).asData?.value;
 
+    final query = _query.trim().toLowerCase();
     final visible = _budgets.where((b) {
       final active = repo.isActiveForMonth(b, _currentMonthKey);
-      return _showActiveOnly ? active : !active;
+      if (_showActiveOnly ? !active : active) return false;
+      return query.isEmpty || b.name.toLowerCase().contains(query);
     }).toList();
 
     return Scaffold(
@@ -110,13 +113,22 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: _deleteSelected,
-            actions: [
-              TopBarCircleButton(
-                icon: _showActiveOnly ? LucideIcons.eye300 : LucideIcons.eyeOff300,
-                onTap: () => setState(() => _showActiveOnly = !_showActiveOnly),
-              ),
-            ],
           ),
+          if (!_selectionMode)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+              child: Row(
+                children: [
+                  Expanded(child: _SearchPill(onChanged: (v) => setState(() => _query = v))),
+                  const SizedBox(width: AppSpacing.sm),
+                  TopBarCircleButton(
+                    icon: LucideIcons.archive300,
+                    color: _showActiveOnly ? null : context.appColors.accent,
+                    onTap: () => setState(() => _showActiveOnly = !_showActiveOnly),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -167,6 +179,43 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                 ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Rounded search field (mock: `bg-muted/50 rounded-full`, leading search icon).
+class _SearchPill extends StatelessWidget {
+  const _SearchPill({required this.onChanged});
+
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return TextField(
+      onChanged: onChanged,
+      style: Theme.of(context).textTheme.bodyMedium,
+      decoration: InputDecoration(
+        hintText: 'Search budgets',
+        isDense: true,
+        filled: true,
+        fillColor: colors.mutedFill(0.5),
+        prefixIcon: Icon(LucideIcons.search300, size: 16, color: colors.textMuted),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+          borderSide: BorderSide(color: colors.accent, width: 1),
+        ),
       ),
     );
   }

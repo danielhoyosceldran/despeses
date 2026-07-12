@@ -4,7 +4,7 @@
     "expenses": "Expenses",
     "budgets": "Budgets",
     "analytics": "Analytics",
-    "settings": "Settings",
+    "settings": "Manage",
     "export": "Export",
     "main": "Main navigation"
   },
@@ -112,7 +112,8 @@
     "primary_color": "Primary color",
     "theme": "Theme",
     "theme_light": "Light",
-    "theme_dark": "Dark"
+    "theme_dark": "Dark",
+    "theme_system": "System"
   },
   "budgets": {
     "add": "Add budget",

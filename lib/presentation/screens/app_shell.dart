@@ -31,7 +31,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     'Expenses',
     'Budgets',
     'Analytics',
-    'Settings',
+    'Manage',
   ];
   static const _icons = [
     LucideIcons.layoutDashboard300,

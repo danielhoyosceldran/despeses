@@ -176,6 +176,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           AppTopBar(
             month: _month,
             onChangeMonth: _changeMonth,
+            pageController: _pageController,
+            monthForPage: _monthForPage,
+            fallbackPage: _kInitialPage,
             selectionCount: _selectedIds.length,
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: _deleteSelected,

@@ -193,6 +193,10 @@ All use `colors.shadow` (pre-baked opacity per theme).
   icon) for chevrons/actions; `filled` (`surfaceAlt` chip, `text` icon) for the
   settings gear. Icon 20, `sm` padding. Optional `color` override (e.g. `accent`
   when a filter is active).
+- **Search pill** (budgets `_SearchPill`) — `TextField`, `mutedFill(0.5)` fill,
+  `radiusPill`, leading `search` icon 16 muted, `bodyMedium` text, focus 1px
+  `accent` ring. Paired with a ghost `archive` `TopBarCircleButton` (accent tint
+  when showing archived/expired).
 - **`ThinProgressBar`** (`thin_progress_bar.dart`) — 6px tall, track
   `surfaceAlt`, solid `fillColor` (data color / `over` when over budget),
   rounded-full.

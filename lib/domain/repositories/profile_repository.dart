@@ -25,7 +25,7 @@ class ProfileRepository {
   }
 
   Future<void> setTheme(String theme) async {
-    assert(theme == 'light' || theme == 'dark');
+    assert(theme == 'light' || theme == 'dark' || theme == 'system');
     await (_db.update(_db.profile)..where((p) => p.id.equals(1))).write(
       ProfileCompanion(theme: Value(theme), updatedAt: Value(DateTime.now())),
     );

@@ -17,7 +17,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 | Widget | Layout it provides |
 | --- | --- |
 | `PageTitleHeader` | Large in-body title Row: title left, optional trailing action right. Used where AppBar is title-less. |
-| `AppTopBar` | Shared in-body top header (no Material AppBar). Left: month pager (chevron · uppercase month/year · chevron, emits month ±1) **or** a display title. Trailing: optional actions (`TopBarCircleButton`s) then a settings gear that pushes the Account hub. In selection mode swaps to: leading X (clear) · "N selected" · trailing trash (delete). Settings gear hideable. |
+| `AppTopBar` | Shared in-body top header (no Material AppBar). Left: month pager (chevron · uppercase month/year · chevron, emits month ±1) **or** a display title. When given the page's `PageController`, the month label tracks the swipe continuously (sliding filmstrip revealing the incoming month) instead of flipping on settle. Trailing: optional actions (`TopBarCircleButton`s) then a settings gear that pushes the Account hub. In selection mode swaps to: leading X (clear) · "N selected" · trailing trash (delete). Settings gear hideable. |
 | `TopBarCircleButton` | Circular header action (ghost or filled chip); used for chevrons, gear, and per-screen actions (filter, active/expired eye). |
 | `BottomActionPanel` | In-screen animated bottom panel (not modal). Height 0→content, rounded top. Hosts keypad/pickers. |
 | `NumericKeypad` | 4×56 money keypad. 3 digit columns (`1/4/7/00`, `2/5/8/0`, `3/6/9/,`) + 4th column: backspace, `-`, large "Next". |
@@ -53,7 +53,8 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 - **Body**: paginated `ListView` of expense card tiles (optional Checkbox, title, date subtitle, signed amount). Trailing "Load more" TextButton when more pages. Empty/loading centered. Tap = edit/toggle; long-press = select.
 
 ### Budgets (`budgets_screen.dart`)
-- **Header**: `AppTopBar` title "Budgets", trailing eye/eye-off toggle (active vs expired) + settings gear. Selection mode: "N selected", X, trash.
+- **Header**: `AppTopBar` title "Budgets" + settings gear. Selection mode: "N selected", X, trash.
+- **Search row** (hidden in selection mode): search pill (filter by name) + trailing archive toggle (active vs expired budgets).
 - **FAB**: "+" → BudgetEntryScreen (new).
 - **Body**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit). Empty/loading centered. Tap = edit/toggle; long-press = select.
 
@@ -107,7 +108,7 @@ Full-screen entry; closes via X.
 
 ### Account › Profile (`settings/profile_screen.dart`)
 - **AppBar**: empty.
-- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — single `HairlineListTile` "Dark theme" (moon icon) with a trailing `Switch`; **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text.
+- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — three option rows (Light / Dark / System, trailing check on the selected one); **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text.
 
 ### Settings › Events (`settings/events_screen.dart`)
 - **AppBar**: empty.

@@ -4,7 +4,7 @@
     "expenses": "Spese",
     "budgets": "Budget",
     "analytics": "Analisi",
-    "settings": "Impostazioni",
+    "settings": "Gestione",
     "export": "Esporta",
     "main": "Navigazione principale"
   },
@@ -112,7 +112,8 @@
     "primary_color": "Colore principale",
     "theme": "Tema",
     "theme_light": "Chiaro",
-    "theme_dark": "Scuro"
+    "theme_dark": "Scuro",
+    "theme_system": "Sistema"
   },
   "budgets": {
     "add": "Aggiungi budget",

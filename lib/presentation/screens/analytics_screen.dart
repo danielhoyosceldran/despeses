@@ -116,7 +116,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     return Scaffold(
       body: Column(
         children: [
-          AppTopBar(month: _month, onChangeMonth: _changeMonth),
+          AppTopBar(
+            month: _month,
+            onChangeMonth: _changeMonth,
+            pageController: _pageController,
+            monthForPage: _monthForPage,
+            fallbackPage: _kInitialPage,
+          ),
           SegmentedButton<_Dimension>(
             segments: [
               ButtonSegment(
