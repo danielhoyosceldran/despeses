@@ -107,7 +107,7 @@ Full-screen entry; closes via X.
 
 ### Account › Profile (`settings/profile_screen.dart`)
 - **AppBar**: empty.
-- **Body** ListView: `PageTitleHeader` "Profile" · "Language" label + one `RadioListTile` per locale · divider · `SwitchListTile` "Dark theme" · divider · read-only "Currency" ListTile.
+- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — single `HairlineListTile` "Dark theme" (moon icon) with a trailing `Switch`; **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text.
 
 ### Settings › Events (`settings/events_screen.dart`)
 - **AppBar**: empty.
