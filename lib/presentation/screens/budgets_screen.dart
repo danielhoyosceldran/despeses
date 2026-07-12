@@ -6,6 +6,7 @@ import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../widgets/app_card.dart';
+import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/thin_progress_bar.dart';
@@ -93,6 +94,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = ref.read(budgetRepositoryProvider);
+    final t = ref.watch(translationsProvider).asData?.value;
 
     final visible = _budgets.where((b) {
       final active = repo.isActiveForMonth(b, _currentMonthKey);
@@ -100,28 +102,27 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: _selectionMode ? Text('${_selectedIds.length} selected') : null,
-        centerTitle: true,
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : [
-                IconButton(
-                  icon: Icon(_showActiveOnly ? LucideIcons.eye300 : LucideIcons.eyeOff300),
-                  tooltip: _showActiveOnly ? 'Showing active' : 'Showing expired',
-                  onPressed: () => setState(() => _showActiveOnly = !_showActiveOnly),
-                ),
-              ],
-      ),
       floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : visible.isEmpty
-              ? Center(child: Text(_showActiveOnly ? 'No active budgets' : 'No expired budgets'))
-              : ListView.builder(
+      body: Column(
+        children: [
+          AppTopBar(
+            title: t?.t('nav.budgets') ?? 'Budgets',
+            selectionCount: _selectedIds.length,
+            onClearSelection: () => setState(() => _selectedIds.clear()),
+            onDeleteSelection: _deleteSelected,
+            actions: [
+              TopBarCircleButton(
+                icon: _showActiveOnly ? LucideIcons.eye300 : LucideIcons.eyeOff300,
+                onTap: () => setState(() => _showActiveOnly = !_showActiveOnly),
+              ),
+            ],
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : visible.isEmpty
+                    ? Center(child: Text(_showActiveOnly ? 'No active budgets' : 'No expired budgets'))
+                    : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
                   itemCount: visible.length,
                   itemBuilder: (context, index) {
@@ -164,6 +165,9 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     );
                   },
                 ),
+          ),
+        ],
+      ),
     );
   }
 }

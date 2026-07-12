@@ -38,7 +38,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     LucideIcons.receipt300,
     LucideIcons.pieChart300,
     LucideIcons.barChart2300,
-    LucideIcons.settings300,
+    LucideIcons.layers300,
   ];
   static const _keys = [
     'nav.dashboard',

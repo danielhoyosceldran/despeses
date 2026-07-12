@@ -6,7 +6,9 @@ Structural reference for every screen: layout and UI elements only — **no visu
 
 ## Navigation shell
 
-`AppShell` — `NavigationBar` (bottom) with 5 tabs: **Dashboard · Expenses · Budgets · Analytics · Settings**. Expenses tab is behind a feature flag. Horizontal drag on the nav bar switches tabs. Body cross-fade/slide transition on tab change. Root route intercepts system back: requires a second back press within 2s to exit (toast on first press).
+`AppShell` — `NavigationBar` (bottom) with 5 tabs: **Dashboard · Expenses · Budgets · Analytics · Settings**. The Settings tab holds the data catalog (categories, tags, …). Expenses tab is behind a feature flag. Horizontal drag on the nav bar switches tabs. Body cross-fade/slide transition on tab change. Root route intercepts system back: requires a second back press within 2s to exit (toast on first press).
+
+The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Export · Backup) pushed over the shell — distinct from the Settings tab.
 
 ---
 
@@ -15,7 +17,8 @@ Structural reference for every screen: layout and UI elements only — **no visu
 | Widget | Layout it provides |
 | --- | --- |
 | `PageTitleHeader` | Large in-body title Row: title left, optional trailing action right. Used where AppBar is title-less. |
-| `MonthHeaderBar` | Centered Row: left chevron · month/year label · right chevron. Emits month ±1. |
+| `AppTopBar` | Shared in-body top header (no Material AppBar). Left: month pager (chevron · uppercase month/year · chevron, emits month ±1) **or** a display title. Trailing: optional actions (`TopBarCircleButton`s) then a settings gear that pushes the Account hub. In selection mode swaps to: leading X (clear) · "N selected" · trailing trash (delete). Settings gear hideable. |
+| `TopBarCircleButton` | Circular header action (ghost or filled chip); used for chevrons, gear, and per-screen actions (filter, active/expired eye). |
 | `BottomActionPanel` | In-screen animated bottom panel (not modal). Height 0→content, rounded top. Hosts keypad/pickers. |
 | `NumericKeypad` | 4×56 money keypad. 3 digit columns (`1/4/7/00`, `2/5/8/0`, `3/6/9/,`) + 4th column: backspace, `-`, large "Next". |
 | `ExpenseFilterSheet` | Modal sheet. Column: "Filters" title, 6 dropdowns (Type, Category, Tag, Payment method, Event, Project), From/To date Row, "Clear"/"Apply" Row. |
@@ -35,35 +38,41 @@ Structural reference for every screen: layout and UI elements only — **no visu
 ## Screens
 
 ### Dashboard (`dashboard_screen.dart`)
-- **AppBar**: title-less. Selection mode (long-press a transaction): centered "N selected", leading X (clear), trailing trash (delete-confirm).
+- **Header**: `AppTopBar` in month mode (month pager left, settings gear right). Selection mode (long-press a transaction): "N selected", X (clear), trash (delete-confirm).
 - **FAB**: "+" → ExpenseEntryScreen (new).
 - **Body** Column, top→bottom:
-  1. `MonthHeaderBar` — month/year chevron nav (shared across months).
-  2. **Balance hero** (`_BalanceHeader`, shared, sits *outside* the PageView): "Total Balance" label + large balance amount, then a Row of 2 collapsing stat tiles (Income · Spent, icon chip + label + amount). **Collapses on inner scroll**: balance shrinks, stat tiles fold away, a hairline bottom border fades in.
+  1. `AppTopBar` — month/year chevron nav + settings gear (shared across months).
+  2. **Balance hero** (`_BalanceHeader`, shared, sits *outside* the PageView): "Total Balance" label + large balance amount, then a Row of 2 collapsing stat tiles (Income · Spent; each = icon chip in a row beside a label + amount column). **Collapses on inner scroll**: balance shrinks, stat tiles fold away, a hairline bottom border fades in.
   3. Expanded horizontal `PageView` of month pages (swipe = month ±1, kept in sync with `MonthHeaderBar`). Each month page is a scrolling `ListView` driving the hero collapse, top→bottom:
      - If active budgets: "Active budgets" header + budget tiles (name, `ThinProgressBar`, spent/limit).
      - Transactions **grouped by day**: per-day header (uppercase day label + signed day total) followed by transaction rows (optional selection Checkbox, uppercase category line, title, method subtitle, signed amount). "No transactions" text when empty. Tap = edit / toggle; long-press = select.
 
 ### Expenses (`expenses_screen.dart`)
-- **AppBar**: title-less, trailing filter IconButton (tinted when active) → `ExpenseFilterSheet`. Selection mode: "N selected", X, trash.
+- **Header**: `AppTopBar` title "Expenses", trailing filter action (tinted when active) → `ExpenseFilterSheet` + settings gear. Selection mode: "N selected", X, trash.
 - **FAB**: "+" → ExpenseEntryScreen (new).
 - **Body**: paginated `ListView` of expense card tiles (optional Checkbox, title, date subtitle, signed amount). Trailing "Load more" TextButton when more pages. Empty/loading centered. Tap = edit/toggle; long-press = select.
 
 ### Budgets (`budgets_screen.dart`)
-- **AppBar**: title-less, trailing eye/eye-off toggle (active vs expired). Selection mode: "N selected", X, trash.
+- **Header**: `AppTopBar` title "Budgets", trailing eye/eye-off toggle (active vs expired) + settings gear. Selection mode: "N selected", X, trash.
 - **FAB**: "+" → BudgetEntryScreen (new).
 - **Body**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit). Empty/loading centered. Tap = edit/toggle; long-press = select.
 
 ### Analytics (`analytics_screen.dart`)
-- **AppBar**: empty.
-- **Body** Column: `MonthHeaderBar` + `SegmentedButton` (By Category / By Tag) + Expanded month `PageView`.
+- **Header**: `AppTopBar` in month mode (month pager left, settings gear right).
+- **Body** Column: `AppTopBar` + `SegmentedButton` (By Category / By Tag) + Expanded month `PageView`.
 - **Each page** (ListView):
   1. `AppCard.large` panel: centered "Total spent" label + large centered amount; then (when data) optional breadcrumb Row (circular back + path, category view only) and a 240px donut `PieChart` (tap slice to drill in category view).
   2. Below the panel: legend rows (dot, label, amount, optional drill chevron). Tag view adds a disclaimer line. Empty state text when no data.
 
 ### Settings (`settings_screen.dart`)
-- **AppBar**: empty.
-- **Body**: single `AppCard` Column of `HairlineListTile` nav rows: Categories, Tags, Tag groups, Payment methods, Events, Projects, Profile, Export, Backup.
+Data catalog tab.
+- **Header**: `AppTopBar` title "Settings" + gear (→ Account hub).
+- **Body**: single `AppCard` Column of `HairlineListTile` nav rows: Categories, Tags, Tag groups, Payment methods, Events, Projects.
+
+### Account (`account_screen.dart`)
+Personal/app settings hub, pushed over the shell from the header gear.
+- **AppBar**: empty (back button).
+- **Body**: `PageTitleHeader` "Settings" + single `AppCard` Column of `HairlineListTile` rows: Profile, Export, Backup.
 
 ### Expense entry (`expense_entry/expense_entry_screen.dart`)
 Full-screen entry.
@@ -88,15 +97,15 @@ Full-screen entry; closes via X.
   4. No panel: bottom SafeArea full-width "Save" button.
 - Pops `true` on save.
 
-### Settings › Backup (`settings/backup_screen.dart`)
+### Account › Backup (`settings/backup_screen.dart`)
 - **AppBar**: empty.
 - **Body**: `AppCard` Column of 2 `HairlineListTile`: "Export backup" (spinner trailing while busy) + "Restore backup". Export → share sheet; Restore → file picker + destructive confirm + toast.
 
-### Settings › Export (`settings/export_screen.dart`)
+### Account › Export (`settings/export_screen.dart`)
 - **AppBar**: empty.
 - **Body** ListView: From | To date TextButtons Row · "Type" dropdown (All/Expense/Income/Refund) · "Export CSV" button · "Export PDF" button · `LinearProgressIndicator` while busy. Both exports build rows → share sheet.
 
-### Settings › Profile (`settings/profile_screen.dart`)
+### Account › Profile (`settings/profile_screen.dart`)
 - **AppBar**: empty.
 - **Body** ListView: `PageTitleHeader` "Profile" · "Language" label + one `RadioListTile` per locale · divider · `SwitchListTile` "Dark theme" · divider · read-only "Currency" ListTile.
 
@@ -128,6 +137,6 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 ---
 
 ## Cross-screen patterns
-- Top-level list screens (Dashboard, Expenses, Budgets, entry screens) use a real Material `AppBar` + `FloatingActionButton`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
-- Selection mode (multi-delete) on Dashboard, Expenses, Budgets swaps AppBar contents.
+- Tab screens (Dashboard, Expenses, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
+- Selection mode (multi-delete) on Dashboard, Expenses, Budgets swaps `AppTopBar` contents (count + clear + delete).
 - Entry screens (expense/budget) use the in-screen `BottomActionPanel` + `NumericKeypad` + embedded pickers, not modal sheets. The Expenses list uses a true modal filter sheet.

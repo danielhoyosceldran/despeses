@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import 'config/feature_flags.dart';
+import '../presentation/screens/account_screen.dart';
 import '../presentation/screens/analytics_screen.dart';
 import '../presentation/screens/app_shell.dart';
 import '../presentation/screens/budgets_screen.dart';
@@ -87,21 +88,29 @@ final appRouter = GoRouter(
                   path: 'projects',
                   builder: (context, state) => const ProjectsScreen(),
                 ),
-                GoRoute(
-                  path: 'profile',
-                  builder: (context, state) => const ProfileScreen(),
-                ),
-                GoRoute(
-                  path: 'backup',
-                  builder: (context, state) => const BackupScreen(),
-                ),
-                GoRoute(
-                  path: 'export',
-                  builder: (context, state) => const ExportScreen(),
-                ),
               ],
             ),
           ],
+        ),
+      ],
+    ),
+    // Account hub — reached from the header gear on any tab. Pushed over the
+    // shell (root navigator), so it is full-screen with a back button.
+    GoRoute(
+      path: '/account',
+      builder: (context, state) => const AccountScreen(),
+      routes: [
+        GoRoute(
+          path: 'profile',
+          builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: 'export',
+          builder: (context, state) => const ExportScreen(),
+        ),
+        GoRoute(
+          path: 'backup',
+          builder: (context, state) => const BackupScreen(),
         ),
       ],
     ),

@@ -13,9 +13,9 @@ import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
+import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
-import '../widgets/month_header_bar.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/thin_progress_bar.dart';
 import 'expense_entry/expense_entry_screen.dart';
@@ -158,16 +158,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final colors = context.appColors;
 
     return Scaffold(
-      appBar: AppBar(
-        title: _selectionMode ? Text('${_selectedIds.length} selected') : null,
-        centerTitle: true,
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : null,
-      ),
       floatingActionButton: PressableScale(
         onTap: () => _openEntry(),
         child: Container(
@@ -183,7 +173,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       body: Column(
         children: [
-          MonthHeaderBar(month: _month, onChangeMonth: _changeMonth),
+          AppTopBar(
+            month: _month,
+            onChangeMonth: _changeMonth,
+            selectionCount: _selectedIds.length,
+            onClearSelection: () => setState(() => _selectedIds.clear()),
+            onDeleteSelection: _deleteSelected,
+          ),
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -346,8 +342,7 @@ class _StatTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDimens.radiusCard),
         border: Border.all(color: colors.borderSoft, width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
             width: 32,
@@ -355,13 +350,20 @@ class _StatTile extends StatelessWidget {
             decoration: BoxDecoration(color: iconChipBackground(color), shape: BoxShape.circle),
             child: Icon(icon, size: 18, color: color),
           ),
-          const SizedBox(height: AppSpacing.smMd),
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: AppSpacing.xs),
-          AmountText(
-            amountCents: value,
-            currency: currency,
-            style: appDisplay(colors, fontSize: 20),
+          const SizedBox(width: AppSpacing.smMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelSmall),
+                const SizedBox(height: AppSpacing.xs),
+                AmountText(
+                  amountCents: value,
+                  currency: currency,
+                  style: appDisplay(colors, fontSize: 20),
+                ),
+              ],
+            ),
           ),
         ],
       ),

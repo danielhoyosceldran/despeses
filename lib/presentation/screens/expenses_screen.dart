@@ -7,6 +7,7 @@ import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
+import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/expense_filter_sheet.dart';
 import 'expense_entry/expense_entry_screen.dart';
@@ -131,30 +132,31 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         _filters.dateFrom != null ||
         _filters.dateTo != null;
 
+    final t = ref.watch(translationsProvider).asData?.value;
+
     return Scaffold(
-      appBar: AppBar(
-        title: _selectionMode ? Text('${_selectedIds.length} selected') : null,
-        leading: _selectionMode
-            ? IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => setState(() => _selectedIds.clear()))
-            : null,
-        actions: _selectionMode
-            ? [IconButton(icon: const Icon(LucideIcons.trash2300), onPressed: _deleteSelected)]
-            : [
-                IconButton(
-                  icon: Icon(
-                    LucideIcons.filter300,
-                    color: hasActiveFilters ? context.appColors.accent : null,
-                  ),
-                  onPressed: _openFilters,
-                ),
-              ],
-      ),
       floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _expenses.isEmpty
-              ? const Center(child: Text('No transactions'))
-              : ListView.builder(
+      body: Column(
+        children: [
+          AppTopBar(
+            title: t?.t('nav.expenses') ?? 'Expenses',
+            selectionCount: _selectedIds.length,
+            onClearSelection: () => setState(() => _selectedIds.clear()),
+            onDeleteSelection: _deleteSelected,
+            actions: [
+              TopBarCircleButton(
+                icon: LucideIcons.filter300,
+                color: hasActiveFilters ? context.appColors.accent : null,
+                onTap: _openFilters,
+              ),
+            ],
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _expenses.isEmpty
+                    ? const Center(child: Text('No transactions'))
+                    : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
                   itemCount: _expenses.length + 1,
                   itemBuilder: (context, index) {
@@ -178,6 +180,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     );
                   },
                 ),
+          ),
+        ],
+      ),
     );
   }
 }

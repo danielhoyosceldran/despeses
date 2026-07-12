@@ -11,7 +11,7 @@ import '../../data/database.dart';
 import '../../domain/repositories/analytics_repository.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
-import '../widgets/month_header_bar.dart';
+import '../widgets/app_top_bar.dart';
 
 enum _Dimension { category, tags }
 
@@ -114,10 +114,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
     return Scaffold(
-      appBar: AppBar(),
       body: Column(
         children: [
-          MonthHeaderBar(month: _month, onChangeMonth: _changeMonth),
+          AppTopBar(month: _month, onChangeMonth: _changeMonth),
           SegmentedButton<_Dimension>(
             segments: [
               ButtonSegment(

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../widgets/app_card.dart';
+import '../widgets/app_top_bar.dart';
 import '../widgets/hairline_list_tile.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -23,30 +24,29 @@ class SettingsScreen extends ConsumerWidget {
       (LucideIcons.creditCard300, 'settings_nav.payment_methods', 'Payment methods', '/settings/payment-methods'),
       (LucideIcons.calendar300, 'settings_nav.events', 'Events', '/settings/events'),
       (LucideIcons.fileText300, 'settings_nav.projects', 'Projects', '/settings/projects'),
-      (LucideIcons.settings300, 'settings_nav.profile', 'Profile', '/settings/profile'),
-      (LucideIcons.download300, 'settings_nav.export', 'Export', '/settings/export'),
     ];
 
     return Scaffold(
-      appBar: AppBar(),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
+      body: Column(
         children: [
-          AppCard(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-            child: Column(
+          AppTopBar(title: t?.t('nav.settings') ?? 'Settings'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
               children: [
-                for (final (icon, key, fallback, path) in items)
-                  HairlineListTile(
-                    icon: icon,
-                    title: t?.t(key) ?? fallback,
-                    onTap: () => context.push(path),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  child: Column(
+                    children: [
+                      for (final (index, (icon, key, fallback, path)) in items.indexed)
+                        HairlineListTile(
+                          icon: icon,
+                          title: t?.t(key) ?? fallback,
+                          onTap: () => context.push(path),
+                          showDivider: index != items.length - 1,
+                        ),
+                    ],
                   ),
-                HairlineListTile(
-                  icon: LucideIcons.hardDriveDownload300,
-                  title: 'Backup',
-                  onTap: () => context.push('/settings/backup'),
-                  showDivider: false,
                 ),
               ],
             ),
