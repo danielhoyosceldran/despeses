@@ -35,16 +35,10 @@ class DashboardScreen extends ConsumerStatefulWidget {
 /// each page index maps to a calendar month offset from [_baseMonth].
 const int _kInitialPage = 6000;
 
-/// Scroll offset (px) over which the hero fully collapses.
-const double _kCollapseDistance = 40;
-
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   late final DateTime _baseMonth;
   late final PageController _pageController;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
-
-  /// 0 = hero expanded, 1 = fully collapsed. Driven by the active page scroll.
-  final ValueNotifier<double> _collapse = ValueNotifier(0);
 
   final Map<String, List<Expense>> _expenseCache = {};
   List<Budget> _allBudgets = [];
@@ -78,7 +72,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _collapse.dispose();
     super.dispose();
   }
 
@@ -122,18 +115,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   void _onPageChanged(int page) {
-    _collapse.value = 0;
     setState(() => _month = _monthForPage(page));
     _prefetchAdjacent();
-  }
-
-  /// Catch vertical scroll from the active page's ListView and map it to the
-  /// collapse factor. Horizontal (PageView) notifications are ignored.
-  bool _onScroll(ScrollNotification n) {
-    if (n.metrics.axis == Axis.vertical) {
-      _collapse.value = (n.metrics.pixels / _kCollapseDistance).clamp(0.0, 1.0);
-    }
-    return false;
   }
 
   Future<void> _openEntry({String? expenseId}) async {
@@ -201,40 +184,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: Column(
         children: [
           MonthHeaderBar(month: _month, onChangeMonth: _changeMonth),
-          // Shared collapsing hero — totals for the current month.
-          FutureBuilder<List<Expense>>(
-            future: _fetchMonth(_month),
-            builder: (context, snapshot) {
-              final totals = _Totals.of(snapshot.data ?? const [], currency);
-              return ValueListenableBuilder<double>(
-                valueListenable: _collapse,
-                builder: (context, t, _) => _BalanceHeader(totals: totals, currency: currency, t: t),
-              );
-            },
-          ),
           Expanded(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                itemBuilder: (context, index) {
-                  final month = _monthForPage(index);
-                  return _MonthPage(
-                    key: ValueKey(_monthKeyOf(month)),
-                    month: month,
-                    fetchExpenses: _fetchMonth,
-                    allBudgets: _allBudgets,
-                    budgetProgress: _budgetProgress,
-                    currency: currency,
-                    translations: translations,
-                    onOpenEntry: _openEntry,
-                    selectionMode: _selectionMode,
-                    selectedIds: _selectedIds,
-                    onToggleSelection: _toggleSelection,
-                  );
-                },
-              ),
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                final month = _monthForPage(index);
+                return _MonthPage(
+                  key: ValueKey(_monthKeyOf(month)),
+                  month: month,
+                  fetchExpenses: _fetchMonth,
+                  allBudgets: _allBudgets,
+                  budgetProgress: _budgetProgress,
+                  currency: currency,
+                  translations: translations,
+                  onOpenEntry: _openEntry,
+                  selectionMode: _selectionMode,
+                  selectedIds: _selectedIds,
+                  onToggleSelection: _toggleSelection,
+                );
+              },
             ),
           ),
         ],
@@ -282,18 +251,22 @@ class _BalanceHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final semantic = context.semanticColors;
-    return Container(
+    return ClipRect(
+      child: Container(
       width: double.infinity,
+      alignment: Alignment.topCenter,
+      color: colors.bg,
       padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
         lerpDouble(AppSpacing.md, AppSpacing.sm, t)!,
         AppSpacing.lg,
         lerpDouble(0, AppSpacing.smMd, t)!,
       ),
-      decoration: BoxDecoration(
+      foregroundDecoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: colors.divider.withValues(alpha: t), width: 1)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'Total Balance',
@@ -341,6 +314,7 @@ class _BalanceHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -433,64 +407,105 @@ class _MonthPage extends ConsumerWidget {
         final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
         final active = allBudgets.where((b) => budgetRepo.isActiveForMonth(b, monthKey)).toList();
         final days = _groupByDay(expenses, currency);
+        final totals = _Totals.of(expenses, currency);
 
-        return ListView(
-          // Always scrollable so the hero can collapse even on short months.
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xxxl),
-          children: [
-            if (active.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
-                child: Text('ACTIVE BUDGETS', style: appHeaderStyle(colors)),
+        final content = <Widget>[
+          if (active.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
+              child: Text('ACTIVE BUDGETS', style: appHeaderStyle(colors)),
+            ),
+            AppCard(
+              child: Column(
+                children: [
+                  for (final budget in active)
+                    _BudgetProgressTile(budget: budget, spent: budgetProgress[budget.id] ?? 0),
+                ],
               ),
-              AppCard(
-                child: Column(
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          if (expenses.isEmpty)
+            const Padding(padding: EdgeInsets.all(AppSpacing.xl), child: Center(child: Text('No transactions')))
+          else
+            for (final group in days) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.sm, AppSpacing.xs, AppSpacing.smMd),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    for (final budget in active)
-                      _BudgetProgressTile(budget: budget, spent: budgetProgress[budget.id] ?? 0),
+                    Text(group.label, style: appHeaderStyle(colors)),
+                    Text(
+                      _signed(group.total, currency),
+                      style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                            color: group.total >= 0 ? context.semanticColors.income : colors.textMuted,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-            if (expenses.isEmpty)
-              const Padding(padding: EdgeInsets.all(AppSpacing.xl), child: Center(child: Text('No transactions')))
-            else
-              for (final group in days) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.sm, AppSpacing.xs, AppSpacing.smMd),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(group.label, style: appHeaderStyle(colors)),
-                      Text(
-                        _signed(group.total, currency),
-                        style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                              color: group.total >= 0 ? context.semanticColors.income : colors.textMuted,
-                              fontFeatures: const [FontFeature.tabularFigures()],
-                            ),
-                      ),
-                    ],
-                  ),
+              for (final expense in group.items)
+                _ExpenseRow(
+                  expense: expense,
+                  translations: translations,
+                  selectionMode: selectionMode,
+                  selected: selectedIds.contains(expense.id),
+                  onTap: () => selectionMode ? onToggleSelection(expense) : onOpenEntry(expenseId: expense.id),
+                  onLongPress: () => onToggleSelection(expense),
                 ),
-                for (final expense in group.items)
-                  _ExpenseRow(
-                    expense: expense,
-                    translations: translations,
-                    selectionMode: selectionMode,
-                    selected: selectedIds.contains(expense.id),
-                    onTap: () => selectionMode ? onToggleSelection(expense) : onOpenEntry(expenseId: expense.id),
-                    onLongPress: () => onToggleSelection(expense),
-                  ),
-                const SizedBox(height: AppSpacing.smMd),
-              ],
+              const SizedBox(height: AppSpacing.smMd),
+            ],
+        ];
+
+        return CustomScrollView(
+          // Always scrollable so the hero can collapse even on short months.
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Scroll-driven collapsing hero: shrinkOffset (0 → maxExtent-minExtent)
+            // is the animation clock — the scroll position IS the value.
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _HeroHeaderDelegate(totals: totals, currency: currency),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xxxl),
+              sliver: SliverList.list(children: content),
+            ),
           ],
         );
       },
     );
   }
+}
+
+/// Pinned collapsing hero. [shrinkOffset] maps linearly to t (0 = expanded,
+/// 1 = collapsed): the scroll drives the balance shrink and the Income/Spent
+/// tiles folding away, simultaneously, 1:1 with the finger.
+class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _HeroHeaderDelegate({required this.totals, required this.currency});
+
+  final _Totals totals;
+  final String currency;
+
+  static const double _min = 88;
+  static const double _max = 244;
+
+  @override
+  double get minExtent => _min;
+  @override
+  double get maxExtent => _max;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final t = (shrinkOffset / (_max - _min)).clamp(0.0, 1.0);
+    return _BalanceHeader(totals: totals, currency: currency, t: t);
+  }
+
+  @override
+  bool shouldRebuild(_HeroHeaderDelegate old) =>
+      old.totals.spent != totals.spent || old.totals.income != totals.income || old.currency != currency;
 }
 
 /// A day bucket of transactions in display order, with its signed total.
