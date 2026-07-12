@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup ubicación de estadísticas — Despeses</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2a323d;
+    --ink:#e6edf3; --muted:#8b98a8; --accent:#7aa2ff;
+    --yes:#3fb950; --partial:#d29922; --no:#f85149;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  header.top{position:sticky;top:0;z-index:10;background:rgba(14,17,22,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);padding:16px 22px}
+  header.top h1{font-size:19px;letter-spacing:.2px}
+  header.top p{color:var(--muted);font-size:13px;margin-top:3px}
+  .legend{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .layout{display:flex;gap:22px;max-width:1180px;margin:0 auto;padding:22px}
+  nav{position:sticky;top:96px;align-self:flex-start;min-width:210px;font-size:13px}
+  nav a{display:block;color:var(--muted);text-decoration:none;padding:7px 10px;border-radius:8px;border-left:2px solid transparent}
+  nav a:hover{background:var(--panel);color:var(--ink)}
+  nav a .cnt{float:right;opacity:.55}
+  main{flex:1;min-width:0}
+  .screen{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin-bottom:26px}
+  .screen>h2{font-size:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .screen>.sub{color:var(--muted);font-size:13px;margin:4px 0 16px}
+  .tag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--panel2);
+    color:var(--muted);border:1px solid var(--line)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px;position:relative;
+    display:flex;flex-direction:column;gap:8px}
+  .card .idbadge{font:600 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace;
+    padding:3px 7px;border-radius:6px;color:#0e1116;align-self:flex-start}
+  .card h3{font-size:14px}
+  .card .desc{font-size:12.5px;color:var(--muted)}
+  .placeholder{margin-top:auto;background:repeating-linear-gradient(45deg,#12171e,#12171e 9px,#141b23 9px,#141b23 18px);
+    border:1px dashed #33404e;border-radius:9px;min-height:78px;display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:10px;color:#6f7d8d;font-size:11.5px;font-style:italic}
+  .feas{position:absolute;top:11px;right:11px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .tag.pref{color:var(--partial);border-color:var(--partial);background:rgba(210,153,34,.12)}
+  .footer{max-width:1180px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Mockup — pantalla Analytics</h1>
+  <p>App <b>Despeses</b>. <b>Todas</b> las estadísticas viven dentro de la pantalla <b>Analytics</b>, organizadas en secciones/pestañas. Cada tarjeta = una fila del Excel <code>propuestas-estadisticas.xlsx</code>. El recuadro rayado marca el sitio del gráfico (sin librería, solo descripción).</p>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--yes)"></i> Se puede hacer ya</span>
+    <span><i class="dot" style="background:var(--partial)"></i> Parcial / heurística</span>
+    <span>★ Vista preferente</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div class="footer">IDs coinciden con la columna «ID» del Excel <code>propuestas-estadisticas.xlsx</code> (fuente de la verdad). Se han excluido las filas marcadas en la columna «Quitar» (A9.1–A9.3 y B1–B10). Categorías y Tags = ★ vistas preferentes (dimensiones del FAB).</div>
+
+<script>
+const F = {yes:'#3fb950', partial:'#d29922', no:'#f85149'};
+const FL = {yes:'HOY', partial:'PARCIAL', no:'NUEVO'};
+
+// sections = destinos (columna "Ubicación propuesta"). Cada stat: [id, feas, titulo, descripcion, textoGrafico]
+const sections = [
+  {key:'a-cat', pref:true, title:'Analytics › Categorías', sub:'VISTA PREFERENTE (dimensión por defecto del FAB). Pie con drill: raíz → sub → sub-sub, más eje temporal y rankings.', stats:[
+    ['A3.1','yes','Apiladas por categoría raíz','Composición de categorías raíz mes a mes.','Barras/área apiladas por mes'],
+    ['A3.2','yes','Top movers','Categorías que más subieron/bajaron.','Lista con Δ% y sparkline por categoría'],
+    ['A3.3','yes','Ranking del periodo','% del total y ticket medio por categoría.','Tabla ordenada con barras de % '],
+    ['A3.4','yes','Tendencia al hacer drill','Sparkline por subcategoría.','Sparkline dentro de cada slice al drill-down'],
+    ['A3.5','yes','% gasto en subcategoría directa','Calidad de categorización.','Barra directa vs subcategorías'],
+  ]},
+  {key:'a-tags', pref:true, title:'Analytics › Tags y grupos', sub:'VISTA PREFERENTE (segunda dimensión del FAB). Los tags ya se agregan; el TagGroup da un eje natural hoy sin explotar.', stats:[
+    ['A4.1','yes','Análisis por grupo de tags','Necesidad/Deseo, gasto por Persona, etc.','Barras por grupo → ratio necesidad vs capricho'],
+    ['A4.2','yes','Tendencia por tag/grupo','Serie temporal por tag o grupo.','Líneas por tag en el tiempo'],
+    ['A4.4','yes','Cruce tag × categoría','Heatmap: cuánto de un tag cae en cada categoría.','Matriz heatmap tag × categoría'],
+  ]},
+  {key:'dashboard', title:'Analytics › Salud financiera', sub:'Cabecera de la pantalla Analytics. KPIs y métricas en vivo del mes en curso.', stats:[
+    ['A1.4','yes','Burn-down/up del mes','Acumulado del mes vs mismo día del mes pasado.','Doble línea acumulada: mes actual vs mes pasado, marcador en el día de hoy'],
+    ['A1.5','yes','Proyección fin de mes','Extrapola el ritmo diario del mes en curso.','Cifra grande proyectada + banda de confianza'],
+    ['A8.6','yes','Racha de días sin gasto','No-spend days: métrica motivacional.','Contador «7 días sin gasto» + mini calendario del mes'],
+    ['A10.1','yes','Salud financiera (KPIs)','Tasa de ahorro, gasto vs media 3M, presupuestos en riesgo, mayor categoría, racha.','Fila de 4–6 tiles de KPI compactos'],
+  ]},
+  {key:'a-tendencia', title:'Analytics › Tendencia', sub:'Nueva pestaña/sección temporal. El mayor salto de valor: pasar de foto de un mes a serie histórica.', stats:[
+    ['A1.1','yes','Gasto mensual','Total con signo por mes (6/12/24 meses).','Barras/línea de gasto mensual con selector de ventana'],
+    ['A1.2','yes','Media móvil 3 meses','Línea suavizada de «gasto típico».','Línea de media móvil superpuesta al gasto mensual'],
+    ['A1.3','yes','MoM y YoY','Mes vs mes anterior y vs mismo mes año pasado (% y absoluto).','Dos badges Δ% (MoM / YoY) con flecha arriba/abajo'],
+    ['A1.6','yes','Gasto medio diario','Por mes y por día de la semana.','Barras por día de semana (L–D)'],
+    ['A1.7','yes','Heatmap calendario','Intensidad de gasto por día, estilo GitHub.','Rejilla de celdas por día coloreadas por intensidad'],
+  ]},
+  {key:'a-flujo', title:'Analytics › Flujo de caja', sub:'Nueva sección. type=income ya se captura pero hoy Analytics lo ignora: dimensión entera sin usar.', stats:[
+    ['A2.1','yes','Cash-flow neto por mes','Ingresos − gasto (refund neteado).','Barras divergentes +/− por mes'],
+    ['A2.2','yes','Tasa de ahorro','(ingresos − gasto) / ingresos. KPI clave.','Medidor circular con % de ahorro'],
+    ['A2.3','yes','Balance acumulado','Suma de netos mensuales en el tiempo.','Línea de área acumulada'],
+    ['A2.4','partial','Ingresos por fuente','Desglose del ingreso por origen.','Pie de fuentes de ingreso (si se categorizan)'],
+  ]},
+  {key:'a-metodo', title:'Analytics › Métodos de pago', sub:'Nueva dimensión del FAB. Capturada y hoy totalmente sin analizar.', stats:[
+    ['A5.1','yes','Gasto por método','Tarjeta vs efectivo vs… pie + tendencia.','Pie por método + línea temporal'],
+    ['A5.2','yes','Ticket medio por método','Importe medio por método.','Barras de ticket medio'],
+    ['A5.3','yes','% de gasto en efectivo','El «gasto invisible».','Anillo con % efectivo'],
+    ['A5.4','yes','Método por categoría','¿El efectivo va sobre todo a…?','Barras apiladas método dentro de categoría'],
+  ]},
+  {key:'a-comp', title:'Analytics › Comportamiento', sub:'Nueva sección de KPIs transaccionales y patrones inferidos.', stats:[
+    ['A8.1','yes','Nº de transacciones','Conteo mensual y tendencia.','Barras de conteo por mes'],
+    ['A8.2','yes','Ticket medio / mediana / máx','La mediana resiste outliers.','3 cifras KPI'],
+    ['A8.3','yes','Distribución de importes','Histograma: muchos pequeños o pocos grandes.','Histograma de importes'],
+    ['A8.4','yes','Top 5 transacciones','Mayores gastos del periodo.','Lista top-5 con importe'],
+    ['A8.5','yes','Gasto hormiga','Micro-transacciones agregadas (< umbral).','Cifra agregada + selector de umbral'],
+    ['A8.7','yes','Refunds','Total reembolsado, ratio refund/gasto.','Barra refund vs gasto + top categorías'],
+  ]},
+  {key:'a-calidad', title:'Analytics › Calidad de datos', sub:'Panel de higiene de datos (podría vivir también en Ajustes).', stats:[
+    ['A4.3','yes','Cobertura de tags','% de transacciones sin ningún tag.','Anillo de % sin tag'],
+    ['A6.6','yes','Gasto fuera de rango','Transacciones de evento con date fuera de [inicio,fin].','Lista de anomalías'],
+  ]},
+  {key:'budgets', title:'Analytics › Presupuestos', sub:'Sección de Analytics. Progreso, ritmo y proyección de los Budgets (se refleja también en la pantalla Budgets).', stats:[
+    ['A7.1','yes','Gastado vs presupuestado','% consumido y restante.','ThinProgressBar + gastado/límite'],
+    ['A7.2','yes','Ritmo vs tiempo transcurrido','Semáforo de sobre-ritmo.','Barra doble: % gastado vs % periodo'],
+    ['A7.3','yes','Proyección de cierre','¿Acabarás dentro o fuera?','Proyección con marca de límite'],
+    ['A7.4','yes','Histórico de cumplimiento','Cuántos presupuestos se cumplieron; desviación media.','Barras cumplido/excedido por periodo'],
+    ['A7.5','yes','Total/range: barra de avance','Avance sobre toda la vida del presupuesto.','Barra de avance de largo plazo'],
+  ]},
+  {key:'evento', title:'Analytics › Eventos y Proyectos', sub:'Sección de Analytics. Se elige un evento/proyecto y se analiza su gasto (startsAt/endsAt permiten análisis con duración).', stats:[
+    ['A6.1','yes','Coste total','Suma con signo del evento/proyecto.','Cifra grande de coste total'],
+    ['A6.2','yes','Presupuesto vs real','Cuando hay Budget de ese ámbito.','Barra presupuesto vs real'],
+    ['A6.3','yes','Coste por día','Total / días de duración.','KPI €/día'],
+    ['A6.4','yes','Desglose por categoría','¿En qué se fue el viaje?','Pie de categorías del evento'],
+    ['A6.5','yes','Línea temporal del proyecto','Acumulado entre inicio y fin.','Línea acumulada dentro del rango'],
+  ]},
+];
+
+const main = document.getElementById('main');
+const nav = document.getElementById('nav');
+sections.forEach(s=>{
+  const a=document.createElement('a');
+  a.href='#'+s.key;
+  a.innerHTML=`${s.pref?'★ ':''}${s.title}<span class="cnt">${s.stats.length}</span>`;
+  nav.appendChild(a);
+
+  const sec=document.createElement('section');
+  sec.className='screen'; sec.id=s.key;
+  const ids=s.stats.map(x=>x[0]).join(' · ');
+  sec.innerHTML=`<h2>${s.pref?'★ ':''}${s.title} <span class="tag">${s.stats.length} stats</span>${s.pref?' <span class="tag pref">vista preferente</span>':''}</h2>
+    <div class="sub">${s.sub}<br><b>Refs:</b> ${ids}</div>
+    <div class="grid"></div>`;
+  const grid=sec.querySelector('.grid');
+  s.stats.forEach(([id,feas,title,desc,ph])=>{
+    const c=document.createElement('div'); c.className='card';
+    c.innerHTML=`
+      <span class="idbadge" style="background:${F[feas]}">${id}</span>
+      <span class="feas" style="color:${F[feas]}">${FL[feas]}</span>
+      <h3>${title}</h3>
+      <div class="desc">${desc}</div>
+      <div class="placeholder">${ph}</div>`;
+    grid.appendChild(c);
+  });
+  main.appendChild(sec);
+});
+</script>
+</body>
+</html>

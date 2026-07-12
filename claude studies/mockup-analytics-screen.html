@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup pantalla Analytics — Despeses</title>
+<style>
+/* ---- tokens espejo de STYLE.md (mono-ink) ---- */
+:root{
+  --bg:#ffffff; --surface:#ffffff; --surfaceAlt:#ececf0;
+  --border:rgba(0,0,0,.10); --borderSoft:rgba(0,0,0,.06);
+  --text:#252525; --muted:#717182; --accent:#030213; --onAccent:#fff;
+  --shadow:rgba(0,0,0,.12);
+  /* data palette */
+  --emerald:#10B981; --rose:#F43F5E; --purple:#8B5CF6; --amber:#F59E0B; --blue:#3B82F6;
+}
+:root[data-theme=dark]{
+  --bg:#252525; --surface:#252525; --surfaceAlt:#404040;
+  --border:#404040; --borderSoft:rgba(64,64,64,.5);
+  --text:#fafafa; --muted:#b5b5b5; --accent:#fafafa; --onAccent:#343434;
+  --shadow:rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0e1116;color:var(--text);
+  font:15px/1.5 Inter,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 12px 60px;min-height:100vh}
+/* headline slots ~ Clash Display */
+.display{font-family:"Clash Display",Inter,sans-serif;letter-spacing:-.5px;line-height:1;
+  font-variant-numeric:tabular-nums;font-weight:500}
+.pagehint{color:#8b98a8;font-size:13px;text-align:center;max-width:420px}
+.pagehint code{background:#161b22;padding:1px 5px;border-radius:5px}
+.controls{display:flex;gap:8px;align-items:center}
+.controls button{background:#161b22;color:#c9d4e0;border:1px solid #2a323d;border-radius:8px;
+  padding:6px 12px;font-size:12px;cursor:pointer}
+.controls button:hover{border-color:#3d4a5a}
+
+/* ---- phone frame ---- */
+.phone{width:400px;max-width:100%;height:820px;background:var(--bg);border-radius:38px;
+  box-shadow:0 20px 60px rgba(0,0,0,.55),0 0 0 10px #0a0d12,0 0 0 11px #222;
+  overflow:hidden;display:flex;flex-direction:column;position:relative}
+
+/* AppTopBar */
+.topbar{padding:18px 20px 8px;display:flex;align-items:center;justify-content:space-between}
+.monthpager{display:flex;align-items:center;gap:12px}
+.chev,.gear{width:36px;height:36px;border-radius:100px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;color:var(--muted);border:1px solid transparent}
+.gear{background:var(--surfaceAlt);color:var(--text)}
+.chev:hover{background:var(--surfaceAlt)}
+.month{font-size:14px;font-weight:500;letter-spacing:.5px;color:var(--muted);text-transform:uppercase}
+
+/* section tab strip */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 16px 12px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;padding:7px 13px;border-radius:100px;font-size:12.5px;font-weight:500;cursor:pointer;
+  color:var(--muted);background:transparent;border:1px solid var(--borderSoft);white-space:nowrap}
+.tab.active{background:var(--accent);color:var(--onAccent);border-color:var(--accent)}
+.tab.pref{border-color:var(--amber)}
+.tab.pref.active{border-color:var(--accent)}
+.prefbadge{font-family:Inter;font-size:10px;font-weight:600;color:var(--amber);
+  background:color-mix(in srgb,var(--amber) 15%,transparent);padding:3px 8px;border-radius:100px;
+  vertical-align:middle;letter-spacing:.3px;text-transform:uppercase}
+
+/* scroll body */
+.body{flex:1;overflow-y:auto;padding:4px 16px 90px}
+.body::-webkit-scrollbar{width:6px}
+.body::-webkit-scrollbar-thumb{background:var(--surfaceAlt);border-radius:3px}
+.sechead{padding:10px 4px 4px}
+.sechead h2{font-size:20px}
+.sechead p{color:var(--muted);font-size:12.5px;margin-top:4px}
+.sechead .refs{font-size:11px;color:var(--muted);margin-top:6px;font-family:ui-monospace,Consolas,monospace}
+
+/* AppCard */
+.card{background:var(--surface);border:1px solid var(--borderSoft);border-radius:16px;padding:16px;margin:12px 0;
+  position:relative}
+.card.large{border-radius:24px}
+.card .idbadge{position:absolute;top:12px;right:12px;font:600 10px/1 ui-monospace,Consolas,monospace;
+  color:var(--muted);background:var(--surfaceAlt);padding:4px 7px;border-radius:6px}
+.card h3{font-size:15px;font-weight:500;padding-right:70px}
+.card .cap{color:var(--muted);font-size:12px;margin-top:3px;padding-right:40px}
+.viz{margin-top:14px}
+
+/* KPI tiles */
+.kpirow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:color-mix(in srgb,var(--surfaceAlt) 40%,transparent);border:1px solid var(--borderSoft);
+  border-radius:16px;padding:12px}
+.kpi .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.kpi .val{font-size:22px;margin-top:6px}
+.pos{color:var(--emerald)} .neg{color:var(--rose)} .warn{color:var(--amber)}
+
+/* bars */
+.bars{display:flex;align-items:flex-end;gap:7px;height:120px}
+.bars .bar{flex:1;background:var(--accent);border-radius:6px 6px 0 0;opacity:.85}
+.axis{display:flex;gap:7px;margin-top:5px}
+.axis span{flex:1;text-align:center;font-size:9px;color:var(--muted)}
+
+/* donut */
+.donut{width:150px;height:150px;border-radius:50%;margin:6px auto;position:relative;
+  -webkit-mask:radial-gradient(circle 46px at center,transparent 98%,#000 100%);
+          mask:radial-gradient(circle 46px at center,transparent 98%,#000 100%)}
+.donut-c{position:relative;width:150px;height:150px;margin:0 auto}
+.donut-lbl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-lbl b{font-size:20px;font-family:"Clash Display",Inter;letter-spacing:-.5px}
+.donut-lbl small{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+
+/* legend */
+.legend{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.legend .row{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.legend .dot{width:9px;height:9px;border-radius:3px}
+.legend .amt{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted)}
+
+/* ranked list */
+.rank .r{margin:8px 0}
+.rank .top{display:flex;justify-content:space-between;font-size:12.5px}
+.rank .track{height:6px;background:var(--surfaceAlt);border-radius:100px;margin-top:4px;overflow:hidden}
+.rank .fill{height:100%;border-radius:100px}
+
+/* progress (budget) */
+.bud{margin:10px 0}
+.bud .top{display:flex;justify-content:space-between;font-size:13px}
+.bud .track{height:6px;background:var(--surfaceAlt);border-radius:100px;margin-top:6px;overflow:hidden}
+.bud .fill{height:100%;border-radius:100px}
+.bud small{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+
+/* heatmap */
+.heat{display:grid;grid-template-columns:repeat(13,1fr);gap:3px}
+.heat i{aspect-ratio:1;border-radius:3px;background:var(--accent)}
+
+/* ring */
+.ring-c{display:flex;align-items:center;gap:16px}
+.ring{width:96px;height:96px;border-radius:50%;position:relative;flex:0 0 auto}
+.ring::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--surface)}
+.ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;
+  font-family:"Clash Display",Inter;font-size:20px}
+
+/* line/area svg */
+svg.chart{width:100%;height:120px;display:block}
+
+/* stacked */
+.stack{display:flex;height:24px;border-radius:8px;overflow:hidden}
+.stack span{height:100%}
+
+/* future/roadmap note */
+.card.future{border-style:dashed;border-color:var(--border);opacity:.92}
+.card.future .idbadge{color:var(--amber);background:color-mix(in srgb,var(--amber) 15%,transparent)}
+.needs{margin-top:12px;font-size:12px;color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,transparent);
+  border-radius:10px;padding:9px 11px}
+
+/* FAB */
+.fab{position:absolute;right:18px;bottom:20px;width:56px;height:56px;border-radius:50%;
+  background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;
+  font-size:22px;box-shadow:0 8px 20px var(--shadow);cursor:pointer}
+.total-panel{text-align:center;padding:22px 16px 18px}
+.total-panel .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.total-panel .amt{font-size:44px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="pagehint">
+  Mockup navegable de la pantalla <b>Analytics</b>. Cada pestaña = una sección; cada tarjeta lleva su <b>ref del Excel</b> (arriba-dcha). Edita el array <code>SECTIONS</code> del script para reordenar/mover bloques.
+</div>
+<div class="controls">
+  <button id="theme">🌓 Tema</button>
+  <span class="pagehint" style="font-size:12px">Datos ficticios · visuales CSS/SVG (sin librería de gráficos)</span>
+</div>
+
+<div class="phone">
+  <div class="topbar">
+    <div class="monthpager">
+      <div class="chev">‹</div>
+      <div class="month">Julio 2026</div>
+      <div class="chev">›</div>
+    </div>
+    <div class="gear">⚙</div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="body" id="screen"></div>
+  <div class="fab" title="Cambia la dimensión analizada">◔</div>
+</div>
+
+<script>
+const C = getComputedStyle(document.documentElement);
+const DATA = ['#10B981','#8B5CF6','#F59E0B','#3B82F6','#F43F5E']; // AppDataColors.cycle
+
+/* ---------- mini-visual renderers (mock data) ---------- */
+const rnd = (a,b)=>a+Math.random()*(b-a);
+function bars(n=12,labels){
+  let h=Array.from({length:n},(_,i)=>40+40*Math.sin(i/2)+rnd(0,25));
+  const mx=Math.max(...h);
+  const bs=h.map(v=>`<div class="bar" style="height:${(v/mx*100).toFixed(0)}%"></div>`).join('');
+  const ax=labels?`<div class="axis">${labels.map(l=>`<span>${l}</span>`).join('')}</div>`:'';
+  return `<div class="bars">${bs}</div>${ax}`;
+}
+function line(area=false){
+  const n=12, pts=Array.from({length:n},(_,i)=>[i*(300/(n-1)), 100-(30+30*Math.sin(i/1.7)+rnd(0,25))]);
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const fill=area?`<path d="${d} L300 110 L0 110 Z" fill="var(--accent)" opacity=".12"/>`:'';
+  return `<svg class="chart" viewBox="0 0 300 110" preserveAspectRatio="none">${fill}
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+}
+function twoLine(){
+  const n=12, mk=off=>Array.from({length:n},(_,i)=>[i*(300/(n-1)),100-(25+off+28*Math.sin(i/1.6)+rnd(0,12))]);
+  const p=a=>a.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
+  return `<svg class="chart" viewBox="0 0 300 110" preserveAspectRatio="none">
+    <path d="${p(mk(0))}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+    <path d="${p(mk(-14))}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 4"/></svg>`;
+}
+function donut(){
+  const segs=[34,24,18,14,10]; let acc=0;
+  const stops=segs.map((s,i)=>{const a=acc;acc+=s;return `${DATA[i]} ${a}% ${acc}%`;}).join(',');
+  const leg=['Vivienda','Comida','Transporte','Ocio','Otros'].map((l,i)=>
+    `<div class="row"><span class="dot" style="background:${DATA[i]}"></span>${l}<span class="amt">${(segs[i]*12).toFixed(0)} €</span></div>`).join('');
+  return `<div class="donut-c"><div class="donut" style="background:conic-gradient(${stops})"></div>
+    <div class="donut-lbl"><b>1.240 €</b><small>Total</small></div></div>
+    <div class="legend">${leg}</div>`;
+}
+function kpis(items){
+  return `<div class="kpirow">${items.map(k=>`<div class="kpi"><div class="lbl">${k[0]}</div><div class="val display ${k[2]||''}">${k[1]}</div></div>`).join('')}</div>`;
+}
+function ranklist(items){
+  const mx=Math.max(...items.map(i=>i[1]));
+  return `<div class="rank">${items.map((it,i)=>`<div class="r"><div class="top"><span>${it[0]}</span><span>${it[1]} €</span></div>
+    <div class="track"><div class="fill" style="width:${(it[1]/mx*100).toFixed(0)}%;background:${DATA[i%5]}"></div></div></div>`).join('')}</div>`;
+}
+function budgets(items){
+  return items.map(b=>{const pct=Math.min(100,b[1]/b[2]*100);const over=b[1]>b[2];
+    return `<div class="bud"><div class="top"><span>${b[0]}</span><small>${b[1]} / ${b[2]} €</small></div>
+    <div class="track"><div class="fill" style="width:${pct.toFixed(0)}%;background:${over?'var(--rose)':'var(--emerald)'}"></div></div></div>`;}).join('');
+}
+function budgetPace(){
+  return `<div class="bud"><div class="top"><span>Gastado</span><small>60%</small></div>
+    <div class="track"><div class="fill" style="width:60%;background:var(--amber)"></div></div>
+    <div class="top" style="margin-top:8px"><span>Periodo transcurrido</span><small>40%</small></div>
+    <div class="track"><div class="fill" style="width:40%;background:var(--muted)"></div></div>`;
+}
+function heat(){
+  let c='';for(let i=0;i<65;i++)c+=`<i style="opacity:${rnd(.08,1).toFixed(2)}"></i>`;return `<div class="heat">${c}</div>`;
+}
+function ring(pct,label){
+  return `<div class="ring-c"><div class="ring" style="background:conic-gradient(var(--emerald) ${pct}%,var(--surfaceAlt) 0)"><b>${pct}%</b></div>
+    <div style="font-size:12.5px;color:var(--muted)">${label}</div></div>`;
+}
+function stacked(){
+  const s=[38,26,20,16];
+  return `<div class="stack">${s.map((v,i)=>`<span style="width:${v}%;background:${DATA[i]}"></span>`).join('')}</div>
+    <div class="legend"><div class="row"><span class="dot" style="background:${DATA[0]}"></span>Tarjeta<span class="amt">Efectivo · Bizum · Otros</span></div></div>`;
+}
+function need(txt){return `<div class="needs">⚠ Falta: ${txt}</div>`;}
+
+/* ---------- SECTIONS: aquí se edita el layout ---------- */
+/* block: {ids, title, cap, viz, future?} — viz es HTML string */
+const SECTIONS = [
+ {key:'cat', tab:'Categorías', pref:true,
+  head:'Vista preferente (dimensión por defecto del FAB). Pie con drill: raíz → sub → sub-sub + eje temporal y rankings.',
+  blocks:[
+    {ids:['A3.3'], title:'Ranking del periodo', cap:'% del total y ticket medio.', large:true,
+     viz:ranklist([['Vivienda',408],['Comida',288],['Transporte',216],['Ocio',168],['Otros',120]])},
+    {ids:['A3.1'], title:'Apiladas por categoría raíz', cap:'Composición mes a mes.', viz:bars(12)},
+    {ids:['A3.2'], title:'Top movers', cap:'Suben/bajan vs media previa.',
+     viz:ranklist([['Ocio +42%',168],['Viajes +30%',120],['Comida −12%',288]])},
+    {ids:['A3.4'], title:'Tendencia al drill', cap:'Sparkline por subcategoría.', viz:line()},
+    {ids:['A3.5'], title:'% subcategoría directa', cap:'Calidad de categorización.', viz:ring(18,'18% del gasto queda en la categoría raíz sin subcategorizar')},
+  ]},
+ {key:'tags', tab:'Tags y grupos', pref:true,
+  head:'Vista preferente (segunda dimensión del FAB). Los tags ya se agregan; el TagGroup da un eje hoy sin explotar.',
+  blocks:[
+    {ids:['A4.1'], title:'Por grupo de tags', cap:'Ej. Necesidad vs Deseo.', large:true,
+     viz:ranklist([['Necesidad',720],['Deseo',360],['Inversión',160]])},
+    {ids:['A4.2'], title:'Tendencia por tag/grupo', cap:'', viz:twoLine()},
+    {ids:['A4.4'], title:'Cruce tag × categoría', cap:'Heatmap.', viz:heat()},
+  ]},
+ {key:'salud', tab:'Salud financiera',
+  head:'Cabecera de KPIs y métricas en vivo del mes en curso.',
+  blocks:[
+    {ids:['A10.1'], title:'Salud financiera', cap:'KPIs derivados del mes.', large:true,
+     viz:kpis([['Tasa ahorro','24%','pos'],['vs media 3M','−8%','pos'],['Mayor categoría','Vivienda'],['Presup. en riesgo','2','warn']])},
+    {ids:['A1.4'], title:'Burn-down del mes', cap:'Acumulado vs mismo día del mes pasado.', viz:twoLine()},
+    {ids:['A1.5'], title:'Proyección fin de mes', cap:'Extrapolando el ritmo diario.',
+     viz:kpis([['Proyectado','1.680 €','warn'],['Mes pasado','1.520 €']])},
+    {ids:['A8.6'], title:'Racha sin gasto', cap:'No-spend days del mes.',
+     viz:kpis([['Racha actual','7 días','pos'],['Mejor racha','11 días']])},
+  ]},
+ {key:'tend', tab:'Tendencia',
+  head:'Serie temporal: el mayor salto de valor frente a la foto de un mes.',
+  blocks:[
+    {ids:['A1.1'], title:'Gasto mensual', cap:'Total con signo por mes (12M).', large:true, viz:bars(12,['E','F','M','A','M','J','J','A','S','O','N','D'])},
+    {ids:['A1.2'], title:'Media móvil 3 meses', cap:'Línea de gasto típico.', viz:line()},
+    {ids:['A1.3'], title:'MoM y YoY', cap:'vs mes anterior / mismo mes año pasado.',
+     viz:kpis([['MoM','+6,2%','neg'],['YoY','−3,1%','pos']])},
+    {ids:['A1.6'], title:'Gasto medio por día de semana', cap:'', viz:bars(7,['L','M','X','J','V','S','D'])},
+    {ids:['A1.7'], title:'Heatmap calendario', cap:'Intensidad de gasto por día.', viz:heat()},
+  ]},
+ {key:'flujo', tab:'Flujo de caja',
+  head:'Ingresos vs gasto. type=income ya se captura pero hoy Analytics lo ignora.',
+  blocks:[
+    {ids:['A2.1'], title:'Cash-flow neto por mes', cap:'Ingresos − gasto (refund neteado).', large:true, viz:bars(12)},
+    {ids:['A2.2'], title:'Tasa de ahorro', cap:'(ingresos − gasto) / ingresos.', viz:ring(24,'Ahorras el 24% de lo que ingresas este mes')},
+    {ids:['A2.3'], title:'Balance acumulado', cap:'Suma de netos mensuales.', viz:line(true)},
+    {ids:['A2.4'], title:'Ingresos por fuente', cap:'Parcial: requiere categorizar ingresos.', viz:donut()},
+  ]},
+ {key:'metodo', tab:'Métodos de pago',
+  head:'Dimensión capturada y hoy totalmente sin analizar.',
+  blocks:[
+    {ids:['A5.1'], title:'Gasto por método', cap:'Tarjeta vs efectivo vs…', large:true, viz:donut()},
+    {ids:['A5.3'], title:'% de gasto en efectivo', cap:'El gasto invisible.', viz:ring(31,'El 31% del gasto es en efectivo')},
+    {ids:['A5.2'], title:'Ticket medio por método', cap:'', viz:bars(4,['Tarj','Efec','Bizum','Otro'])},
+    {ids:['A5.4'], title:'Método por categoría', cap:'', viz:stacked()},
+  ]},
+ {key:'comp', tab:'Comportamiento',
+  head:'KPIs transaccionales y patrones inferidos.',
+  blocks:[
+    {ids:['A8.2'], title:'Ticket medio / mediana / máx', cap:'La mediana resiste outliers.', large:true,
+     viz:kpis([['Medio','18,40 €'],['Mediana','9,90 €'],['Máximo','340 €'],['Nº trans (A8.1)','126']])},
+    {ids:['A8.3'], title:'Distribución de importes', cap:'Histograma.', viz:bars(10)},
+    {ids:['A8.4'], title:'Top 5 transacciones', cap:'', viz:ranklist([['Alquiler',650],['Vuelo',210],['Súper',96],['Cena',72],['Gasolina',60]])},
+    {ids:['A8.5'], title:'Gasto hormiga', cap:'Micro-transacciones (< umbral).', viz:kpis([['< 5 € agregado','142 €','warn'],['Nº micro','48']])},
+    {ids:['A8.7'], title:'Refunds', cap:'Total reembolsado y ratio.', viz:ring(6,'Los refunds compensan el 6% del gasto')},
+  ]},
+ {key:'calidad', tab:'Calidad de datos',
+  head:'Panel de higiene de datos.',
+  blocks:[
+    {ids:['A4.3'], title:'Cobertura de tags', cap:'% de transacciones sin ningún tag.', viz:ring(22,'El 22% de transacciones no tiene ningún tag')},
+    {ids:['A6.6'], title:'Gasto fuera de rango', cap:'Transacciones de evento con fecha fuera de [inicio,fin].',
+     viz:ranklist([['Viaje Roma',3],['Boda',1]])},
+  ]},
+ {key:'presup', tab:'Presupuestos',
+  head:'Progreso, ritmo y proyección de los Budgets.',
+  blocks:[
+    {ids:['A7.1'], title:'Gastado vs presupuestado', cap:'% consumido y restante.', large:true,
+     viz:budgets([['Comida',288,300],['Ocio',210,180],['Transporte',96,150]])},
+    {ids:['A7.2'], title:'Ritmo vs tiempo transcurrido', cap:'Semáforo de sobre-ritmo.', viz:budgetPace()},
+    {ids:['A7.3'], title:'Proyección de cierre', cap:'¿Dentro o fuera al ritmo actual?',
+     viz:kpis([['Proyección','+12%','neg'],['Límite','300 €']])},
+    {ids:['A7.4'], title:'Histórico de cumplimiento', cap:'', viz:bars(8)},
+    {ids:['A7.5'], title:'Total/range: barra de avance', cap:'', viz:budgets([['Viaje 2026',1400,3000]])},
+  ]},
+ {key:'evento', tab:'Eventos y Proyectos',
+  head:'Se elige un evento/proyecto y se analiza su gasto.',
+  blocks:[
+    {ids:['A6.1'], title:'Coste total — Viaje Roma', cap:'Suma con signo.', large:true,
+     viz:`<div class="total-panel"><div class="lbl">Coste total</div><div class="amt display">842 €</div></div>`},
+    {ids:['A6.3'], title:'Coste por día', cap:'Total / días de duración.', viz:kpis([['€/día','120 €'],['Duración','7 días']])},
+    {ids:['A6.4'], title:'Desglose por categoría', cap:'¿En qué se fue el viaje?', viz:donut()},
+    {ids:['A6.2'], title:'Presupuesto vs real', cap:'', viz:budgets([['Viaje Roma',842,900]])},
+    {ids:['A6.5'], title:'Línea temporal del proyecto', cap:'Acumulado entre inicio y fin.', viz:line(true)},
+  ]},
+];
+
+/* ---------- render ---------- */
+const tabsEl=document.getElementById('tabs'), scr=document.getElementById('screen');
+let active=0;
+function renderTabs(){
+  tabsEl.innerHTML=SECTIONS.map((s,i)=>`<div class="tab${i===active?' active':''}${s.pref?' pref':''}" data-i="${i}">${s.pref?'★ ':''}${s.tab}</div>`).join('');
+  tabsEl.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{active=+t.dataset.i;renderTabs();renderScreen();
+    scr.scrollTop=0;t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});});
+}
+function renderScreen(){
+  const s=SECTIONS[active];
+  const refs=s.blocks.flatMap(b=>b.ids).join(' · ');
+  scr.innerHTML=`<div class="sechead"><h2 class="display">${s.pref?'★ ':''}${s.tab}${s.pref?' <span class="prefbadge">vista preferente</span>':''}</h2><p>${s.head}</p><div class="refs">Refs: ${refs}</div></div>`
+    + s.blocks.map(b=>`<div class="card${b.large?' large':''}${b.future?' future':''}">
+        <span class="idbadge">${b.ids.join(' ')}</span>
+        <h3>${b.title}</h3>${b.cap?`<div class="cap">${b.cap}</div>`:''}
+        <div class="viz">${b.viz}</div></div>`).join('');
+}
+document.getElementById('theme').onclick=()=>{
+  const r=document.documentElement;
+  r.dataset.theme = r.dataset.theme==='dark'?'':'dark';
+  renderScreen(); // re-roll random-based svg with new colors
+};
+renderTabs();renderScreen();
+</script>
+</body>
+</html>

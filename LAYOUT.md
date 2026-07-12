@@ -60,7 +60,8 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 
 ### Analytics (`analytics_screen.dart`)
 - **Header**: `AppTopBar` in month mode (month pager left, settings gear right).
-- **Body** Column: `AppTopBar` + `SegmentedButton` (By Category / By Tag) + Expanded month `PageView`.
+- **Body** Column: `AppTopBar` + Expanded month `PageView`.
+- **FAB**: icon-only `FloatingActionButton` toggles dimension; icon shows the *current* dimension — pie (category) / tag.
 - **Each page** (ListView):
   1. `AppCard.large` panel: centered "Total spent" label + large centered amount; then (when data) optional breadcrumb Row (circular back + path, category view only) and a 240px donut `PieChart` (tap slice to drill in category view).
   2. Below the panel: legend rows (dot, label, amount, optional drill chevron). Tag view adds a disclaimer line. Empty state text when no data.

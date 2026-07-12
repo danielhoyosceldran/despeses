@@ -113,7 +113,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
 
+    final isCategory = _dimension == _Dimension.category;
+
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => setState(() {
+          _dimension = isCategory ? _Dimension.tags : _Dimension.category;
+        }),
+        child: Icon(isCategory ? LucideIcons.chartPie300 : LucideIcons.tag300),
+      ),
       body: Column(
         children: [
           AppTopBar(
@@ -122,20 +130,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             pageController: _pageController,
             monthForPage: _monthForPage,
             fallbackPage: _kInitialPage,
-          ),
-          SegmentedButton<_Dimension>(
-            segments: [
-              ButtonSegment(
-                value: _Dimension.category,
-                label: Text(translations?.t('analytics.dim_category') ?? 'By Category'),
-              ),
-              ButtonSegment(
-                value: _Dimension.tags,
-                label: Text(translations?.t('analytics.dim_tag') ?? 'By Tag'),
-              ),
-            ],
-            selected: {_dimension},
-            onSelectionChanged: (s) => setState(() => _dimension = s.first),
           ),
           Expanded(
             child: PageView.builder(
