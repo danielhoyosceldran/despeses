@@ -258,6 +258,19 @@ Header gear `settings`.
 
 - **Route transition** (`_SlideFadeTransitionsBuilder`) — fade + horizontal
   slide (x 0.05→0), `easeOutCubic`.
+- **Edit entry route** (`bottomUpRoute`) — full vertical slide (y 1→0), in
+  320ms `easeOutCubic` / out 260ms `easeInCubic`; dismisses back down. Used when
+  editing an existing expense/budget (tapping a list row).
+- **Interactive add sheet** (`DragUpAction`, shown via an `OverlayEntry` — not a
+  pushed route, because pushing mid-drag cancels the gesture) — the add FAB is
+  the motor. On drag-up the **FAB follows the finger 1:1** (chases at 0ms, eases
+  home 220ms on release). After a 72px arm threshold a `medium` haptic confirms
+  and the entry screen starts rising, tracking finger travel *beyond* the
+  threshold (`(dragPx − 72) / (height − 72)`) so it trails the finger. Release
+  past the threshold (or fling up ≥700px/s) completes the open (`animateTo 1`,
+  300ms `easeOutCubic`); release below cancels and slides it back down (220ms
+  `easeInCubic`). Tap plays the same open animation. The sheet closes via an
+  `onClose` callback (Android back intercepted by `BackButtonListener`).
 - **Tab switch** (`app_shell`) — `AnimatedSwitcher` 280ms, slide (0.06→0) + fade,
   in `easeOutCubic` / out `easeInCubic`.
 - **Nav pill** (`app_shell` `_NavBar`) — `AnimatedPositioned` pill

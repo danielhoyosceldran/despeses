@@ -19,10 +19,15 @@ import '../../widgets/tag_picker_sheet.dart';
 /// (skipping tags/event/project when the user hasn't created any), category
 /// drill-down, fixed save bar.
 class ExpenseEntryScreen extends ConsumerStatefulWidget {
-  const ExpenseEntryScreen({super.key, this.expenseId});
+  const ExpenseEntryScreen({super.key, this.expenseId, this.onClose});
 
   /// When set, edits an existing transaction instead of creating a new one.
   final String? expenseId;
+
+  /// Overlay-mode close hook. When null the screen closes via `Navigator.pop`
+  /// (it was pushed as a route); when set — e.g. opened as the interactive
+  /// drag-up sheet — closing is delegated so the host can animate it away.
+  final void Function(Object? result)? onClose;
 
   @override
   ConsumerState<ExpenseEntryScreen> createState() => _ExpenseEntryScreenState();
@@ -296,7 +301,18 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         tagIds: _tagIds,
       );
     }
-    if (mounted) Navigator.of(context).pop(true);
+    _close(true);
+  }
+
+  /// Close the screen, routing through [ExpenseEntryScreen.onClose] when hosted
+  /// as an overlay sheet, else popping the route.
+  void _close([Object? result]) {
+    final onClose = widget.onClose;
+    if (onClose != null) {
+      onClose(result);
+    } else if (mounted) {
+      Navigator.of(context).pop(result);
+    }
   }
 
   Color _typeColor(AppColors colors, AppSemanticColors semantic) {
@@ -328,8 +344,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft300),
-          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(LucideIcons.chevronDown300),
+          onPressed: () => _close(),
         ),
         title: SegmentedButton<String>(
           segments: [

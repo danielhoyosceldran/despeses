@@ -398,6 +398,9 @@ class _SectionFabState extends ConsumerState<_SectionFab> {
           offset: follow,
           child: FloatingActionButton(
             onPressed: widget.onTap,
+            // No hero: sibling tab FABs stay mounted at once (StatefulShell), so
+            // a shared default hero tag collides on route transitions.
+            heroTag: null,
             // Emphasise the button while a switch is armed so the drag reads as
             // "let go to switch".
             elevation: armed ? 12 : null,

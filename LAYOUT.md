@@ -39,7 +39,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 
 ### Dashboard (`dashboard_screen.dart`)
 - **Header**: `AppTopBar` in month mode (month pager left, settings gear right). Selection mode (long-press a transaction): "N selected", X (clear), trash (delete-confirm).
-- **FAB**: "+" → ExpenseEntryScreen (new).
+- **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body** Column, top→bottom:
   1. `AppTopBar` — month/year chevron nav + settings gear (shared across months).
   2. **Balance hero** (`_BalanceHeader`, shared, sits *outside* the PageView): "Total Balance" label + large balance amount, then a Row of 2 collapsing stat tiles (Income · Spent; each = icon chip in a row beside a label + amount column). **Collapses on inner scroll**: balance shrinks, stat tiles fold away, a hairline bottom border fades in.
@@ -49,13 +49,13 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 
 ### Expenses (`expenses_screen.dart`)
 - **Header**: `AppTopBar` title "Expenses", trailing filter action (tinted when active) → `ExpenseFilterSheet` + settings gear. Selection mode: "N selected", X, trash.
-- **FAB**: "+" → ExpenseEntryScreen (new).
+- **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body**: paginated `ListView` of expense card tiles (optional Checkbox, title, date subtitle, signed amount). Trailing "Load more" TextButton when more pages. Empty/loading centered. Tap = edit/toggle; long-press = select.
 
 ### Budgets (`budgets_screen.dart`)
 - **Header**: `AppTopBar` title "Budgets" + settings gear. Selection mode: "N selected", X, trash.
 - **Search row** (hidden in selection mode): search pill (filter by name) + trailing archive toggle (active vs expired budgets).
-- **FAB**: "+" → BudgetEntryScreen (new).
+- **FAB**: "+" → BudgetEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit). Empty/loading centered. Tap = edit/toggle; long-press = select.
 
 ### Analytics (`analytics_screen.dart` + `analytics/analytics_sections.dart`)
@@ -86,8 +86,8 @@ Personal/app settings hub, pushed over the shell from the header gear.
 - **Body**: `PageTitleHeader` "Settings" + single `AppCard` Column of `HairlineListTile` rows: Profile, Export, Backup.
 
 ### Expense entry (`expense_entry/expense_entry_screen.dart`)
-Full-screen entry.
-- **AppBar**: leading back; title = `SegmentedButton` (Expense / Income / Refund / Savings). Changing the type clears the selected category (each type has its own category tree).
+Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
+- **AppBar**: leading down-chevron (dismiss); title = `SegmentedButton` (Expense / Income / Refund / Savings). Changing the type clears the selected category (each type has its own category tree).
 - **Body** Column:
   1. Expanded fields ListView: Row [Date | Amount] · divider · Category · Payment method · Tags (count) · divider · Row [Event | Project] · divider · Description field · multiline Notes field.
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
@@ -96,8 +96,8 @@ Full-screen entry.
 - Tapping a field row opens its panel; pickers auto-advance to next step (skip empty ref types). Pops `true` on save.
 
 ### Budget entry (`budget_entry/budget_entry_screen.dart`)
-Full-screen entry; closes via X.
-- **AppBar**: leading X.
+Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
+- **AppBar**: leading down-chevron (dismiss).
 - **Body** Column:
   1. Expanded ListView: Name field · "Limit" ListTile (euro icon, amount) → keypad · "Dimension" `SegmentedButton` (Category/Tag/Project/Event, disabled in edit) · "Select value" ListTile → picker (disabled in edit) · "Budget type" `SegmentedButton` (Range/Months/Total, disabled in edit) · conditional section:
      - **Range**: Start month + End month ListTiles (clear-X on end).

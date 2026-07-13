@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/i18n/display_name.dart';
+import '../../core/navigation/bottom_up_route.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,6 +16,7 @@ import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/drag_up_fab.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/pressable_scale.dart';
 import '../widgets/thin_progress_bar.dart';
@@ -121,7 +123,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Future<void> _openEntry({String? expenseId}) async {
     final saved = await Navigator.of(context, rootNavigator: true).push<bool>(
-      MaterialPageRoute(builder: (_) => ExpenseEntryScreen(expenseId: expenseId)),
+      bottomUpRoute(ExpenseEntryScreen(expenseId: expenseId)),
     );
     if (saved == true) {
       setState(() => _expenseCache.remove(_monthKey));
@@ -158,17 +160,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final colors = context.appColors;
 
     return Scaffold(
-      floatingActionButton: PressableScale(
-        onTap: () => _openEntry(),
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: colors.accent,
-            shape: BoxShape.circle,
-            boxShadow: AppShadows.fab(colors),
+      floatingActionButton: DragUpAction(
+        pageBuilder: (_, close) => ExpenseEntryScreen(onClose: close),
+        onResult: (saved) {
+          if (saved == true) {
+            setState(() => _expenseCache.remove(_monthKey));
+            _loadBudgets();
+          }
+        },
+        builder: (context, armed, onTap) => PressableScale(
+          onTap: onTap,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: colors.accent,
+              shape: BoxShape.circle,
+              boxShadow: AppShadows.fab(colors),
+            ),
+            child: Icon(LucideIcons.plus300, color: colors.onAccent, size: 24),
           ),
-          child: Icon(LucideIcons.plus300, color: colors.onAccent, size: 24),
         ),
       ),
       body: Column(

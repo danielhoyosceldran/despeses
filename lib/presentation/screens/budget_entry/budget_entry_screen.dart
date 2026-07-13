@@ -19,9 +19,14 @@ import '../../widgets/simple_picker_sheet.dart';
 /// In edit mode, dimension/type/value are locked — only name and amount can
 /// change (plan §4.2), matching `BudgetRepository.updateNameAndAmount`.
 class BudgetEntryScreen extends ConsumerStatefulWidget {
-  const BudgetEntryScreen({super.key, this.budget});
+  const BudgetEntryScreen({super.key, this.budget, this.onClose});
 
   final Budget? budget;
+
+  /// Overlay-mode close hook. When null the screen closes via `Navigator.pop`
+  /// (pushed as a route); when set — e.g. the interactive drag-up sheet —
+  /// closing is delegated so the host can animate it away.
+  final void Function(Object? result)? onClose;
 
   @override
   ConsumerState<BudgetEntryScreen> createState() => _BudgetEntryScreenState();
@@ -258,7 +263,18 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
         endsMonth: _type == _BudgetType.range ? _endsMonth?.key : null,
       );
     }
-    if (mounted) Navigator.of(context).pop(true);
+    _close(true);
+  }
+
+  /// Close the screen, routing through [BudgetEntryScreen.onClose] when hosted
+  /// as an overlay sheet, else popping the route.
+  void _close([Object? result]) {
+    final onClose = widget.onClose;
+    if (onClose != null) {
+      onClose(result);
+    } else if (mounted) {
+      Navigator.of(context).pop(result);
+    }
   }
 
   @override
@@ -271,7 +287,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(LucideIcons.x300), onPressed: () => Navigator.of(context).pop()),
+        leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: () => _close()),
       ),
       body: Column(
         children: [

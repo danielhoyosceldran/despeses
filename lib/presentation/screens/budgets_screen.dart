@@ -2,12 +2,14 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/navigation/bottom_up_route.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/drag_up_fab.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/thin_progress_bar.dart';
 import 'budget_entry/budget_entry_screen.dart';
@@ -70,7 +72,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
   Future<void> _openEntry({Budget? budget}) async {
     final saved = await Navigator.of(context, rootNavigator: true).push<bool>(
-      MaterialPageRoute(builder: (_) => BudgetEntryScreen(budget: budget)),
+      bottomUpRoute(BudgetEntryScreen(budget: budget)),
     );
     if (saved == true) _load();
   }
@@ -105,7 +107,13 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     }).toList();
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(onPressed: () => _openEntry(), child: const Icon(LucideIcons.plus300)),
+      floatingActionButton: DragUpFab(
+        pageBuilder: (_, close) => BudgetEntryScreen(onClose: close),
+        onResult: (saved) {
+          if (saved == true) _load();
+        },
+        child: const Icon(LucideIcons.plus300),
+      ),
       body: Column(
         children: [
           AppTopBar(
