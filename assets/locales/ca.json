@@ -24,7 +24,18 @@
     "empty_tag": "Sense dades d'etiqueta.",
     "empty_project": "Sense dades de projecte.",
     "empty_event": "Sense dades d'esdeveniment.",
-    "empty_trend": "Sense dades per al rang seleccionat."
+    "empty_trend": "Sense dades per al rang seleccionat.",
+    "section_category": "Categories",
+    "section_tags": "Etiquetes",
+    "section_health": "Salut",
+    "section_trend": "Tendència",
+    "section_cashflow": "Flux",
+    "section_payment": "Pagament",
+    "section_behavior": "Hàbits",
+    "section_quality": "Qualitat",
+    "section_budgets": "Pressupostos",
+    "section_events": "Esdeveniments",
+    "tag_disclaimer": "Una transacció amb diverses etiquetes compta sencera a cadascuna: els trossos poden sumar més que el total."
   },
   "settings": {
     "toggle_theme": "Canviar tema"
@@ -208,7 +219,8 @@
     "load_more": "Carrega'n més",
     "filter_partial": "Els filtres s'apliquen només a les despeses carregades. Carrega'n més per continuar cercant.",
     "no_results": "Cap despesa coincideix amb els filtres actuals.",
-    "showing": "Mostrant {{count}} de {{total}}"
+    "showing": "Mostrant {{count}} de {{total}}",
+    "type_ahorro": "Estalvi"
   },
   "auth": {
     "title": "Gastos",
@@ -251,7 +263,25 @@
     "leisure": "Lleure",
     "health": "Salut",
     "clothing": "Roba",
-    "education": "Educació"
+    "education": "Educació",
+    "income": {
+      "salary": "Nòmina",
+      "extra": "Ingrés extra",
+      "gift": "Regal",
+      "investment": "Inversió",
+      "other": "Altres ingressos"
+    },
+    "refund": {
+      "purchase_return": "Devolució de compra",
+      "deposit": "Devolució de fiança",
+      "other": "Altre reemborsament"
+    },
+    "savings": {
+      "emergency": "Fons d'emergència",
+      "retirement": "Jubilació",
+      "goal": "Objectiu",
+      "other": "Altres estalvis"
+    }
   },
   "payment": {
     "cash": "Efectiu",

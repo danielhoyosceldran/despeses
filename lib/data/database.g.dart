@@ -1322,6 +1322,19 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints:
+        'NOT NULL DEFAULT \'expense\' CHECK (type IN (\'expense\', \'income\', \'refund\', \'ahorro\'))',
+    defaultValue: const CustomExpression('\'expense\''),
+    clientDefault: () => 'expense',
+  );
   static const VerificationMeta _parentIdMeta = const VerificationMeta(
     'parentId',
   );
@@ -1417,6 +1430,7 @@ class $CategoriesTable extends Categories
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    type,
     parentId,
     name,
     color,
@@ -1442,6 +1456,12 @@ class $CategoriesTable extends Categories
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
     }
     if (data.containsKey('parent_id')) {
       context.handle(
@@ -1500,7 +1520,7 @@ class $CategoriesTable extends Categories
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
   List<Set<GeneratedColumn>> get uniqueKeys => [
-    {parentId, name},
+    {type, parentId, name},
   ];
   @override
   Category map(Map<String, dynamic> data, {String? tablePrefix}) {
@@ -1509,6 +1529,10 @@ class $CategoriesTable extends Categories
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
       )!,
       parentId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -1553,6 +1577,7 @@ class $CategoriesTable extends Categories
 
 class Category extends DataClass implements Insertable<Category> {
   final String id;
+  final String type;
   final String? parentId;
   final String name;
   final String? color;
@@ -1563,6 +1588,7 @@ class Category extends DataClass implements Insertable<Category> {
   final DateTime updatedAt;
   const Category({
     required this.id,
+    required this.type,
     this.parentId,
     required this.name,
     this.color,
@@ -1576,6 +1602,7 @@ class Category extends DataClass implements Insertable<Category> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    map['type'] = Variable<String>(type);
     if (!nullToAbsent || parentId != null) {
       map['parent_id'] = Variable<String>(parentId);
     }
@@ -1596,6 +1623,7 @@ class Category extends DataClass implements Insertable<Category> {
   CategoriesCompanion toCompanion(bool nullToAbsent) {
     return CategoriesCompanion(
       id: Value(id),
+      type: Value(type),
       parentId: parentId == null && nullToAbsent
           ? const Value.absent()
           : Value(parentId),
@@ -1618,6 +1646,7 @@ class Category extends DataClass implements Insertable<Category> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Category(
       id: serializer.fromJson<String>(json['id']),
+      type: serializer.fromJson<String>(json['type']),
       parentId: serializer.fromJson<String?>(json['parentId']),
       name: serializer.fromJson<String>(json['name']),
       color: serializer.fromJson<String?>(json['color']),
@@ -1633,6 +1662,7 @@ class Category extends DataClass implements Insertable<Category> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'type': serializer.toJson<String>(type),
       'parentId': serializer.toJson<String?>(parentId),
       'name': serializer.toJson<String>(name),
       'color': serializer.toJson<String?>(color),
@@ -1646,6 +1676,7 @@ class Category extends DataClass implements Insertable<Category> {
 
   Category copyWith({
     String? id,
+    String? type,
     Value<String?> parentId = const Value.absent(),
     String? name,
     Value<String?> color = const Value.absent(),
@@ -1656,6 +1687,7 @@ class Category extends DataClass implements Insertable<Category> {
     DateTime? updatedAt,
   }) => Category(
     id: id ?? this.id,
+    type: type ?? this.type,
     parentId: parentId.present ? parentId.value : this.parentId,
     name: name ?? this.name,
     color: color.present ? color.value : this.color,
@@ -1668,6 +1700,7 @@ class Category extends DataClass implements Insertable<Category> {
   Category copyWithCompanion(CategoriesCompanion data) {
     return Category(
       id: data.id.present ? data.id.value : this.id,
+      type: data.type.present ? data.type.value : this.type,
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
       name: data.name.present ? data.name.value : this.name,
       color: data.color.present ? data.color.value : this.color,
@@ -1683,6 +1716,7 @@ class Category extends DataClass implements Insertable<Category> {
   String toString() {
     return (StringBuffer('Category(')
           ..write('id: $id, ')
+          ..write('type: $type, ')
           ..write('parentId: $parentId, ')
           ..write('name: $name, ')
           ..write('color: $color, ')
@@ -1698,6 +1732,7 @@ class Category extends DataClass implements Insertable<Category> {
   @override
   int get hashCode => Object.hash(
     id,
+    type,
     parentId,
     name,
     color,
@@ -1712,6 +1747,7 @@ class Category extends DataClass implements Insertable<Category> {
       identical(this, other) ||
       (other is Category &&
           other.id == this.id &&
+          other.type == this.type &&
           other.parentId == this.parentId &&
           other.name == this.name &&
           other.color == this.color &&
@@ -1724,6 +1760,7 @@ class Category extends DataClass implements Insertable<Category> {
 
 class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<String> id;
+  final Value<String> type;
   final Value<String?> parentId;
   final Value<String> name;
   final Value<String?> color;
@@ -1735,6 +1772,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<int> rowid;
   const CategoriesCompanion({
     this.id = const Value.absent(),
+    this.type = const Value.absent(),
     this.parentId = const Value.absent(),
     this.name = const Value.absent(),
     this.color = const Value.absent(),
@@ -1747,6 +1785,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   });
   CategoriesCompanion.insert({
     required String id,
+    this.type = const Value.absent(),
     this.parentId = const Value.absent(),
     required String name,
     this.color = const Value.absent(),
@@ -1760,6 +1799,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
        name = Value(name);
   static Insertable<Category> custom({
     Expression<String>? id,
+    Expression<String>? type,
     Expression<String>? parentId,
     Expression<String>? name,
     Expression<String>? color,
@@ -1772,6 +1812,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (type != null) 'type': type,
       if (parentId != null) 'parent_id': parentId,
       if (name != null) 'name': name,
       if (color != null) 'color': color,
@@ -1786,6 +1827,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
 
   CategoriesCompanion copyWith({
     Value<String>? id,
+    Value<String>? type,
     Value<String?>? parentId,
     Value<String>? name,
     Value<String?>? color,
@@ -1798,6 +1840,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   }) {
     return CategoriesCompanion(
       id: id ?? this.id,
+      type: type ?? this.type,
       parentId: parentId ?? this.parentId,
       name: name ?? this.name,
       color: color ?? this.color,
@@ -1815,6 +1858,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
     }
     if (parentId.present) {
       map['parent_id'] = Variable<String>(parentId.value);
@@ -1850,6 +1896,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   String toString() {
     return (StringBuffer('CategoriesCompanion(')
           ..write('id: $id, ')
+          ..write('type: $type, ')
           ..write('parentId: $parentId, ')
           ..write('name: $name, ')
           ..write('color: $color, ')
@@ -3303,7 +3350,7 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     $customConstraints:
-        'NOT NULL CHECK (type IN (\'expense\', \'income\', \'refund\'))',
+        'NOT NULL CHECK (type IN (\'expense\', \'income\', \'refund\', \'ahorro\'))',
   );
   static const VerificationMeta _dateMeta = const VerificationMeta('date');
   @override
@@ -6242,6 +6289,7 @@ typedef $$TagsTableProcessedTableManager =
 typedef $$CategoriesTableCreateCompanionBuilder =
     CategoriesCompanion Function({
       required String id,
+      Value<String> type,
       Value<String?> parentId,
       required String name,
       Value<String?> color,
@@ -6255,6 +6303,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
 typedef $$CategoriesTableUpdateCompanionBuilder =
     CategoriesCompanion Function({
       Value<String> id,
+      Value<String> type,
       Value<String?> parentId,
       Value<String> name,
       Value<String?> color,
@@ -6320,6 +6369,11 @@ class $$CategoriesTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6428,6 +6482,11 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get parentId => $composableBuilder(
     column: $table.parentId,
     builder: (column) => ColumnOrderings(column),
@@ -6480,6 +6539,9 @@ class $$CategoriesTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
 
   GeneratedColumn<String> get parentId =>
       $composableBuilder(column: $table.parentId, builder: (column) => column);
@@ -6585,6 +6647,7 @@ class $$CategoriesTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String> type = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> color = const Value.absent(),
@@ -6596,6 +6659,7 @@ class $$CategoriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
+                type: type,
                 parentId: parentId,
                 name: name,
                 color: color,
@@ -6609,6 +6673,7 @@ class $$CategoriesTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<String> type = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
                 required String name,
                 Value<String?> color = const Value.absent(),
@@ -6620,6 +6685,7 @@ class $$CategoriesTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
+                type: type,
                 parentId: parentId,
                 name: name,
                 color: color,

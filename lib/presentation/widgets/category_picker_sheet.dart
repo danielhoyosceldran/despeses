@@ -13,6 +13,7 @@ Future<Category?> showCategoryPickerSheet(
   BuildContext context, {
   required CategoryRepository repository,
   required Translations translations,
+  required String type,
 }) {
   return showModalBottomSheet<Category>(
     context: context,
@@ -23,6 +24,7 @@ Future<Category?> showCategoryPickerSheet(
         child: CategoryPickerContent(
           repository: repository,
           translations: translations,
+          type: type,
           onSelected: (category) => Navigator.of(context).pop(category),
         ),
       ),
@@ -37,11 +39,15 @@ class CategoryPickerContent extends StatefulWidget {
     super.key,
     required this.repository,
     required this.translations,
+    required this.type,
     required this.onSelected,
   });
 
   final CategoryRepository repository;
   final Translations translations;
+
+  /// Transaction type whose category forest to show (expense/income/refund/ahorro).
+  final String type;
   final ValueChanged<Category> onSelected;
 
   @override
@@ -61,12 +67,22 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final children = await widget.repository.listChildren(_breadcrumb.isEmpty ? null : _breadcrumb.last.id);
+    final children = await widget.repository.listChildren(
+      _breadcrumb.isEmpty ? null : _breadcrumb.last.id,
+      type: widget.type,
+    );
     if (!mounted) return;
     setState(() {
       _children = children;
       _loading = false;
     });
+  }
+
+  /// Navigate back to an already-entered ancestor (branches are never
+  /// selectable — leaf-only rule).
+  void _navigateTo(int breadcrumbIndex) {
+    setState(() => _breadcrumb.removeRange(breadcrumbIndex + 1, _breadcrumb.length));
+    _load();
   }
 
   String _label(Category c) => displayNameFor(widget.translations, name: c.name, isDefault: c.isDefault);
@@ -107,7 +123,7 @@ class _CategoryPickerContentState extends State<CategoryPickerContent> {
                       breadcrumbLabels: _breadcrumb.map(_label).toList(),
                       childLabel: _label(category),
                       colors: colors,
-                      onBreadcrumbTap: (i) => widget.onSelected(_breadcrumb[i]),
+                      onBreadcrumbTap: _navigateTo,
                       onChildTap: () => _tap(category),
                     );
                   },

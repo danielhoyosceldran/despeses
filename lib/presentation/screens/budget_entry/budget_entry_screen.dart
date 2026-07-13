@@ -138,6 +138,8 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
           _panelContent = CategoryPickerContent(
             repository: ref.read(categoryRepositoryProvider),
             translations: translations,
+            // Budgets track spend, so they scope over the expense category tree.
+            type: 'expense',
             onSelected: (selected) {
               setState(() {
                 _dimensionValueId = selected.id;

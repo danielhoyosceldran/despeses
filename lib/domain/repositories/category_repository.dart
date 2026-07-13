@@ -16,29 +16,52 @@ class CategoryRepository {
         .get();
   }
 
-  Future<List<Category>> listChildren(String? parentId) {
+  /// Children of [parentId] (null = roots). When listing roots, [type] filters
+  /// the tree to a single transaction-type forest (expense/income/refund/ahorro).
+  Future<List<Category>> listChildren(String? parentId, {String? type}) {
     final query = _db.select(_db.categories)
       ..orderBy([(c) => OrderingTerm(expression: c.position)]);
     if (parentId == null) {
       query.where((c) => c.parentId.isNull());
+      if (type != null) query.where((c) => c.type.equals(type));
     } else {
       query.where((c) => c.parentId.equals(parentId));
     }
     return query.get();
   }
 
+  Future<Category?> byId(String id) {
+    return (_db.select(_db.categories)..where((c) => c.id.equals(id))).getSingleOrNull();
+  }
+
+  /// A category is a leaf when it has no children. Only leaves may be assigned
+  /// to a transaction (rule: leaf-only categorization).
+  Future<bool> isLeaf(String id) async {
+    final children = await listChildren(id);
+    return children.isEmpty;
+  }
+
+  /// Creates a category. Roots default to [type] `'expense'`; children inherit
+  /// their parent's type so a whole tree stays within one transaction type.
   Future<String> create({
     required String name,
     String? parentId,
+    String? type,
     String? color,
     String? icon,
   }) async {
     final id = _uuid.v4();
+    var resolvedType = type ?? 'expense';
+    if (parentId != null) {
+      final parent = await byId(parentId);
+      if (parent != null) resolvedType = parent.type;
+    }
     final siblings = await listChildren(parentId);
     await _db.into(_db.categories).insert(
           CategoriesCompanion.insert(
             id: id,
             name: name,
+            type: Value(resolvedType),
             parentId: Value(parentId),
             color: Value(color),
             icon: Value(icon),

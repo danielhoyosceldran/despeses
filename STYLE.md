@@ -60,10 +60,12 @@ branching on brightness at the call site.
 | `income` | emerald `#10B981` | |
 | `expense` | rose `#F43F5E` | |
 | `refund` | amber `#F59E0B` | **fallback only** — refund renders in neutral `text` |
+| `savings` | blue `#3B82F6` | `ahorro` type — money set aside, not spent |
 | `over` | rose `#F43F5E` | over-budget bar/percentage |
 
 Amount color by type: `context.amountColorForType(type)` → income = emerald,
-expense = rose, **refund = neutral `text`** (per the mock, no dedicated hue).
+expense = rose, **refund = neutral `text`** (per the mock, no dedicated hue),
+savings (`ahorro`) = blue.
 
 ### 1.4 Data-accent palette — `AppDataColors` (Tailwind 500)
 
@@ -216,6 +218,29 @@ All use `colors.shadow` (pre-baked opacity per theme).
   signed day total (`labelSmall` tabular; ≥0 emerald, <0 muted).
 
 ---
+
+## 5b. Analytics charts (`widgets/charts/`)
+
+Data-viz surface for the Analytics screen. Live color only on data; frames/UI
+stay ink/neutral.
+- **Section tab strip** — pill chips (`radiusPill`). Selected = `accent` fill /
+  `onAccent` text; unselected = transparent with `borderSoft`. Preferred
+  sections (Categories, Tags) carry a `savings`-tinted border + star icon.
+- **`DonutChart`** — `fl_chart` donut, `centerSpaceRadius 60`, `sectionsSpace 5`,
+  slice radius 20, colors from `AppDataColors.cycle`; optional center widget
+  (total in `appDisplay`). Tap a `drillable` slice to drill.
+- **`StatCard`** — `AppCard` (hairline, `radiusCard`) with a `labelLarge` title,
+  optional muted `bodySmall` subtitle (the stat's Excel ref), then the chart.
+- **`KpiTile`** — `mutedFill(0.30)` fill, hairline, `radiusCard`; `appHeaderStyle`
+  label + `appDisplay` 22 value (accent color for at-risk/emphasis).
+- **`MonthlyBars` / `TrendLines`** — bars use `accent` (or a semantic/data color);
+  lines 2.5px, curved, no dots; moving-average line uses `savings` blue.
+- **`RingGauge`** — `CircularProgressIndicator` 10px on `surfaceAlt` track,
+  fill `accent` or a semantic color; percent centered in `appDisplay`.
+- **`CalendarHeatmap`** — 7-col grid; empty day = `surfaceAlt`, else base color at
+  `0.15 + 0.85·intensity` alpha; `radius 4` cells.
+- **`RankedList` / `LegendRow`** — proportional `LinearProgressIndicator` /
+  color-dot rows; amounts in tabular figures.
 
 ## 6. Iconography — lucide
 

@@ -32,8 +32,13 @@ void main() {
     expect(tags.every((t) => t.isDefault), isTrue);
 
     final categories = await db.select(db.categories).get();
-    expect(categories.length, 7);
+    // One flat forest per transaction type: 7 expense + 5 income + 3 refund + 4 savings.
+    expect(categories.length, 19);
     expect(categories.every((c) => c.parentId == null), isTrue);
+    expect(categories.where((c) => c.type == 'expense').length, 7);
+    expect(categories.where((c) => c.type == 'income').length, 5);
+    expect(categories.where((c) => c.type == 'refund').length, 3);
+    expect(categories.where((c) => c.type == 'ahorro').length, 4);
 
     final paymentMethods = await db.select(db.paymentMethods).get();
     expect(paymentMethods.length, 4);

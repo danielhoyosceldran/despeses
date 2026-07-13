@@ -24,7 +24,18 @@
     "empty_tag": "Sin datos de etiqueta.",
     "empty_project": "Sin datos de proyecto.",
     "empty_event": "Sin datos de evento.",
-    "empty_trend": "Sin datos para el rango seleccionado."
+    "empty_trend": "Sin datos para el rango seleccionado.",
+    "section_category": "Categorías",
+    "section_tags": "Etiquetas",
+    "section_health": "Salud",
+    "section_trend": "Tendencia",
+    "section_cashflow": "Flujo",
+    "section_payment": "Pago",
+    "section_behavior": "Hábitos",
+    "section_quality": "Calidad",
+    "section_budgets": "Presupuestos",
+    "section_events": "Eventos",
+    "tag_disclaimer": "Una transacción con varias etiquetas cuenta entera en cada una: los trozos pueden sumar más que el total."
   },
   "settings": {
     "toggle_theme": "Cambiar tema"
@@ -208,7 +219,8 @@
     "load_more": "Cargar más",
     "filter_partial": "Los filtros se aplican solo a los gastos cargados. Carga más para seguir buscando.",
     "no_results": "No hay gastos que coincidan con los filtros.",
-    "showing": "Mostrando {{count}} de {{total}}"
+    "showing": "Mostrando {{count}} de {{total}}",
+    "type_ahorro": "Ahorro"
   },
   "auth": {
     "title": "Gastos",
@@ -251,7 +263,25 @@
     "leisure": "Ocio",
     "health": "Salud",
     "clothing": "Ropa",
-    "education": "Educación"
+    "education": "Educación",
+    "income": {
+      "salary": "Nómina",
+      "extra": "Ingreso extra",
+      "gift": "Regalo",
+      "investment": "Inversión",
+      "other": "Otros ingresos"
+    },
+    "refund": {
+      "purchase_return": "Devolución de compra",
+      "deposit": "Devolución de fianza",
+      "other": "Otro reembolso"
+    },
+    "savings": {
+      "emergency": "Fondo de emergencia",
+      "retirement": "Jubilación",
+      "goal": "Objetivo",
+      "other": "Otros ahorros"
+    }
   },
   "payment": {
     "cash": "Efectivo",

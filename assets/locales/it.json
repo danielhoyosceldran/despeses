@@ -24,7 +24,18 @@
     "empty_tag": "Nessun dato per etichetta.",
     "empty_project": "Nessun dato per progetto.",
     "empty_event": "Nessun dato per evento.",
-    "empty_trend": "Nessun dato per il periodo selezionato."
+    "empty_trend": "Nessun dato per il periodo selezionato.",
+    "section_category": "Categorie",
+    "section_tags": "Etichette",
+    "section_health": "Salute",
+    "section_trend": "Andamento",
+    "section_cashflow": "Flusso",
+    "section_payment": "Pagamento",
+    "section_behavior": "Abitudini",
+    "section_quality": "Qualità",
+    "section_budgets": "Budget",
+    "section_events": "Eventi",
+    "tag_disclaimer": "Una transazione con più etichette conta per intero in ciascuna: le fette possono superare il totale."
   },
   "settings": {
     "toggle_theme": "Cambia tema"
@@ -208,7 +219,8 @@
     "load_more": "Carica altri",
     "filter_partial": "I filtri si applicano solo alle spese caricate. Carica altri per continuare la ricerca.",
     "no_results": "Nessuna spesa corrisponde ai filtri attuali.",
-    "showing": "Visualizzando {{count}} di {{total}}"
+    "showing": "Visualizzando {{count}} di {{total}}",
+    "type_ahorro": "Risparmio"
   },
   "auth": {
     "title": "Gastos",
@@ -251,7 +263,25 @@
     "leisure": "Svago",
     "health": "Salute",
     "clothing": "Abbigliamento",
-    "education": "Istruzione"
+    "education": "Istruzione",
+    "income": {
+      "salary": "Stipendio",
+      "extra": "Entrata extra",
+      "gift": "Regalo",
+      "investment": "Investimento",
+      "other": "Altre entrate"
+    },
+    "refund": {
+      "purchase_return": "Reso acquisto",
+      "deposit": "Rimborso cauzione",
+      "other": "Altro rimborso"
+    },
+    "savings": {
+      "emergency": "Fondo di emergenza",
+      "retirement": "Pensione",
+      "goal": "Obiettivo",
+      "other": "Altri risparmi"
+    }
   },
   "payment": {
     "cash": "Contanti",

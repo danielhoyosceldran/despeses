@@ -130,12 +130,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.income,
     required this.expense,
     required this.refund,
+    required this.savings,
     required this.over,
   });
 
   final Color income;
   final Color expense;
   final Color refund;
+  final Color savings;
   final Color over;
 
   // Tailwind 500 palette from the mock. Refund is rendered in the neutral text
@@ -144,17 +146,19 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     income: Color(0xFF10B981), // emerald 500
     expense: Color(0xFFF43F5E), // rose 500
     refund: Color(0xFFF59E0B), // amber 500 (fallback; refund shown neutral)
+    savings: Color(0xFF3B82F6), // blue 500 (savings = money set aside, not spent)
     over: Color(0xFFF43F5E), // rose 500
   );
 
   static const dark = light;
 
   @override
-  AppSemanticColors copyWith({Color? income, Color? expense, Color? refund, Color? over}) {
+  AppSemanticColors copyWith({Color? income, Color? expense, Color? refund, Color? savings, Color? over}) {
     return AppSemanticColors(
       income: income ?? this.income,
       expense: expense ?? this.expense,
       refund: refund ?? this.refund,
+      savings: savings ?? this.savings,
       over: over ?? this.over,
     );
   }
@@ -166,6 +170,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       income: Color.lerp(income, other.income, t)!,
       expense: Color.lerp(expense, other.expense, t)!,
       refund: Color.lerp(refund, other.refund, t)!,
+      savings: Color.lerp(savings, other.savings, t)!,
       over: Color.lerp(over, other.over, t)!,
     );
   }
@@ -204,10 +209,12 @@ extension AppThemeContext on BuildContext {
       Theme.of(this).extension<AppSemanticColors>() ?? AppSemanticColors.light;
 
   /// Amount color by transaction type. Income = emerald, expense = rose,
-  /// **refund = neutral foreground** (per the mock — no dedicated color).
+  /// **refund = neutral foreground** (per the mock — no dedicated color),
+  /// savings = blue (money set aside, not spent).
   Color amountColorForType(String type) => switch (type) {
         'income' => semanticColors.income,
         'refund' => appColors.text,
+        'ahorro' => semanticColors.savings,
         _ => semanticColors.expense,
       };
 }

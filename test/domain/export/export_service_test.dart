@@ -6,6 +6,7 @@ import 'package:despeses/domain/export/export_service.dart';
 Category _category(String id, String name, {String? parentId, bool isDefault = false}) {
   return Category(
     id: id,
+    type: 'expense',
     parentId: parentId,
     name: name,
     isDefault: isDefault,

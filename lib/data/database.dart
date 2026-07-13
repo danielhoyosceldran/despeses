@@ -28,13 +28,25 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _seedDefaults(this);
+        },
+        // Dev app: schema v2 introduces per-type category trees + the `ahorro`
+        // transaction type. Existing data is not preserved (reseed) — drop all
+        // tables and recreate from scratch. Alternatively delete the DB file.
+        onUpgrade: (m, from, to) async {
+          await customStatement('PRAGMA foreign_keys = OFF');
+          for (final table in allTables) {
+            await m.deleteTable(table.actualTableName);
+          }
+          await m.createAll();
+          await _seedDefaults(this);
+          await customStatement('PRAGMA foreign_keys = ON');
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -97,24 +109,49 @@ Future<void> _seedDefaults(AppDatabase db) async {
     }
   }
 
-  const rootCategories = [
-    'category.food',
-    'category.transport',
-    'category.housing',
-    'category.leisure',
-    'category.health',
-    'category.clothing',
-    'category.education',
-  ];
-  for (var i = 0; i < rootCategories.length; i++) {
-    await db.into(db.categories).insert(
-          CategoriesCompanion.insert(
-            id: _uuid.v4(),
-            name: rootCategories[i],
-            isDefault: const Value(true),
-            position: Value(i),
-          ),
-        );
+  // Default category trees, one forest per transaction type (rule: categories
+  // per transaction type). All roots are leaves for now (flat).
+  const categoriesByType = {
+    'expense': [
+      'category.food',
+      'category.transport',
+      'category.housing',
+      'category.leisure',
+      'category.health',
+      'category.clothing',
+      'category.education',
+    ],
+    'income': [
+      'category.income.salary',
+      'category.income.extra',
+      'category.income.gift',
+      'category.income.investment',
+      'category.income.other',
+    ],
+    'refund': [
+      'category.refund.purchase_return',
+      'category.refund.deposit',
+      'category.refund.other',
+    ],
+    'ahorro': [
+      'category.savings.emergency',
+      'category.savings.retirement',
+      'category.savings.goal',
+      'category.savings.other',
+    ],
+  };
+  for (final entry in categoriesByType.entries) {
+    for (var i = 0; i < entry.value.length; i++) {
+      await db.into(db.categories).insert(
+            CategoriesCompanion.insert(
+              id: _uuid.v4(),
+              name: entry.value[i],
+              type: Value(entry.key),
+              isDefault: const Value(true),
+              position: Value(i),
+            ),
+          );
+    }
   }
 
   const paymentMethods = [

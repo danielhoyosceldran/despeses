@@ -24,7 +24,18 @@
     "empty_tag": "No tag data.",
     "empty_project": "No project data.",
     "empty_event": "No event data.",
-    "empty_trend": "No data for selected range."
+    "empty_trend": "No data for selected range.",
+    "section_category": "Categories",
+    "section_tags": "Tags",
+    "section_health": "Health",
+    "section_trend": "Trend",
+    "section_cashflow": "Cash flow",
+    "section_payment": "Payment",
+    "section_behavior": "Behavior",
+    "section_quality": "Quality",
+    "section_budgets": "Budgets",
+    "section_events": "Events",
+    "tag_disclaimer": "A transaction with several tags counts fully in each — slices can add up to more than the total."
   },
   "settings": {
     "toggle_theme": "Toggle theme"
@@ -208,7 +219,8 @@
     "load_more": "Load more",
     "filter_partial": "Filters apply to loaded expenses only. Load more to search further.",
     "no_results": "No expenses match the current filters.",
-    "showing": "Showing {{count}} of {{total}}"
+    "showing": "Showing {{count}} of {{total}}",
+    "type_ahorro": "Savings"
   },
   "auth": {
     "title": "Gastos",
@@ -251,7 +263,25 @@
     "leisure": "Leisure",
     "health": "Health",
     "clothing": "Clothing",
-    "education": "Education"
+    "education": "Education",
+    "income": {
+      "salary": "Salary",
+      "extra": "Extra income",
+      "gift": "Gift",
+      "investment": "Investment",
+      "other": "Other income"
+    },
+    "refund": {
+      "purchase_return": "Purchase return",
+      "deposit": "Deposit refund",
+      "other": "Other refund"
+    },
+    "savings": {
+      "emergency": "Emergency fund",
+      "retirement": "Retirement",
+      "goal": "Goal",
+      "other": "Other savings"
+    }
   },
   "payment": {
     "cash": "Cash",

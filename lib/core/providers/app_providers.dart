@@ -2,7 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
 import '../../domain/backup/backup_service.dart';
-import '../../domain/repositories/analytics_repository.dart';
+import '../../domain/repositories/analytics/analytics_behavior.dart';
+import '../../domain/repositories/analytics/analytics_budgets.dart';
+import '../../domain/repositories/analytics/analytics_cashflow.dart';
+import '../../domain/repositories/analytics/analytics_category.dart';
+import '../../domain/repositories/analytics/analytics_dashboard.dart';
+import '../../domain/repositories/analytics/analytics_events.dart';
+import '../../domain/repositories/analytics/analytics_payment.dart';
+import '../../domain/repositories/analytics/analytics_tags.dart';
+import '../../domain/repositories/analytics/analytics_timeseries.dart';
 import '../../domain/repositories/budget_repository.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../../domain/repositories/event_project_repository.dart';
@@ -64,8 +72,42 @@ final backupServiceProvider = Provider<BackupService>((ref) => BackupService());
 /// on initState.
 final currentTabIndexProvider = StateProvider<int>((ref) => 0);
 
-final analyticsRepositoryProvider = Provider<AnalyticsRepository>(
-  (ref) => AnalyticsRepository(ref.watch(databaseProvider), ref.watch(categoryRepositoryProvider)),
+// Analytics v2 engine (section-scoped calculators). Each is a thin Provider over
+// the DB (+ CategoryRepository where the tree is needed), mirroring the other
+// repository providers.
+final categoryAnalyticsProvider = Provider<CategoryAnalytics>(
+  (ref) => CategoryAnalytics(ref.watch(databaseProvider), ref.watch(categoryRepositoryProvider)),
+);
+final cashflowAnalyticsProvider = Provider<CashflowAnalytics>(
+  (ref) => CashflowAnalytics(ref.watch(databaseProvider)),
+);
+final timeseriesAnalyticsProvider = Provider<TimeseriesAnalytics>(
+  (ref) => TimeseriesAnalytics(ref.watch(databaseProvider)),
+);
+final behaviorAnalyticsProvider = Provider<BehaviorAnalytics>(
+  (ref) => BehaviorAnalytics(ref.watch(databaseProvider)),
+);
+final paymentAnalyticsProvider = Provider<PaymentAnalytics>(
+  (ref) => PaymentAnalytics(ref.watch(databaseProvider)),
+);
+final tagAnalyticsProvider = Provider<TagAnalytics>(
+  (ref) => TagAnalytics(ref.watch(databaseProvider)),
+);
+final eventAnalyticsProvider = Provider<EventAnalytics>(
+  (ref) => EventAnalytics(ref.watch(databaseProvider)),
+);
+final budgetAnalyticsProvider = Provider<BudgetAnalytics>(
+  (ref) => BudgetAnalytics(ref.watch(budgetRepositoryProvider)),
+);
+final dashboardAnalyticsProvider = Provider<DashboardAnalytics>(
+  (ref) => DashboardAnalytics(
+    ref.watch(cashflowAnalyticsProvider),
+    ref.watch(timeseriesAnalyticsProvider),
+    ref.watch(categoryAnalyticsProvider),
+    ref.watch(behaviorAnalyticsProvider),
+    ref.watch(budgetAnalyticsProvider),
+    ref.watch(budgetRepositoryProvider),
+  ),
 );
 
 final referenceDataCacheProvider = Provider<ReferenceDataCache>((ref) {

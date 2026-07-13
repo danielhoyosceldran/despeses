@@ -25,6 +25,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   List<Category> _children = [];
   bool _loading = true;
 
+  /// Which transaction-type category forest is being managed. Only switchable
+  /// at the root level.
+  String _type = 'expense';
+
   @override
   void initState() {
     super.initState();
@@ -36,11 +40,20 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final repo = ref.read(categoryRepositoryProvider);
-    final children = await repo.listChildren(_currentParentId);
+    final children = await repo.listChildren(_currentParentId, type: _type);
     setState(() {
       _children = children;
       _loading = false;
     });
+  }
+
+  void _switchType(String type) {
+    if (type == _type) return;
+    setState(() {
+      _type = type;
+      _breadcrumb.clear();
+    });
+    _load();
   }
 
   Future<void> _create() async {
@@ -49,6 +62,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     await ref.read(categoryRepositoryProvider).create(
           name: result.name,
           parentId: _currentParentId,
+          type: _type,
           color: result.color,
           icon: result.icon,
         );
@@ -116,9 +130,26 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       appBar: AppBar(),
       body: Column(
         children: [
-          if (_breadcrumb.isEmpty)
-            PageTitleHeader(translations?.t('settings_nav.categories') ?? 'Categories')
-          else
+          if (_breadcrumb.isEmpty) ...[
+            PageTitleHeader(translations?.t('settings_nav.categories') ?? 'Categories'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(value: 'expense', label: Text(translations?.t('expenses.type_expense') ?? 'Expense')),
+                    ButtonSegment(value: 'income', label: Text(translations?.t('expenses.type_income') ?? 'Income')),
+                    ButtonSegment(value: 'refund', label: Text(translations?.t('expenses.type_refund') ?? 'Refund')),
+                    ButtonSegment(value: 'ahorro', label: Text(translations?.t('expenses.type_ahorro') ?? 'Savings')),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (s) => _switchType(s.first),
+                ),
+              ),
+            ),
+          ] else
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               child: Row(

@@ -58,13 +58,22 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 - **FAB**: "+" → BudgetEntryScreen (new).
 - **Body**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit). Empty/loading centered. Tap = edit/toggle; long-press = select.
 
-### Analytics (`analytics_screen.dart`)
+### Analytics (`analytics_screen.dart` + `analytics/analytics_sections.dart`)
+Sectioned screen navigated by a horizontal tab strip. No FAB.
 - **Header**: `AppTopBar` in month mode (month pager left, settings gear right).
-- **Body** Column: `AppTopBar` + Expanded month `PageView`.
-- **FAB**: icon-only `FloatingActionButton` toggles dimension; icon shows the *current* dimension — pie (category) / tag.
-- **Each page** (ListView):
-  1. `AppCard.large` panel: centered "Total spent" label + large centered amount; then (when data) optional breadcrumb Row (circular back + path, category view only) and a 240px donut `PieChart` (tap slice to drill in category view).
-  2. Below the panel: legend rows (dot, label, amount, optional drill chevron). Tag view adds a disclaimer line. Empty state text when no data.
+- **Tab strip**: horizontal scrollable row of section chips (selected filled `accent`; the two **preferred** sections — Categories, Tags — come first with a star). Sections: Categories · Tags · Health · Trend · Cash flow · Payment · Behavior · Quality · Budgets · Events.
+- **Body**: the selected section, a scrolling `ListView` of `StatCard`s / panels. Month-scoped sections use the header month pager; time-series sections (Trend, Cash flow) render a `[6M][12M][24M]` `WindowSelector` at the top.
+- **Sections**:
+  - **Categories / Tags** (preferred): `AppCard.large` donut (`DonutChart`) with the total in the hole; Categories supports drill-down (tap slice/legend → breadcrumb Row with circular back). Legend rows below (`LegendRow`). Leaf-only, so no "direct" slice.
+  - **Health**: `KpiTile` grid (savings rate, vs 3M avg, top category, budgets at risk, projection, no-spend streak) + burn-up `TrendLines`.
+  - **Trend**: MoM/YoY tiles, monthly `MonthlyBars` + 3M moving-average line, weekday bars, `CalendarHeatmap`.
+  - **Cash flow**: net bars, savings-rate `RingGauge`, cumulative balance + cumulative savings lines.
+  - **Payment**: spend-by-method `RankedList`.
+  - **Behavior**: ticket KPIs, amount histogram, ant-spend, refunds ring.
+  - **Quality**: tag-coverage `RingGauge`.
+  - **Budgets**: per active budget, progress bar + pace/projection line.
+  - **Events**: event dropdown selector + total/€-per-day tiles + spend timeline + out-of-range notice.
+- **Shared chart widgets** live in `widgets/charts/` (`DonutChart`, `LegendRow`, `analytics_widgets.dart`: `KpiTile`/`KpiTileGrid`, `RankedList`, `MonthlyBars`, `TrendLines`, `RingGauge`, `CalendarHeatmap`, `StatCard`).
 
 ### Settings (`settings_screen.dart`)
 Data catalog tab.
@@ -78,7 +87,7 @@ Personal/app settings hub, pushed over the shell from the header gear.
 
 ### Expense entry (`expense_entry/expense_entry_screen.dart`)
 Full-screen entry.
-- **AppBar**: leading back; title = `SegmentedButton` (Expense / Income / Refund).
+- **AppBar**: leading back; title = `SegmentedButton` (Expense / Income / Refund / Savings). Changing the type clears the selected category (each type has its own category tree).
 - **Body** Column:
   1. Expanded fields ListView: Row [Date | Amount] · divider · Category · Payment method · Tags (count) · divider · Row [Event | Project] · divider · Description field · multiline Notes field.
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
@@ -121,8 +130,8 @@ Identical to Events with "Projects" title.
 
 ### Settings › Categories (`settings/categories_screen.dart`)
 - **AppBar**: empty.
-- **Body** Column: header = `PageTitleHeader` "Categories" at root, or breadcrumb Row (circular back + path) when drilled · Expanded `ReorderableListView` of `EntityListTile` (long-press drag reorder; tap descends into children; swipe edit/delete).
-- **FAB**: "+" → `showEntityFormDialog`, hidden at depth ≥ 3 (max 3 levels).
+- **Body** Column: at root, `PageTitleHeader` "Categories" + a full-width `SegmentedButton` (Expense / Income / Refund / Savings) that switches which per-type category tree is shown; when drilled, a breadcrumb Row (circular back + path) replaces both · Expanded `ReorderableListView` of `EntityListTile` (long-press drag reorder; tap descends into children; swipe edit/delete).
+- **FAB**: "+" → `showEntityFormDialog`, hidden at depth ≥ 3 (max 3 levels). New categories are created in the currently selected type's tree.
 
 ### Settings › Tag groups (`settings/tag_groups_screen.dart`)
 - **AppBar**: empty.

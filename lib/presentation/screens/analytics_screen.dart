@@ -1,27 +1,70 @@
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
-import '../../domain/repositories/analytics_repository.dart';
+import '../../domain/repositories/analytics/analytics_category.dart';
+import '../../domain/repositories/analytics/analytics_math.dart';
+import '../../domain/repositories/analytics/analytics_tags.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
+import '../widgets/charts/analytics_widgets.dart';
+import '../widgets/charts/donut_chart.dart';
+import 'analytics/analytics_sections.dart';
 
-enum _Dimension { category, tags }
+/// The Analytics sections, in tab-strip order. Category and Tags are the
+/// preferred (default) views and come first.
+enum AnalyticsSection {
+  category,
+  tags,
+  health,
+  trend,
+  cashflow,
+  payment,
+  behavior,
+  quality,
+  budgets,
+  events,
+}
 
-/// Large enough that the user can't scroll past either edge in a session;
-/// each page index maps to a calendar month offset from [_baseMonth].
-const int _kInitialPage = 6000;
+extension AnalyticsSectionMeta on AnalyticsSection {
+  bool get preferred => this == AnalyticsSection.category || this == AnalyticsSection.tags;
 
-/// Analytics v1 (plan §3.6): month nav (arrows + swipe, like Dashboard),
-/// total spent, category pie with drill-down (root → sub → subsub, "direct"
-/// slice per level), and a flat tag pie via a dimension selector.
+  String labelKey() => switch (this) {
+        AnalyticsSection.category => 'analytics.section_category',
+        AnalyticsSection.tags => 'analytics.section_tags',
+        AnalyticsSection.health => 'analytics.section_health',
+        AnalyticsSection.trend => 'analytics.section_trend',
+        AnalyticsSection.cashflow => 'analytics.section_cashflow',
+        AnalyticsSection.payment => 'analytics.section_payment',
+        AnalyticsSection.behavior => 'analytics.section_behavior',
+        AnalyticsSection.quality => 'analytics.section_quality',
+        AnalyticsSection.budgets => 'analytics.section_budgets',
+        AnalyticsSection.events => 'analytics.section_events',
+      };
+
+  String fallbackLabel() => switch (this) {
+        AnalyticsSection.category => 'Categories',
+        AnalyticsSection.tags => 'Tags',
+        AnalyticsSection.health => 'Health',
+        AnalyticsSection.trend => 'Trend',
+        AnalyticsSection.cashflow => 'Cash flow',
+        AnalyticsSection.payment => 'Payment',
+        AnalyticsSection.behavior => 'Behavior',
+        AnalyticsSection.quality => 'Quality',
+        AnalyticsSection.budgets => 'Budgets',
+        AnalyticsSection.events => 'Events',
+      };
+}
+
+/// Analytics v2: a sectioned screen navigated by a horizontal tab strip.
+/// Month-scoped sections use the [AppTopBar] month pager; time-series sections
+/// use a rolling window selector rendered inside the section.
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
 
@@ -30,269 +73,317 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
-  late final DateTime _baseMonth;
-  late final PageController _pageController;
+  AnalyticsSection _section = AnalyticsSection.category;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
-  _Dimension _dimension = _Dimension.category;
+
+  /// Drill path for the Category section (empty = roots).
   final List<Category> _breadcrumb = [];
 
-  final Map<String, (int, List<CategorySlice>, List<TagSlice>)> _analyticsCache = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _baseMonth = DateTime(_month.year, _month.month);
-    _pageController = PageController(initialPage: _kInitialPage);
-    _prefetchAdjacent();
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  DateTime _monthForPage(int page) => DateTime(_baseMonth.year, _baseMonth.month + (page - _kInitialPage));
-
-  String? get _currentParentId => _breadcrumb.isEmpty ? null : _breadcrumb.last.id;
-
-  String _cacheKey(DateTime month, String? parentId) =>
-      '${month.year}-${month.month.toString().padLeft(2, '0')}|${parentId ?? ''}';
-
-  Future<(int, List<CategorySlice>, List<TagSlice>)> _fetchMonthAnalytics(DateTime month, String? parentId) async {
-    final key = _cacheKey(month, parentId);
-    final cached = _analyticsCache[key];
-    if (cached != null) return cached;
-    final analytics = ref.read(analyticsRepositoryProvider);
-    final profile = await ref.read(profileRepositoryProvider).get();
-    final total = await analytics.monthTotal(month, profile.currency);
-    final categorySlices = await analytics.categoryBreakdown(month, parentId, profile.currency);
-    final tagSlices = await analytics.tagBreakdown(month, profile.currency);
-    final result = (total, categorySlices, tagSlices);
-    _analyticsCache[key] = result;
-    return result;
-  }
-
-  Future<void> _prefetchAdjacent() async {
-    await _fetchMonthAnalytics(DateTime(_month.year, _month.month - 1), null);
-    await _fetchMonthAnalytics(DateTime(_month.year, _month.month + 1), null);
-  }
+  /// Rolling window (months) for time-series sections.
+  int _window = 12;
 
   void _changeMonth(int delta) {
-    final target = (_pageController.page ?? _kInitialPage.toDouble()).round() + delta;
-    _pageController.animateToPage(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
-  }
-
-  void _onPageChanged(int page) {
     setState(() {
-      _month = _monthForPage(page);
+      _month = DateTime(_month.year, _month.month + delta);
       _breadcrumb.clear();
     });
-    _prefetchAdjacent();
   }
 
-  Future<void> _drillInto(String categoryId) async {
-    final allCategories = await ref.read(referenceDataCacheProvider).categories();
-    final node = allCategories.where((c) => c.id == categoryId);
-    if (node.isEmpty) return;
-    setState(() => _breadcrumb.add(node.first));
+  void _selectSection(AnalyticsSection s) {
+    setState(() {
+      _section = s;
+      _breadcrumb.clear();
+    });
   }
-
-  void _popBreadcrumb() => setState(() => _breadcrumb.removeLast());
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(currentTabIndexProvider, (previous, next) {
-      if (next == 3 && previous != 3) {
-        setState(() => _analyticsCache.clear());
-        _prefetchAdjacent();
-      }
+    // Rebuild when returning to the Analytics tab (data may have changed).
+    ref.listen(currentTabIndexProvider, (_, next) {
+      if (next == 3) setState(() {});
     });
-    final translationsAsync = ref.watch(translationsProvider);
-    final translations = translationsAsync.asData?.value;
-    final profileAsync = ref.watch(profileStreamProvider);
-    final currency = profileAsync.asData?.value.currency ?? 'EUR';
-
-    final isCategory = _dimension == _Dimension.category;
+    final translations = ref.watch(translationsProvider).asData?.value;
+    final currency = ref.watch(profileStreamProvider).asData?.value.currency ?? 'EUR';
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => setState(() {
-          _dimension = isCategory ? _Dimension.tags : _Dimension.category;
-        }),
-        child: Icon(isCategory ? LucideIcons.chartPie300 : LucideIcons.tag300),
-      ),
       body: Column(
         children: [
-          AppTopBar(
-            month: _month,
-            onChangeMonth: _changeMonth,
-            pageController: _pageController,
-            monthForPage: _monthForPage,
-            fallbackPage: _kInitialPage,
+          AppTopBar(month: _month, onChangeMonth: _changeMonth),
+          _SectionTabStrip(
+            current: _section,
+            translations: translations,
+            onSelect: _selectSection,
           ),
           Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) {
-                final month = _monthForPage(index);
-                final isCurrent = index == (_pageController.hasClients ? (_pageController.page?.round() ?? _kInitialPage) : _kInitialPage);
-                return _MonthAnalyticsPage(
-                  key: ValueKey('${_cacheKey(month, null)}-page'),
-                  month: month,
-                  parentId: isCurrent ? _currentParentId : null,
-                  breadcrumb: isCurrent ? _breadcrumb : const [],
-                  dimension: _dimension,
-                  currency: currency,
-                  translations: translations,
-                  fetch: _fetchMonthAnalytics,
-                  onDrillInto: _drillInto,
-                  onPopBreadcrumb: _popBreadcrumb,
-                );
-              },
-            ),
+            child: _buildSection(currency, translations),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSection(String currency, Translations? translations) {
+    switch (_section) {
+      case AnalyticsSection.category:
+        return _CategorySection(
+          month: _month,
+          currency: currency,
+          breadcrumb: _breadcrumb,
+          onDrillInto: (c) => setState(() => _breadcrumb.add(c)),
+          onPop: () => setState(() => _breadcrumb.removeLast()),
+        );
+      case AnalyticsSection.tags:
+        return _TagsSection(month: _month, currency: currency);
+      case AnalyticsSection.health:
+        return HealthSection(month: _month, currency: currency);
+      case AnalyticsSection.trend:
+        return TrendSection(month: _month, currency: currency, window: _window, onWindow: _setWindow);
+      case AnalyticsSection.cashflow:
+        return CashflowSection(month: _month, currency: currency, window: _window, onWindow: _setWindow);
+      case AnalyticsSection.payment:
+        return PaymentSection(month: _month, currency: currency);
+      case AnalyticsSection.behavior:
+        return BehaviorSection(month: _month, currency: currency);
+      case AnalyticsSection.quality:
+        return QualitySection(month: _month, currency: currency);
+      case AnalyticsSection.budgets:
+        return BudgetsSection(month: _month, currency: currency);
+      case AnalyticsSection.events:
+        return EventsSection(currency: currency);
+    }
+  }
+
+  void _setWindow(int w) => setState(() => _window = w);
+}
+
+class _SectionTabStrip extends StatelessWidget {
+  const _SectionTabStrip({required this.current, required this.translations, required this.onSelect});
+
+  final AnalyticsSection current;
+  final Translations? translations;
+  final ValueChanged<AnalyticsSection> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        children: [
+          for (final s in AnalyticsSection.values)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
+              child: _Tab(
+                label: translations?.t(s.labelKey()) ?? s.fallbackLabel(),
+                selected: s == current,
+                preferred: s.preferred,
+                onTap: () => onSelect(s),
+                colors: colors,
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _MonthAnalyticsPage extends ConsumerWidget {
-  const _MonthAnalyticsPage({
-    required super.key,
+class _Tab extends StatelessWidget {
+  const _Tab({
+    required this.label,
+    required this.selected,
+    required this.preferred,
+    required this.onTap,
+    required this.colors,
+  });
+
+  final String label;
+  final bool selected;
+  final bool preferred;
+  final VoidCallback onTap;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? colors.accent : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.smMd, vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+            border: Border.all(
+              color: selected
+                  ? colors.accent
+                  : (preferred ? context.semanticColors.savings.withValues(alpha: 0.6) : colors.borderSoft),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (preferred) ...[
+                Icon(Icons.star_rounded, size: 13, color: selected ? colors.onAccent : context.semanticColors.savings),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                      color: selected ? colors.onAccent : colors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Preferred views: Category + Tags (ported from Analytics v1 onto the v2 engine)
+// ---------------------------------------------------------------------------
+
+class _CategorySection extends ConsumerWidget {
+  const _CategorySection({
     required this.month,
-    required this.parentId,
-    required this.breadcrumb,
-    required this.dimension,
     required this.currency,
-    required this.translations,
-    required this.fetch,
+    required this.breadcrumb,
     required this.onDrillInto,
-    required this.onPopBreadcrumb,
+    required this.onPop,
   });
 
   final DateTime month;
-  final String? parentId;
-  final List<Category> breadcrumb;
-  final _Dimension dimension;
   final String currency;
-  final Translations? translations;
-  final Future<(int, List<CategorySlice>, List<TagSlice>)> Function(DateTime month, String? parentId) fetch;
-  final Future<void> Function(String categoryId) onDrillInto;
-  final VoidCallback onPopBreadcrumb;
+  final List<Category> breadcrumb;
+  final ValueChanged<Category> onDrillInto;
+  final VoidCallback onPop;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<(int, List<CategorySlice>, List<TagSlice>)>(
-      future: fetch(month, parentId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final (total, categorySlices, tagSlices) = snapshot.data!;
+    final parentId = breadcrumb.isEmpty ? null : breadcrumb.last.id;
+    final future = _load(ref, parentId);
+    return FutureBuilder<_CategoryData>(
+      future: future,
+      builder: (context, snap) {
+        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+        final data = snap.data!;
+        final colors = context.appColors;
+        final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents);
 
-        return FutureBuilder<(Map<String, String>, Map<String, bool>, Map<String, String>)>(
-          future: _resolveLabels(ref, categorySlices, tagSlices),
-          builder: (context, labelsSnapshot) {
-            if (!labelsSnapshot.hasData) return const Center(child: CircularProgressIndicator());
-            final (categoryLabels, categoryHasChildren, tagLabels) = labelsSnapshot.data!;
+        if (data.slices.isEmpty) {
+          return _EmptyState(text: ref.read(translationsProvider).asData?.value.t('analytics.empty_category') ?? 'No category data.');
+        }
 
-            final colors = context.appColors;
-            final isCategory = dimension == _Dimension.category;
-            final empty = isCategory ? categorySlices.isEmpty : tagSlices.isEmpty;
-            final legend = isCategory
-                ? _categoryLegend(categorySlices, categoryLabels, categoryHasChildren, currency)
-                : _tagLegend(tagSlices, tagLabels, currency);
-
-            return ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              children: [
-                // Total + donut live inside the rounded panel; legend below it.
-                AppCard.large(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    children: [
-                      Text('TOTAL SPENT', style: appHeaderStyle(colors)),
-                      const SizedBox(height: AppSpacing.sm),
-                      AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 48)),
-                      if (!empty) ...[
-                        if (isCategory && breadcrumb.isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          _breadcrumbRow(context),
-                        ],
-                        const SizedBox(height: AppSpacing.md),
-                        SizedBox(
-                          height: 240,
-                          child: isCategory
-                              ? _categoryChart(categorySlices, categoryHasChildren)
-                              : _tagChart(tagSlices),
+        return ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
+            AppCard.large(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                children: [
+                  if (breadcrumb.isNotEmpty) ...[
+                    _BreadcrumbRow(breadcrumb: breadcrumb, translations: data.translations, onPop: onPop),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                  DonutChart(
+                    slices: [
+                      for (var i = 0; i < data.slices.length; i++)
+                        DonutSlice(
+                          color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                          value: data.slices[i].amountCents.toDouble(),
+                          drillable: data.hasChildren[data.slices[i].categoryId] ?? false,
                         ),
-                      ],
                     ],
-                  ),
-                ),
-                if (empty)
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xl),
-                    child: Center(
-                      child: Text(isCategory
-                          ? (translations?.t('analytics.empty_category') ?? 'No category data.')
-                          : (translations?.t('analytics.empty_tag') ?? 'No tag data.')),
+                    center: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('TOTAL', style: appHeaderStyle(colors)),
+                        const SizedBox(height: 2),
+                        AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 24)),
+                      ],
                     ),
-                  )
-                else ...[
-                  const SizedBox(height: AppSpacing.lg),
-                  ...legend,
-                  if (!isCategory) _tagDisclaimer(context),
+                    onTap: (i) {
+                      final c = data.categoryById[data.slices[i].categoryId];
+                      if (c != null) onDrillInto(c);
+                    },
+                  ),
                 ],
-              ],
-            );
-          },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            for (var i = 0; i < data.slices.length; i++)
+              LegendRow(
+                color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                label: data.labels[data.slices[i].categoryId] ?? '',
+                trailing: formatAmount(data.slices[i].amountCents, currency),
+                canDrill: data.hasChildren[data.slices[i].categoryId] ?? false,
+                onTap: () {
+                  final c = data.categoryById[data.slices[i].categoryId];
+                  if (c != null) onDrillInto(c);
+                },
+              ),
+          ],
         );
       },
     );
   }
 
-  Future<(Map<String, String>, Map<String, bool>, Map<String, String>)> _resolveLabels(
-    WidgetRef ref,
-    List<CategorySlice> categorySlices,
-    List<TagSlice> tagSlices,
-  ) async {
-    final loaded = this.translations ?? await ref.read(translationsProvider.future);
-    final translations = loaded!;
+  Future<_CategoryData> _load(WidgetRef ref, String? parentId) async {
+    final analytics = ref.read(categoryAnalyticsProvider);
+    final translations = await ref.read(translationsProvider.future);
     final allCategories = await ref.read(referenceDataCacheProvider).categories();
-    final categoryById = {for (final c in allCategories) c.id: c};
-    final categoryLabels = <String, String>{};
+    final slices = await analytics.breakdown(
+      DateRange.month(month),
+      parentId: parentId,
+      type: 'expense',
+      currency: currency,
+    );
+    final byId = {for (final c in allCategories) c.id: c};
+    final labels = <String, String>{};
     final hasChildren = <String, bool>{};
-    for (final slice in categorySlices) {
-      final category = categoryById[slice.categoryId];
-      if (category == null) continue;
-      categoryLabels[slice.categoryId!] = displayNameFor(translations, name: category.name, isDefault: category.isDefault);
-      hasChildren[slice.categoryId!] = allCategories.any((c) => c.parentId == slice.categoryId);
+    for (final s in slices) {
+      final c = byId[s.categoryId];
+      if (c == null) continue;
+      labels[s.categoryId] = displayNameFor(translations, name: c.name, isDefault: c.isDefault);
+      hasChildren[s.categoryId] = allCategories.any((x) => x.parentId == s.categoryId);
     }
-
-    final allTags = await ref.read(referenceDataCacheProvider).tags();
-    final tagById = {for (final t in allTags) t.id: t};
-    final tagLabels = <String, String>{
-      for (final slice in tagSlices)
-        if (tagById[slice.tagId] != null)
-          slice.tagId: displayNameFor(translations, name: tagById[slice.tagId]!.name, isDefault: tagById[slice.tagId]!.isDefault),
-    };
-
-    return (categoryLabels, hasChildren, tagLabels);
+    return _CategoryData(slices, labels, hasChildren, byId, translations);
   }
+}
 
-  Widget _breadcrumbRow(BuildContext context) {
+class _CategoryData {
+  _CategoryData(this.slices, this.labels, this.hasChildren, this.categoryById, this.translations);
+  final List<CategorySlice> slices;
+  final Map<String, String> labels;
+  final Map<String, bool> hasChildren;
+  final Map<String, Category> categoryById;
+  final Translations translations;
+}
+
+class _BreadcrumbRow extends StatelessWidget {
+  const _BreadcrumbRow({required this.breadcrumb, required this.translations, required this.onPop});
+
+  final List<Category> breadcrumb;
+  final Translations translations;
+  final VoidCallback onPop;
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.appColors;
     return Row(
       children: [
-        // Circular back button (mock chevron button style).
         Material(
           color: colors.surfaceAlt,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
-            onTap: onPopBreadcrumb,
+            onTap: onPop,
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: Icon(LucideIcons.arrowLeft300, size: 18, color: colors.text),
@@ -302,10 +393,7 @@ class _MonthAnalyticsPage extends ConsumerWidget {
         const SizedBox(width: AppSpacing.smMd),
         Expanded(
           child: Text(
-            breadcrumb.map((c) {
-              final t = translations;
-              return t == null ? c.name : displayNameFor(t, name: c.name, isDefault: c.isDefault);
-            }).join('  ›  '),
+            breadcrumb.map((c) => displayNameFor(translations, name: c.name, isDefault: c.isDefault)).join('  ›  '),
             style: Theme.of(context).textTheme.labelLarge,
             overflow: TextOverflow.ellipsis,
           ),
@@ -313,144 +401,99 @@ class _MonthAnalyticsPage extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _categoryChart(List<CategorySlice> slices, Map<String, bool> hasChildren) {
-    return PieChart(
-      PieChartData(
-        centerSpaceRadius: 60,
-        sectionsSpace: 5,
-        sections: [
-          for (var i = 0; i < slices.length; i++)
-            PieChartSectionData(
-              value: slices[i].amountCents.abs().toDouble(),
-              color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-              title: '',
-              radius: 20,
+class _TagsSection extends ConsumerWidget {
+  const _TagsSection({required this.month, required this.currency});
+
+  final DateTime month;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FutureBuilder<_TagData>(
+      future: _load(ref),
+      builder: (context, snap) {
+        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+        final data = snap.data!;
+        final colors = context.appColors;
+        if (data.slices.isEmpty) {
+          return _EmptyState(text: data.translations.t('analytics.empty_tag'));
+        }
+        final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents.abs());
+        return ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
+            AppCard.large(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: DonutChart(
+                slices: [
+                  for (var i = 0; i < data.slices.length; i++)
+                    DonutSlice(
+                      color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                      value: data.slices[i].amountCents.toDouble(),
+                    ),
+                ],
+                center: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('TAGS', style: appHeaderStyle(colors)),
+                    const SizedBox(height: 2),
+                    AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 22)),
+                  ],
+                ),
+              ),
             ),
-        ],
-        pieTouchData: PieTouchData(
-          touchCallback: (event, response) {
-            if (!event.isInterestedForInteractions) return;
-            final index = response?.touchedSection?.touchedSectionIndex;
-            if (index == null || index < 0) return;
-            final slice = slices[index];
-            if (!slice.isDirect && slice.categoryId != null && hasChildren[slice.categoryId] == true) {
-              onDrillInto(slice.categoryId!);
-            }
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _tagChart(List<TagSlice> slices) {
-    return PieChart(
-      PieChartData(
-        centerSpaceRadius: 60,
-        sectionsSpace: 5,
-        sections: [
-          for (var i = 0; i < slices.length; i++)
-            PieChartSectionData(
-              value: slices[i].amountCents.abs().toDouble(),
-              color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-              title: '',
-              radius: 20,
+            const SizedBox(height: AppSpacing.md),
+            for (var i = 0; i < data.slices.length; i++)
+              LegendRow(
+                color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                label: data.labels[data.slices[i].tagId] ?? '',
+                trailing: formatAmount(data.slices[i].amountCents, currency),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Text(
+                data.translations.t('analytics.tag_disclaimer'),
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic),
+              ),
             ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
-  List<Widget> _categoryLegend(
-    List<CategorySlice> slices,
-    Map<String, String> labels,
-    Map<String, bool> hasChildren,
-    String currency,
-  ) {
-    return [
-      for (var i = 0; i < slices.length; i++)
-        _SliceLegendRow(
-          color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-          label: slices[i].isDirect ? 'Direct' : (labels[slices[i].categoryId] ?? ''),
-          amountCents: slices[i].amountCents,
-          currency: currency,
-          canDrill: !slices[i].isDirect &&
-              slices[i].categoryId != null &&
-              hasChildren[slices[i].categoryId] == true,
-          onTap: () {
-            final categoryId = slices[i].categoryId;
-            if (categoryId != null) onDrillInto(categoryId);
-          },
-        ),
-    ];
-  }
-
-  List<Widget> _tagLegend(List<TagSlice> slices, Map<String, String> labels, String currency) {
-    return [
-      for (var i = 0; i < slices.length; i++)
-        _SliceLegendRow(
-          color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-          label: labels[slices[i].tagId] ?? '',
-          amountCents: slices[i].amountCents,
-          currency: currency,
-        ),
-    ];
-  }
-
-  Widget _tagDisclaimer(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.sm),
-      child: Text(
-        'A transaction with several tags counts fully in each — slices can add up to more than the month total.',
-        style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic),
-      ),
-    );
+  Future<_TagData> _load(WidgetRef ref) async {
+    final analytics = ref.read(tagAnalyticsProvider);
+    final translations = await ref.read(translationsProvider.future);
+    final allTags = await ref.read(referenceDataCacheProvider).tags();
+    final slices = await analytics.byTag(DateRange.month(month), currency);
+    final byId = {for (final t in allTags) t.id: t};
+    final labels = {
+      for (final s in slices)
+        if (byId[s.tagId] != null)
+          s.tagId: displayNameFor(translations, name: byId[s.tagId]!.name, isDefault: byId[s.tagId]!.isDefault),
+    };
+    return _TagData(slices, labels, translations);
   }
 }
 
-class _SliceLegendRow extends StatelessWidget {
-  const _SliceLegendRow({
-    required this.color,
-    required this.label,
-    required this.amountCents,
-    required this.currency,
-    this.canDrill = false,
-    this.onTap,
-  });
+class _TagData {
+  _TagData(this.slices, this.labels, this.translations);
+  final List<TagSlice> slices;
+  final Map<String, String> labels;
+  final Translations translations;
+}
 
-  final Color color;
-  final String label;
-  final int amountCents;
-  final String currency;
-  final bool canDrill;
-  final VoidCallback? onTap;
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.text});
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return InkWell(
-      onTap: canDrill ? onTap : null,
-      borderRadius: BorderRadius.circular(AppDimens.radiusButton),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.smMd, horizontal: AppSpacing.xs),
-        child: Row(
-          children: [
-            Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            const SizedBox(width: AppSpacing.smMd),
-            Expanded(child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
-            Text(
-              '${(amountCents / 100).toStringAsFixed(2)} $currency',
-              style: Theme.of(context).textTheme.labelLarge!.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-            ),
-            if (canDrill) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Icon(LucideIcons.chevronRight300, size: 16, color: colors.textMuted),
-            ],
-          ],
-        ),
-      ),
+    return Center(
+      child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: Text(text)),
     );
   }
 }

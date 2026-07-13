@@ -51,6 +51,12 @@ class Tags extends Table {
 
 class Categories extends Table {
   TextColumn get id => text()();
+  // Which transaction-type tree this category belongs to: each type has its own
+  // forest (rule: categories per transaction type).
+  TextColumn get type => text()
+      .customConstraint(
+          "NOT NULL DEFAULT 'expense' CHECK (type IN ('expense', 'income', 'refund', 'ahorro'))")
+      .clientDefault(() => 'expense')();
   TextColumn get parentId => text()
       .nullable()
       .customConstraint('REFERENCES categories(id) ON DELETE CASCADE')();
@@ -67,7 +73,7 @@ class Categories extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-        {parentId, name},
+        {type, parentId, name},
       ];
 }
 
@@ -130,7 +136,7 @@ class Expenses extends Table {
   IntColumn get amount => integer().customConstraint('NOT NULL CHECK (amount > 0)')();
   TextColumn get currency => text().withLength(min: 3, max: 3)();
   TextColumn get type =>
-      text().customConstraint("NOT NULL CHECK (type IN ('expense', 'income', 'refund'))")();
+      text().customConstraint("NOT NULL CHECK (type IN ('expense', 'income', 'refund', 'ahorro'))")();
   DateTimeColumn get date => dateTime()();
   TextColumn get description => text().withLength(max: 300).nullable()();
   TextColumn get notes => text().withLength(max: 1000).nullable()();

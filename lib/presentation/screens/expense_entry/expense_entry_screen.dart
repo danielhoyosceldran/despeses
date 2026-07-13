@@ -177,6 +177,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
           _panelContent = CategoryPickerContent(
             repository: ref.read(categoryRepositoryProvider),
             translations: translations,
+            type: _type,
             onSelected: (selected) {
               setState(() => _categoryId = selected.id);
               _closePanel();
@@ -304,6 +305,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         return semantic.income;
       case 'refund':
         return semantic.refund;
+      case 'ahorro':
+        return semantic.savings;
       default:
         return semantic.expense;
     }
@@ -342,9 +345,20 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               value: 'refund',
               label: Text(translations?.t('expenses.type_refund') ?? 'Refund', style: TextStyle(color: semantic.refund)),
             ),
+            ButtonSegment(
+              value: 'ahorro',
+              label: Text(translations?.t('expenses.type_ahorro') ?? 'Savings', style: TextStyle(color: semantic.savings)),
+            ),
           ],
           selected: {_type},
-          onSelectionChanged: (selection) => setState(() => _type = selection.first),
+          onSelectionChanged: (selection) => setState(() {
+            final newType = selection.first;
+            if (newType != _type) {
+              _type = newType;
+              // Category trees differ per type — the previous selection is invalid.
+              _categoryId = null;
+            }
+          }),
         ),
       ),
       body: Column(
