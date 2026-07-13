@@ -62,7 +62,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 Sectioned screen navigated by a horizontal tab strip. No FAB.
 - **Header**: `AppTopBar` — month mode (month pager) only on month-scoped sections; on non-month sections (Trend, Cash flow, Events) it shows the section title instead of the pager. Settings gear always right.
 - **Tab strip**: horizontal scrollable row of section chips (selected filled `accent`; the two **preferred** sections — Categories, Tags — come first with a star). Sections: Categories · Tags · Health · Trend · Cash flow · Payment · Behavior · Quality · Budgets · Events.
-- **Body**: the selected section, a scrolling `ListView` of `StatCard`s / panels. Month-scoped sections use the header month pager; time-series sections (Trend, Cash flow) render a `[6M][12M][24M]` `WindowSelector` at the top.
+- **Body**: a `PageView` — month-scoped sections are swipeable left/right to change month (tracked by the header label + chevrons, mirroring Dashboard); non-month sections (Trend, Cash flow, Events) disable the swipe. Each section is a scrolling `ListView` of `StatCard`s / panels. Time-series sections (Trend, Cash flow) render a `[6M][12M][24M]` `WindowSelector` at the top instead of using month.
 - **Sections**:
   - **Categories / Tags** (preferred): `AppCard.large` donut (`DonutChart`) with the total in the hole; Categories supports drill-down (tap slice/legend → breadcrumb Row with circular back). Legend rows below (`LegendRow`). Leaf-only, so no "direct" slice.
   - **Health**: `KpiTile` grid (savings rate, vs 3M avg, top category, budgets at risk, projection, no-spend streak) + burn-up `TrendLines`.

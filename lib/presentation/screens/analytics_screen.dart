@@ -81,8 +81,14 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
 }
 
 class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
+  /// Large enough that the user can't reach either edge in a session; each page
+  /// index maps to a calendar-month offset from [_baseMonth].
+  static const int _kInitialPage = 6000;
+
   AnalyticsSection _section = AnalyticsSection.category;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  late final DateTime _baseMonth;
+  late final PageController _pageController;
 
   /// Drill path for the Category section (empty = roots).
   final List<Category> _breadcrumb = [];
@@ -90,9 +96,29 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   /// Rolling window (months) for time-series sections.
   int _window = 12;
 
+  @override
+  void initState() {
+    super.initState();
+    _baseMonth = DateTime(_month.year, _month.month);
+    _pageController = PageController(initialPage: _kInitialPage);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  DateTime _monthForPage(int page) => DateTime(_baseMonth.year, _baseMonth.month + (page - _kInitialPage));
+
   void _changeMonth(int delta) {
+    final target = (_pageController.page ?? _kInitialPage.toDouble()).round() + delta;
+    _pageController.animateToPage(target, duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+  }
+
+  void _onPageChanged(int page) {
     setState(() {
-      _month = DateTime(_month.year, _month.month + delta);
+      _month = _monthForPage(page);
       _breadcrumb.clear();
     });
   }
@@ -117,7 +143,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       body: Column(
         children: [
           if (_section.monthScoped)
-            AppTopBar(month: _month, onChangeMonth: _changeMonth)
+            AppTopBar(
+              month: _month,
+              onChangeMonth: _changeMonth,
+              pageController: _pageController,
+              monthForPage: _monthForPage,
+              fallbackPage: _kInitialPage,
+            )
           else
             AppTopBar(title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel()),
           _SectionTabStrip(
@@ -126,39 +158,51 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             onSelect: _selectSection,
           ),
           Expanded(
-            child: _buildSection(currency, translations),
+            // Month-scoped sections live in a swipeable [PageView] (swipe left/
+            // right = prev/next month, tracked by the header label). Non-month
+            // sections (window/event selectors) disable the swipe and ignore the
+            // page index.
+            child: PageView.builder(
+              controller: _pageController,
+              physics: _section.monthScoped ? null : const NeverScrollableScrollPhysics(),
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                final month = _section.monthScoped ? _monthForPage(index) : _month;
+                return _buildSection(month, currency, translations);
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSection(String currency, Translations? translations) {
+  Widget _buildSection(DateTime month, String currency, Translations? translations) {
     switch (_section) {
       case AnalyticsSection.category:
         return _CategorySection(
-          month: _month,
+          month: month,
           currency: currency,
           breadcrumb: _breadcrumb,
           onDrillInto: (c) => setState(() => _breadcrumb.add(c)),
           onPop: () => setState(() => _breadcrumb.removeLast()),
         );
       case AnalyticsSection.tags:
-        return _TagsSection(month: _month, currency: currency);
+        return _TagsSection(month: month, currency: currency);
       case AnalyticsSection.health:
-        return HealthSection(month: _month, currency: currency);
+        return HealthSection(month: month, currency: currency);
       case AnalyticsSection.trend:
-        return TrendSection(month: _month, currency: currency, window: _window, onWindow: _setWindow);
+        return TrendSection(month: month, currency: currency, window: _window, onWindow: _setWindow);
       case AnalyticsSection.cashflow:
-        return CashflowSection(month: _month, currency: currency, window: _window, onWindow: _setWindow);
+        return CashflowSection(month: month, currency: currency, window: _window, onWindow: _setWindow);
       case AnalyticsSection.payment:
-        return PaymentSection(month: _month, currency: currency);
+        return PaymentSection(month: month, currency: currency);
       case AnalyticsSection.behavior:
-        return BehaviorSection(month: _month, currency: currency);
+        return BehaviorSection(month: month, currency: currency);
       case AnalyticsSection.quality:
-        return QualitySection(month: _month, currency: currency);
+        return QualitySection(month: month, currency: currency);
       case AnalyticsSection.budgets:
-        return BudgetsSection(month: _month, currency: currency);
+        return BudgetsSection(month: month, currency: currency);
       case AnalyticsSection.events:
         return EventsSection(currency: currency);
     }
