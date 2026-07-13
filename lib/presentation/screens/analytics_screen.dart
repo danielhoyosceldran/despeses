@@ -137,18 +137,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   void _selectSection(AnalyticsSection s) {
+    if (s == _section) return;
     setState(() {
       _section = s;
       _breadcrumb.clear();
     });
-  }
-
-  /// Cyclically advance ([delta] > 0) or retreat the current section, wrapping
-  /// around the ends. Driven by the FAB vertical drag.
-  void _step(int delta) {
-    const values = AnalyticsSection.values;
-    final next = (_section.index + delta) % values.length;
-    _selectSection(values[next < 0 ? next + values.length : next]);
   }
 
   void _openSectionMenu(Translations? translations) {
@@ -179,7 +172,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
       floatingActionButton: _SectionFab(
         section: _section,
         onTap: () => _openSectionMenu(translations),
-        onStep: _step,
+        onSelect: _selectSection,
       ),
       body: Column(
         children: [
@@ -247,77 +240,111 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   void _setWindow(int w) => setState(() => _window = w);
 }
 
-/// Section-navigation FAB. Tap opens the [_SectionMenu]; a vertical drag steps
-/// through sections one at a time (drag up = next, drag down = previous). The
-/// gesture is vertical-only so it never collides with the body's horizontal
-/// month swipe.
+/// Section-navigation FAB with two drag gestures:
+/// - **vertical** steps through every section one at a time (up = next, down =
+///   previous), and
+/// - **horizontal left** toggles between the two **preferred** sections
+///   (Categories ↔ Tags).
+///
+/// Tap opens the [_SectionMenu]. The vertical/horizontal recognizers are
+/// distinct so a drag commits to one axis; neither collides with the body's own
+/// horizontal month swipe (that lives in the [PageView], not on the FAB).
 class _SectionFab extends StatefulWidget {
   const _SectionFab({
     required this.section,
     required this.onTap,
-    required this.onStep,
+    required this.onSelect,
   });
 
   final AnalyticsSection section;
   final VoidCallback onTap;
-  final ValueChanged<int> onStep;
+  final ValueChanged<AnalyticsSection> onSelect;
 
   @override
   State<_SectionFab> createState() => _SectionFabState();
 }
 
+enum _DragAxis { none, vertical, horizontal }
+
 class _SectionFabState extends State<_SectionFab> {
-  /// Accumulated vertical drag distance; a gesture past this (in either sense)
-  /// steps one section.
+  /// Signed drag distance past this (in either sense) arms a switch.
   static const double _kDragStep = 24;
 
   /// How far the FAB is allowed to follow the finger.
   static const double _kMaxFollow = 20;
 
-  double _dragDy = 0;
-  bool _dragging = false;
+  /// The two preferred sections, in order — the horizontal-drag toggle pair.
+  static final List<AnalyticsSection> _preferred =
+      AnalyticsSection.values.where((s) => s.preferred).toList();
 
-  /// -1 while the drag is armed to go to the previous section, +1 for the next,
-  /// 0 while below the step threshold.
-  int get _armed => _dragDy <= -_kDragStep ? 1 : (_dragDy >= _kDragStep ? -1 : 0);
+  _DragAxis _axis = _DragAxis.none;
 
-  /// The section the current drag would land on (the FAB previews its icon).
-  AnalyticsSection get _target {
+  /// Signed distance along the active axis (dy for vertical, dx for horizontal).
+  double _drag = 0;
+
+  bool get _dragging => _axis != _DragAxis.none;
+
+  AnalyticsSection _sectionAt(int offset) {
     const values = AnalyticsSection.values;
-    final i = (widget.section.index + _armed) % values.length;
+    final i = (widget.section.index + offset) % values.length;
     return values[i < 0 ? i + values.length : i];
   }
 
-  void _endDrag() {
-    if (_armed != 0) widget.onStep(_armed);
+  /// The other preferred section (defaults to the first preferred when the
+  /// current section isn't one of the pair).
+  AnalyticsSection get _otherPreferred =>
+      widget.section == _preferred.first ? _preferred.last : _preferred.first;
+
+  /// The section the current drag would land on; equals the current section
+  /// while below the arm threshold (so the FAB shows its own icon).
+  AnalyticsSection get _target {
+    if (_axis == _DragAxis.vertical) {
+      if (_drag <= -_kDragStep) return _sectionAt(1); // up → next
+      if (_drag >= _kDragStep) return _sectionAt(-1); // down → previous
+    } else if (_axis == _DragAxis.horizontal) {
+      if (_drag <= -_kDragStep) return _otherPreferred; // left → toggle preferred
+    }
+    return widget.section;
+  }
+
+  void _start(_DragAxis axis) => setState(() {
+        _axis = axis;
+        _drag = 0;
+      });
+
+  void _end() {
+    final target = _target;
+    if (target != widget.section) widget.onSelect(target);
     setState(() {
-      _dragging = false;
-      _dragDy = 0;
+      _axis = _DragAxis.none;
+      _drag = 0;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final followY = _dragDy.clamp(-_kMaxFollow, _kMaxFollow);
-    final armed = _armed != 0;
+    final clamped = _drag.clamp(-_kMaxFollow, _kMaxFollow);
+    final follow = _axis == _DragAxis.horizontal ? Offset(clamped, 0) : Offset(0, clamped);
+    final armed = _target != widget.section;
     return GestureDetector(
-      onVerticalDragStart: (_) => setState(() {
-        _dragging = true;
-        _dragDy = 0;
-      }),
-      onVerticalDragUpdate: (d) => setState(() => _dragDy += d.delta.dy),
-      onVerticalDragEnd: (_) => _endDrag(),
-      onVerticalDragCancel: _endDrag,
+      onVerticalDragStart: (_) => _start(_DragAxis.vertical),
+      onVerticalDragUpdate: (d) => setState(() => _drag += d.delta.dy),
+      onVerticalDragEnd: (_) => _end(),
+      onVerticalDragCancel: _end,
+      onHorizontalDragStart: (_) => _start(_DragAxis.horizontal),
+      onHorizontalDragUpdate: (d) => setState(() => _drag += d.delta.dx),
+      onHorizontalDragEnd: (_) => _end(),
+      onHorizontalDragCancel: _end,
       child: AnimatedScale(
         scale: armed ? 1.12 : 1,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         child: Transform.translate(
-          offset: Offset(0, followY),
+          offset: follow,
           child: FloatingActionButton(
             onPressed: widget.onTap,
-            // Slightly emphasise the button while a step is armed so the drag
-            // reads as "let go to switch".
+            // Emphasise the button while a switch is armed so the drag reads as
+            // "let go to switch".
             elevation: armed ? 12 : null,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 120),

@@ -267,13 +267,14 @@ Header gear `settings`.
   `Opacity(1-t)`), padding tightens, and a hairline bottom border fades in. The
   scroll **is** the animation clock — no timed controller.
 - **FAB press** — `PressableScale` (see §5).
-- **Analytics section-FAB drag** (`analytics_screen` `_SectionFab`) — a vertical
-  drag on the section FAB gives live feedback: the button follows the finger
-  (`Transform.translate`, clamped ±20px) and, once past the ±24px step
-  threshold, scales to 1.12 with elevation 12 (both `AnimatedScale`/elevation,
-  120ms easeOut) while its icon cross-fades (`AnimatedSwitcher`, scale+fade,
-  120ms) to the **target** section's icon — preview of where release will land.
-  Releasing steps one section; cancel resets.
+- **Analytics section-FAB drag** (`analytics_screen` `_SectionFab`) — dragging
+  the section FAB gives live feedback along the committed axis: the button
+  follows the finger (`Transform.translate`, clamped ±20px, vertical or
+  horizontal) and, once past the ±24px arm threshold, scales to 1.12 with
+  elevation 12 (`AnimatedScale`/elevation, 120ms easeOut) while its icon
+  cross-fades (`AnimatedSwitcher`, scale+fade, 120ms) to the **target**
+  section's icon — preview of where release lands. Vertical steps one section
+  (up/down); horizontal-left toggles the two preferred sections. Cancel resets.
 - **Motion tokens** (`AppDimens`): `animFast 200ms`, `animNormal 300ms`,
   `animCurve easeOutCubic`.
 
