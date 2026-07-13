@@ -35,6 +35,14 @@ enum AnalyticsSection {
 extension AnalyticsSectionMeta on AnalyticsSection {
   bool get preferred => this == AnalyticsSection.category || this == AnalyticsSection.tags;
 
+  /// Whether this section is scoped to a single month (drives the header month
+  /// pager). Time-series sections (window selector) and Events (event selector)
+  /// are not, so they hide the month pager and show a plain title instead.
+  bool get monthScoped => switch (this) {
+        AnalyticsSection.trend || AnalyticsSection.cashflow || AnalyticsSection.events => false,
+        _ => true,
+      };
+
   String labelKey() => switch (this) {
         AnalyticsSection.category => 'analytics.section_category',
         AnalyticsSection.tags => 'analytics.section_tags',
@@ -108,7 +116,10 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     return Scaffold(
       body: Column(
         children: [
-          AppTopBar(month: _month, onChangeMonth: _changeMonth),
+          if (_section.monthScoped)
+            AppTopBar(month: _month, onChangeMonth: _changeMonth)
+          else
+            AppTopBar(title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel()),
           _SectionTabStrip(
             current: _section,
             translations: translations,
