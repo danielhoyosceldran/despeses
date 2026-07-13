@@ -5,9 +5,12 @@ import 'package:intl/intl.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/i18n/translations.dart';
+import '../../../core/haptics/haptics.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../widgets/amount_text.dart';
+import '../../widgets/app_card.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/numeric_keypad.dart';
@@ -124,6 +127,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _panelContent = _DatePanel(
         initial: _date ?? DateTime.now(),
         onSelected: (picked) {
+          ref.read(hapticsProvider).selection();
           setState(() => _date = picked);
           _closePanel();
         },
@@ -184,6 +188,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             translations: translations,
             type: _type,
             onSelected: (selected) {
+              ref.read(hapticsProvider).selection();
               setState(() => _categoryId = selected.id);
               _closePanel();
               _openNextStep('category');
@@ -200,6 +205,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             items: methods,
             labelOf: (m) => displayNameFor(translations, name: m.name, isDefault: m.isDefault),
             onSelected: (selected) {
+              ref.read(hapticsProvider).selection();
               setState(() => _paymentMethodId = selected.id);
               _closePanel();
               _openNextStep('paymentMethod');
@@ -220,6 +226,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             initialSelectedIds: _tagIds,
             translations: translations,
             onDone: (selected) {
+              ref.read(hapticsProvider).selection();
               setState(() => _tagIds = selected);
               _closePanel();
               _openNextStep('tags');
@@ -236,6 +243,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             items: events,
             labelOf: (e) => e.name,
             onSelected: (selected) {
+              ref.read(hapticsProvider).selection();
               setState(() => _eventId = selected.id);
               _closePanel();
               _openNextStep('event');
@@ -252,6 +260,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             items: projects,
             labelOf: (p) => p.name,
             onSelected: (selected) {
+              ref.read(hapticsProvider).selection();
               setState(() => _projectId = selected.id);
               _closePanel();
               _openNextStep('project');
@@ -343,38 +352,19 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronDown300),
           onPressed: () => _close(),
         ),
-        title: SegmentedButton<String>(
-          segments: [
-            ButtonSegment(
-              value: 'expense',
-              label: Text(translations?.t('expenses.type_expense') ?? 'Expense', style: TextStyle(color: semantic.expense)),
-            ),
-            ButtonSegment(
-              value: 'income',
-              label: Text(translations?.t('expenses.type_income') ?? 'Income', style: TextStyle(color: semantic.income)),
-            ),
-            ButtonSegment(
-              value: 'refund',
-              label: Text(translations?.t('expenses.type_refund') ?? 'Refund', style: TextStyle(color: semantic.refund)),
-            ),
-            ButtonSegment(
-              value: 'ahorro',
-              label: Text(translations?.t('expenses.type_ahorro') ?? 'Savings', style: TextStyle(color: semantic.savings)),
-            ),
-          ],
-          selected: {_type},
-          onSelectionChanged: (selection) => setState(() {
-            final newType = selection.first;
-            if (newType != _type) {
-              _type = newType;
-              // Category trees differ per type — the previous selection is invalid.
-              _categoryId = null;
-            }
-          }),
+        title: TextButton(
+          onPressed: _openDatePanel,
+          child: Text(
+            _date == null
+                ? (translations?.t('expenses.select') ?? 'Select')
+                : DateFormat.yMd().format(_date!),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colors.text),
+          ),
         ),
       ),
       body: Column(
@@ -413,11 +403,16 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             ),
           BottomActionPanel(
             isOpen: _openPanel != null,
-            maxHeight: 4 * 56,
+            maxHeight: switch (_openPanel) {
+                  'date' => 380,
+                  _ => 340,
+                } +
+                MediaQuery.of(context).padding.bottom,
             child: _openPanel == 'amount'
                 ? NumericKeypad(
                     amountCents: _amountCents,
                     nextLabel: translations?.t('common.next') ?? 'Next',
+                    onKeyTap: () => ref.read(hapticsProvider).selection(),
                     onAmountChanged: (v) => setState(() => _amountCents = v),
                     onNext: () {
                       _closePanel();
@@ -457,97 +452,150 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         final labels = snapshot.data;
 
         return ListView(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
           children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            _buildTypeSelector(translations, colors, semantic),
+            const SizedBox(height: AppSpacing.lg),
+            Center(
+              child: GestureDetector(
+                onTap: _openAmountPanel,
+                behavior: HitTestBehavior.opaque,
+                child: AmountText(
+                  amountCents: _amountCents,
+                  currency: currency,
+                  color: _typeColor(colors, semantic),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppCard(
+              clip: true,
+              padding: EdgeInsets.zero,
+              child: Column(
                 children: [
-                  Expanded(
-                    child: ListTile(
-                      title: Text(_date == null ? (translations?.t('expenses.select') ?? 'Select') : DateFormat.yMMMd().format(_date!)),
-                      onTap: _openDatePanel,
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: colors.divider),
-                  Expanded(
-                    child: ListTile(
-                      title: Text(
-                        '${(_amountCents / 100).toStringAsFixed(2)} $currency',
-                        style: TextStyle(color: _typeColor(colors, semantic)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: TextField(
+                      controller: _descriptionController,
+                      focusNode: _descriptionFocus,
+                      maxLength: 300,
+                      textInputAction: TextInputAction.next,
+                      onSubmitted: (_) => _notesFocus.requestFocus(),
+                      decoration: InputDecoration(
+                        labelText: translations?.t('common.description') ?? 'Description',
+                        border: InputBorder.none,
+                        filled: false,
+                        isDense: true,
+                        counterText: '',
+                        contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                       ),
-                      onTap: _openAmountPanel,
+                    ),
+                  ),
+                  Divider(height: 1, color: colors.divider),
+                  _fieldTile(labels?.category ?? (translations?.t('expenses.select') ?? 'Select'), () => _openStep('category')),
+                  Divider(height: 1, color: colors.divider),
+                  _fieldTile(labels?.paymentMethod ?? (translations?.t('expenses.select') ?? 'Select'), () => _openStep('paymentMethod')),
+                  Divider(height: 1, color: colors.divider),
+                  _fieldTile(
+                    _tagIds.isEmpty
+                        ? (translations?.t('expenses.tags') ?? 'Tags')
+                        : (translations?.t('expenses.selected_count').replaceAll('{{count}}', '${_tagIds.length}') ??
+                            '${_tagIds.length} selected'),
+                    () => _openStep('tags'),
+                  ),
+                  Divider(height: 1, color: colors.divider),
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _fieldTile(labels?.event ?? (translations?.t('expenses.event') ?? 'Event'), () => _openStep('event')),
+                        ),
+                        VerticalDivider(width: 1, color: colors.divider),
+                        Expanded(
+                          child: _fieldTile(labels?.project ?? (translations?.t('expenses.project') ?? 'Project'), () => _openStep('project')),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, color: colors.divider),
-            ListTile(
-              title: Text(labels?.category ?? (translations?.t('expenses.select') ?? 'Select')),
-              onTap: () => _openStep('category'),
-            ),
-            Divider(height: 1, color: colors.divider),
-            ListTile(
-              title: Text(labels?.paymentMethod ?? (translations?.t('expenses.select') ?? 'Select')),
-              onTap: () => _openStep('paymentMethod'),
-            ),
-            Divider(height: 1, color: colors.divider),
-            ListTile(
-              title: Text(
-                _tagIds.isEmpty
-                    ? (translations?.t('expenses.tags') ?? 'Tags')
-                    : (translations?.t('expenses.selected_count').replaceAll('{{count}}', '${_tagIds.length}') ??
-                        '${_tagIds.length} selected'),
-              ),
-              onTap: () => _openStep('tags'),
-            ),
-            Divider(height: 1, color: colors.divider),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: ListTile(
-                      title: Text(labels?.event ?? (translations?.t('expenses.event') ?? 'Event')),
-                      onTap: () => _openStep('event'),
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: colors.divider),
-                  Expanded(
-                    child: ListTile(
-                      title: Text(labels?.project ?? (translations?.t('expenses.project') ?? 'Project')),
-                      onTap: () => _openStep('project'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: colors.divider),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: TextField(
-                controller: _descriptionController,
-                focusNode: _descriptionFocus,
-                maxLength: 300,
-                textInputAction: TextInputAction.next,
-                onSubmitted: (_) => _notesFocus.requestFocus(),
-                decoration: InputDecoration(labelText: translations?.t('common.description') ?? 'Description'),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            const SizedBox(height: AppSpacing.md),
+            AppCard(
               child: TextField(
                 controller: _notesController,
                 focusNode: _notesFocus,
                 maxLength: 1000,
                 maxLines: 3,
-                decoration: InputDecoration(labelText: translations?.t('expenses.notes') ?? 'Notes'),
+                decoration: InputDecoration(
+                  labelText: translations?.t('expenses.notes') ?? 'Notes',
+                  border: InputBorder.none,
+                  filled: false,
+                  isDense: true,
+                  counterText: '',
+                  contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                ),
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  /// Compact tappable field row for the entry card (tighter padding than a
+  /// default `ListTile`).
+  Widget _fieldTile(String text, VoidCallback onTap) => ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(vertical: -2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        title: Text(text),
+        onTap: onTap,
+      );
+
+  /// Horizontal "Expense | Income | Refund | Savings" text selector (ref
+  /// layout): tap sets the type; selected label takes its semantic colour and
+  /// bold weight, the rest are muted.
+  Widget _buildTypeSelector(Translations? translations, AppColors colors, AppSemanticColors semantic) {
+    final entries = <(String, String, Color)>[
+      ('expense', translations?.t('expenses.type_expense') ?? 'Expense', semantic.expense),
+      ('income', translations?.t('expenses.type_income') ?? 'Income', semantic.income),
+      ('refund', translations?.t('expenses.type_refund') ?? 'Refund', semantic.refund),
+      ('ahorro', translations?.t('expenses.type_ahorro') ?? 'Savings', semantic.savings),
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < entries.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text('|', style: TextStyle(color: colors.divider)),
+            ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _selectType(entries[i].$1),
+            child: Text(
+              entries[i].$2,
+              style: TextStyle(
+                color: _type == entries[i].$1 ? entries[i].$3 : colors.textMuted,
+                fontWeight: _type == entries[i].$1 ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _selectType(String newType) {
+    if (newType == _type) return;
+    setState(() {
+      _type = newType;
+      // Category trees differ per type — the previous selection is invalid.
+      _categoryId = null;
+    });
   }
 
   Future<_FieldLabels> _resolveLabels() async {

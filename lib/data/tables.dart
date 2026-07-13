@@ -6,6 +6,8 @@ class Profile extends Table {
   TextColumn get currency => text().withDefault(const Constant('EUR'))();
   TextColumn get theme => text().withDefault(const Constant('light'))();
   BoolColumn get hapticsEnabled => boolean().withDefault(const Constant(true))();
+  /// Feedback intensity: 0 = soft, 1 = medium (default), 2 = strong.
+  IntColumn get hapticsStrength => integer().withDefault(const Constant(1))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

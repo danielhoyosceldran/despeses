@@ -126,7 +126,11 @@
     "theme_dark": "Fosc",
     "theme_system": "Sistema",
     "feedback": "Resposta tàctil",
-    "haptics": "Vibració"
+    "haptics": "Vibració",
+    "haptics_strength": "Intensitat",
+    "haptics_soft": "Suau",
+    "haptics_medium": "Mitjana",
+    "haptics_strong": "Forta"
   },
   "budgets": {
     "add": "Afegir pressupost",

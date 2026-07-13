@@ -87,9 +87,9 @@ Personal/app settings hub, pushed over the shell from the header gear.
 
 ### Expense entry (`expense_entry/expense_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
-- **AppBar**: leading down-chevron (dismiss); title = `SegmentedButton` (Expense / Income / Refund / Savings). Changing the type clears the selected category (each type has its own category tree).
+- **AppBar**: leading down-chevron (dismiss); centered title = date `TextButton` (opens the calendar panel).
 - **Body** Column:
-  1. Expanded fields ListView: Row [Date | Amount] · divider · Category · Payment method · Tags (count) · divider · Row [Event | Project] · divider · Description field · multiline Notes field.
+  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered tappable amount (`AmountText`, opens keypad) · `AppCard` of rows [Description field · Category · Payment method · Tags (count) · Row [Event | Project]] · `AppCard` with multiline Notes field.
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
   3. `BottomActionPanel`: `NumericKeypad` (amount), `_DatePanel` calendar (month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
@@ -118,7 +118,7 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 
 ### Account › Profile (`settings/profile_screen.dart`)
 - **AppBar**: empty.
-- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — three option rows (Light / Dark / System, trailing check on the selected one); **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text; **Feedback** — single toggle row (label + trailing `Switch`) for Haptics.
+- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — three option rows (Light / Dark / System, trailing check on the selected one); **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text; **Feedback** — a toggle row (label + trailing `Switch`) for Haptics, a hairline divider, then a strength row (label + trailing current-level text above a 3-stop slider: Soft / Medium / Strong; dimmed and non-interactive when Haptics is off).
 
 ### Settings › Events (`settings/events_screen.dart`)
 - **AppBar**: empty.

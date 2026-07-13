@@ -35,7 +35,10 @@ class BottomActionPanel extends StatelessWidget {
       child: AnimatedOpacity(
         duration: AppDimens.animFast,
         opacity: isOpen ? 1 : 0,
-        child: child ?? const SizedBox.shrink(),
+        child: SafeArea(
+          top: false,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }

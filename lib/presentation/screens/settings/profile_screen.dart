@@ -2,6 +2,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/haptics/haptics.dart';
 import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -100,10 +101,29 @@ class ProfileScreen extends ConsumerWidget {
             AppCard(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               clip: true,
-              child: _ToggleRow(
-                label: t?.t('profile.haptics') ?? 'Haptics',
-                value: profile.hapticsEnabled,
-                onChanged: (v) => ref.read(profileRepositoryProvider).setHapticsEnabled(v),
+              child: Column(
+                children: [
+                  _ToggleRow(
+                    label: t?.t('profile.haptics') ?? 'Haptics',
+                    value: profile.hapticsEnabled,
+                    onChanged: (v) => ref.read(profileRepositoryProvider).setHapticsEnabled(v),
+                  ),
+                  Divider(color: context.appColors.divider, height: 1, indent: AppSpacing.md, endIndent: AppSpacing.md),
+                  _StrengthRow(
+                    label: t?.t('profile.haptics_strength') ?? 'Strength',
+                    levelLabels: [
+                      t?.t('profile.haptics_soft') ?? 'Soft',
+                      t?.t('profile.haptics_medium') ?? 'Medium',
+                      t?.t('profile.haptics_strong') ?? 'Strong',
+                    ],
+                    value: profile.hapticsStrength,
+                    enabled: profile.hapticsEnabled,
+                    onChanged: (v) {
+                      ref.read(profileRepositoryProvider).setHapticsStrength(v);
+                      ref.read(hapticsProvider).medium();
+                    },
+                  ),
+                ],
               ),
             ),
           ],
@@ -164,6 +184,66 @@ class _ToggleRow extends StatelessWidget {
             activeThumbColor: colors.accent,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Label + 3-stop slider (Soft/Medium/Strong) for haptic intensity. Dimmed and
+/// non-interactive when haptics are off. Matches [HairlineListTile] metrics.
+class _StrengthRow extends StatelessWidget {
+  const _StrengthRow({
+    required this.label,
+    required this.levelLabels,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<String> levelLabels;
+  final int value;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final v = value.clamp(0, 2);
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  levelLabels[v],
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colors.textMuted),
+                ),
+              ],
+            ),
+            Slider(
+              value: v.toDouble(),
+              min: 0,
+              max: 2,
+              divisions: 2,
+              activeColor: colors.accent,
+              onChanged: enabled ? (d) => onChanged(d.round()) : null,
+            ),
+          ],
+        ),
       ),
     );
   }

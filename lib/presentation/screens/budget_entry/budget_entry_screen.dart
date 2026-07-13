@@ -2,6 +2,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/haptics/haptics.dart';
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -431,11 +432,16 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
             ),
           BottomActionPanel(
             isOpen: _openPanel != null,
-            maxHeight: 4 * 56,
+            maxHeight: switch (_openPanel) {
+                  'month' => 380,
+                  _ => 340,
+                } +
+                MediaQuery.of(context).padding.bottom,
             child: _openPanel == 'amount'
                 ? NumericKeypad(
                     amountCents: _amountCents,
                     nextLabel: translations?.t('common.next') ?? 'Next',
+                    onKeyTap: () => ref.read(hapticsProvider).selection(),
                     onAmountChanged: (v) => setState(() => _amountCents = v),
                     onNext: _closePanel,
                   )

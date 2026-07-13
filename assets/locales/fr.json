@@ -126,7 +126,11 @@
     "theme_dark": "Sombre",
     "theme_system": "Système",
     "feedback": "Retour haptique",
-    "haptics": "Vibrations"
+    "haptics": "Vibrations",
+    "haptics_strength": "Intensité",
+    "haptics_soft": "Douce",
+    "haptics_medium": "Moyenne",
+    "haptics_strong": "Forte"
   },
   "budgets": {
     "add": "Ajouter un budget",

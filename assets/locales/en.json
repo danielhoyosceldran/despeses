@@ -126,7 +126,11 @@
     "theme_dark": "Dark",
     "theme_system": "System",
     "feedback": "Feedback",
-    "haptics": "Haptics"
+    "haptics": "Haptics",
+    "haptics_strength": "Strength",
+    "haptics_soft": "Soft",
+    "haptics_medium": "Medium",
+    "haptics_strong": "Strong"
   },
   "budgets": {
     "add": "Add budget",

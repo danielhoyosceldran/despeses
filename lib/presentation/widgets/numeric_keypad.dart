@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -15,12 +16,17 @@ class NumericKeypad extends StatefulWidget {
     required this.onAmountChanged,
     required this.onNext,
     this.nextLabel = 'Next',
+    this.onKeyTap,
   });
 
   final int amountCents;
   final ValueChanged<int> onAmountChanged;
   final VoidCallback onNext;
   final String nextLabel;
+
+  /// Fired on every physical key press (before the action runs). Callers use it
+  /// for haptic feedback via `HapticsService`; keep the keypad platform-free.
+  final VoidCallback? onKeyTap;
 
   @override
   State<NumericKeypad> createState() => _NumericKeypadState();
@@ -79,39 +85,55 @@ class _NumericKeypadState extends State<NumericKeypad> {
     _emit();
   }
 
+  /// Fire the caller's key-tap feedback, then run the key's action.
+  void _tap(VoidCallback action) {
+    widget.onKeyTap?.call();
+    action();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 4 * 56,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: _KeyColumn(labels: const ['1', '4', '7', '00'], onTap: (l) => l == '00' ? _double() : _digit(int.parse(l)))),
-          Expanded(child: _KeyColumn(labels: const ['2', '5', '8', '0'], onTap: (l) => _digit(int.parse(l)))),
-          Expanded(child: _KeyColumn(labels: const ['3', '6', '9', ','], onTap: (l) => l == ',' ? _comma() : _digit(int.parse(l)))),
+    // Fill the panel height (matching the calendar / picker panels) instead of
+    // a fixed height, so keys grow taller when there's room.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+          Expanded(child: _KeyColumn(labels: const ['1', '4', '7', '00'], onTap: (l) => _tap(() => l == '00' ? _double() : _digit(int.parse(l))))),
+          Expanded(child: _KeyColumn(labels: const ['2', '5', '8', '0'], onTap: (l) => _tap(() => _digit(int.parse(l))))),
+          Expanded(child: _KeyColumn(labels: const ['3', '6', '9', ','], onTap: (l) => _tap(() => l == ',' ? _comma() : _digit(int.parse(l))))),
           Expanded(
             child: Column(
               children: [
                 Expanded(
-                  child: _Key(key: const ValueKey('keypad_⌫'), onTap: _backspace, child: const Text('⌫')),
+                  child: _Key(key: const ValueKey('keypad_⌫'), onTap: () => _tap(_backspace), child: const Text('⌫')),
                 ),
                 Expanded(
-                  child: _Key(key: const ValueKey('keypad_-'), onTap: () {}, child: const Text('-')),
+                  child: _Key(key: const ValueKey('keypad_-'), onTap: () => _tap(() {}), child: const Text('-')),
                 ),
                 Expanded(
                   flex: 2,
                   child: _Key(
                     key: const ValueKey('keypad_next'),
-                    onTap: widget.onNext,
+                    onTap: () => _tap(widget.onNext),
                     accent: true,
-                    child: Text(widget.nextLabel),
+                    child: Semantics(
+                      label: widget.nextLabel,
+                      button: true,
+                      child: const Icon(LucideIcons.arrowRight300),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

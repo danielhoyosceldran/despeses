@@ -126,7 +126,11 @@
     "theme_dark": "Oscuro",
     "theme_system": "Sistema",
     "feedback": "Respuesta táctil",
-    "haptics": "Vibración"
+    "haptics": "Vibración",
+    "haptics_strength": "Intensidad",
+    "haptics_soft": "Suave",
+    "haptics_medium": "Media",
+    "haptics_strong": "Fuerte"
   },
   "budgets": {
     "add": "Añadir presupuesto",
