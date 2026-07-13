@@ -59,9 +59,9 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 - **Body**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit). Empty/loading centered. Tap = edit/toggle; long-press = select.
 
 ### Analytics (`analytics_screen.dart` + `analytics/analytics_sections.dart`)
-Sectioned screen navigated by a horizontal tab strip. No FAB.
+Sectioned screen navigated by a section FAB.
 - **Header**: `AppTopBar` — month mode (month pager) only on month-scoped sections; on non-month sections (Trend, Cash flow, Events) it shows the section title instead of the pager. Settings gear always right.
-- **Tab strip**: horizontal scrollable row of section chips (selected filled `accent`; the two **preferred** sections — Categories, Tags — come first with a star). Sections: Categories · Tags · Health · Trend · Cash flow · Payment · Behavior · Quality · Budgets · Events.
+- **Section FAB**: circular FAB showing the current section's own icon (no label). Tap opens a bottom-sheet menu listing every section, each with its icon (current highlighted with a check). A vertical drag on the FAB steps sections one at a time — drag up = next, drag down = previous (vertical-only so it never collides with the body's horizontal month swipe). Section order: Categories · Tags · Health · Trend · Cash flow · Payment · Behavior · Quality · Budgets · Events.
 - **Body**: a `PageView` — month-scoped sections are swipeable left/right to change month (tracked by the header label + chevrons, mirroring Dashboard); non-month sections (Trend, Cash flow, Events) disable the swipe. Each section is a scrolling `ListView` of `StatCard`s / panels. Time-series sections (Trend, Cash flow) render a `[6M][12M][24M]` `WindowSelector` at the top instead of using month.
 - **Sections**:
   - **Categories / Tags** (preferred): `AppCard.large` donut (`DonutChart`) with the total in the hole; Categories supports drill-down (tap slice/legend → breadcrumb Row with circular back). Legend rows below (`LegendRow`). Leaf-only, so no "direct" slice.

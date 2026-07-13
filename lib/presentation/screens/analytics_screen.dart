@@ -56,6 +56,19 @@ extension AnalyticsSectionMeta on AnalyticsSection {
         AnalyticsSection.events => 'analytics.section_events',
       };
 
+  IconData get icon => switch (this) {
+        AnalyticsSection.category => LucideIcons.chartPie300,
+        AnalyticsSection.tags => LucideIcons.tag300,
+        AnalyticsSection.health => LucideIcons.heartPulse300,
+        AnalyticsSection.trend => LucideIcons.trendingUp300,
+        AnalyticsSection.cashflow => LucideIcons.arrowLeftRight300,
+        AnalyticsSection.payment => LucideIcons.creditCard300,
+        AnalyticsSection.behavior => LucideIcons.activity300,
+        AnalyticsSection.quality => LucideIcons.badgeCheck300,
+        AnalyticsSection.budgets => LucideIcons.target300,
+        AnalyticsSection.events => LucideIcons.calendar300,
+      };
+
   String fallbackLabel() => switch (this) {
         AnalyticsSection.category => 'Categories',
         AnalyticsSection.tags => 'Tags',
@@ -130,6 +143,29 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     });
   }
 
+  /// Cyclically advance ([delta] > 0) or retreat the current section, wrapping
+  /// around the ends. Driven by the FAB vertical drag.
+  void _step(int delta) {
+    const values = AnalyticsSection.values;
+    final next = (_section.index + delta) % values.length;
+    _selectSection(values[next < 0 ? next + values.length : next]);
+  }
+
+  void _openSectionMenu(Translations? translations) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => _SectionMenu(
+        current: _section,
+        translations: translations,
+        onSelect: (s) {
+          Navigator.pop(ctx);
+          _selectSection(s);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Rebuild when returning to the Analytics tab (data may have changed).
@@ -140,6 +176,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     final currency = ref.watch(profileStreamProvider).asData?.value.currency ?? 'EUR';
 
     return Scaffold(
+      floatingActionButton: _SectionFab(
+        section: _section,
+        onTap: () => _openSectionMenu(translations),
+        onStep: _step,
+      ),
       body: Column(
         children: [
           if (_section.monthScoped)
@@ -152,11 +193,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             )
           else
             AppTopBar(title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel()),
-          _SectionTabStrip(
-            current: _section,
-            translations: translations,
-            onSelect: _selectSection,
-          ),
           Expanded(
             // Month-scoped sections live in a swipeable [PageView] (swipe left/
             // right = prev/next month, tracked by the header label). Non-month
@@ -211,8 +247,97 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   void _setWindow(int w) => setState(() => _window = w);
 }
 
-class _SectionTabStrip extends StatelessWidget {
-  const _SectionTabStrip({required this.current, required this.translations, required this.onSelect});
+/// Section-navigation FAB. Tap opens the [_SectionMenu]; a vertical drag steps
+/// through sections one at a time (drag up = next, drag down = previous). The
+/// gesture is vertical-only so it never collides with the body's horizontal
+/// month swipe.
+class _SectionFab extends StatefulWidget {
+  const _SectionFab({
+    required this.section,
+    required this.onTap,
+    required this.onStep,
+  });
+
+  final AnalyticsSection section;
+  final VoidCallback onTap;
+  final ValueChanged<int> onStep;
+
+  @override
+  State<_SectionFab> createState() => _SectionFabState();
+}
+
+class _SectionFabState extends State<_SectionFab> {
+  /// Accumulated vertical drag distance; a gesture past this (in either sense)
+  /// steps one section.
+  static const double _kDragStep = 24;
+
+  /// How far the FAB is allowed to follow the finger.
+  static const double _kMaxFollow = 20;
+
+  double _dragDy = 0;
+  bool _dragging = false;
+
+  /// -1 while the drag is armed to go to the previous section, +1 for the next,
+  /// 0 while below the step threshold.
+  int get _armed => _dragDy <= -_kDragStep ? 1 : (_dragDy >= _kDragStep ? -1 : 0);
+
+  /// The section the current drag would land on (the FAB previews its icon).
+  AnalyticsSection get _target {
+    const values = AnalyticsSection.values;
+    final i = (widget.section.index + _armed) % values.length;
+    return values[i < 0 ? i + values.length : i];
+  }
+
+  void _endDrag() {
+    if (_armed != 0) widget.onStep(_armed);
+    setState(() {
+      _dragging = false;
+      _dragDy = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final followY = _dragDy.clamp(-_kMaxFollow, _kMaxFollow);
+    final armed = _armed != 0;
+    return GestureDetector(
+      onVerticalDragStart: (_) => setState(() {
+        _dragging = true;
+        _dragDy = 0;
+      }),
+      onVerticalDragUpdate: (d) => setState(() => _dragDy += d.delta.dy),
+      onVerticalDragEnd: (_) => _endDrag(),
+      onVerticalDragCancel: _endDrag,
+      child: AnimatedScale(
+        scale: armed ? 1.12 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Transform.translate(
+          offset: Offset(0, followY),
+          child: FloatingActionButton(
+            onPressed: widget.onTap,
+            // Slightly emphasise the button while a step is armed so the drag
+            // reads as "let go to switch".
+            elevation: armed ? 12 : null,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 120),
+              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
+              child: Icon(
+                (_dragging ? _target : widget.section).icon,
+                key: ValueKey(_dragging ? _target : widget.section),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom-sheet list of every section, opened by tapping the [_SectionFab].
+/// Preferred sections carry a star; the current one is highlighted.
+class _SectionMenu extends StatelessWidget {
+  const _SectionMenu({required this.current, required this.translations, required this.onSelect});
 
   final AnalyticsSection current;
   final Translations? translations;
@@ -221,22 +346,20 @@ class _SectionTabStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return SizedBox(
-      height: 44,
+    return SafeArea(
+      top: false,
       child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
         children: [
           for (final s in AnalyticsSection.values)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: _Tab(
-                label: translations?.t(s.labelKey()) ?? s.fallbackLabel(),
-                selected: s == current,
-                preferred: s.preferred,
-                onTap: () => onSelect(s),
-                colors: colors,
-              ),
+            _SectionMenuRow(
+              label: translations?.t(s.labelKey()) ?? s.fallbackLabel(),
+              icon: s.icon,
+              selected: s == current,
+              preferred: s.preferred,
+              colors: colors,
+              onTap: () => onSelect(s),
             ),
         ],
       ),
@@ -244,58 +367,42 @@ class _SectionTabStrip extends StatelessWidget {
   }
 }
 
-class _Tab extends StatelessWidget {
-  const _Tab({
+class _SectionMenuRow extends StatelessWidget {
+  const _SectionMenuRow({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.preferred,
-    required this.onTap,
     required this.colors,
+    required this.onTap,
   });
 
   final String label;
+  final IconData icon;
   final bool selected;
   final bool preferred;
-  final VoidCallback onTap;
   final AppColors colors;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? colors.accent : Colors.transparent,
-      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.smMd, vertical: AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-            border: Border.all(
-              color: selected
-                  ? colors.accent
-                  : (preferred ? context.semanticColors.savings.withValues(alpha: 0.6) : colors.borderSoft),
-            ),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (preferred) ...[
-                Icon(Icons.star_rounded, size: 13, color: selected ? colors.onAccent : context.semanticColors.savings),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                      color: selected ? colors.onAccent : colors.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ),
+    return ListTile(
+      selected: selected,
+      selectedTileColor: colors.surfaceAlt,
+      leading: Icon(
+        icon,
+        size: 18,
+        color: preferred ? context.semanticColors.savings : colors.textMuted,
       ),
+      title: Text(
+        label,
+        style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+              color: selected ? colors.text : colors.textMuted,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+      ),
+      trailing: selected ? Icon(LucideIcons.check300, size: 18, color: colors.accent) : null,
+      onTap: onTap,
     );
   }
 }
