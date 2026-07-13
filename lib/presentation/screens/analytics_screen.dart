@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
@@ -282,7 +283,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 /// Tap opens the [_SectionMenu]. The vertical/horizontal recognizers are
 /// distinct so a drag commits to one axis; neither collides with the body's own
 /// horizontal month swipe (that lives in the [PageView], not on the FAB).
-class _SectionFab extends StatefulWidget {
+class _SectionFab extends ConsumerStatefulWidget {
   const _SectionFab({
     required this.section,
     required this.onTap,
@@ -299,12 +300,12 @@ class _SectionFab extends StatefulWidget {
   final ValueChanged<AnalyticsSection?> onPreview;
 
   @override
-  State<_SectionFab> createState() => _SectionFabState();
+  ConsumerState<_SectionFab> createState() => _SectionFabState();
 }
 
 enum _DragAxis { none, vertical, horizontal }
 
-class _SectionFabState extends State<_SectionFab> {
+class _SectionFabState extends ConsumerState<_SectionFab> {
   /// Signed drag distance past this (in either sense) arms a switch.
   static const double _kDragStep = 24;
 
@@ -346,6 +347,7 @@ class _SectionFabState extends State<_SectionFab> {
   }
 
   void _start(_DragAxis axis) {
+    ref.read(hapticsProvider).light();
     setState(() {
       _axis = axis;
       _drag = 0;
