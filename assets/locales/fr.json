@@ -124,7 +124,9 @@
     "theme": "Thème",
     "theme_light": "Clair",
     "theme_dark": "Sombre",
-    "theme_system": "Système"
+    "theme_system": "Système",
+    "feedback": "Retour haptique",
+    "haptics": "Vibrations"
   },
   "budgets": {
     "add": "Ajouter un budget",

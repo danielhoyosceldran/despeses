@@ -176,6 +176,8 @@ All use `colors.shadow` (pre-baked opacity per theme).
   Inter 14 w500, active `text` / inactive `textMuted`, container radius 14.
 - **Chip**: `surfaceAlt` bg, selected `pillBackground(accent)`, pill radius, no
   border.
+- **Switch**: default Material 3 track; `activeThumbColor = accent` (set at call
+  sites, e.g. the Profile Feedback/Haptics toggle — not yet globally themed).
 - **SnackBar**: `surfaceAlt`, radius 16, elevation 0.
 - **ProgressIndicator**: `accent` on `surfaceAlt` track.
 - **FAB**: `accent` / `onAccent`, elevation 0, `CircleBorder` (shadow +
@@ -275,6 +277,10 @@ Header gear `settings`.
   cross-fades (`AnimatedSwitcher`, scale+fade, 120ms) to the **target**
   section's icon — preview of where release lands. Vertical steps one section
   (up/down); horizontal-left toggles the two preferred sections. Cancel resets.
+  While armed, a centred floating preview card (`_SectionPreviewCard`) fades +
+  scales in (`AnimatedSwitcher`, 140ms, 0.9→1) over the body showing the target
+  section's icon (40) + name: `surface` fill (auto light/dark), hairline
+  `borderSoft`, `radiusPanel` 24, `AppShadows.card`.
 - **Motion tokens** (`AppDimens`): `animFast 200ms`, `animNormal 300ms`,
   `animCurve easeOutCubic`.
 

@@ -94,6 +94,18 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
+
+            const SizedBox(height: AppSpacing.lg),
+            _SectionLabel(t?.t('profile.feedback') ?? 'Feedback'),
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              clip: true,
+              child: _ToggleRow(
+                label: t?.t('profile.haptics') ?? 'Haptics',
+                value: profile.hapticsEnabled,
+                onChanged: (v) => ref.read(profileRepositoryProvider).setHapticsEnabled(v),
+              ),
+            ),
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -114,6 +126,45 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
       child: Text(text.toUpperCase(), style: appHeaderStyle(context.appColors)),
+    );
+  }
+}
+
+/// Label + trailing [Switch]. Matches [HairlineListTile] metrics.
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: colors.accent,
+          ),
+        ],
+      ),
     );
   }
 }

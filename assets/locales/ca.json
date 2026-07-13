@@ -124,7 +124,9 @@
     "theme": "Tema",
     "theme_light": "Clar",
     "theme_dark": "Fosc",
-    "theme_system": "Sistema"
+    "theme_system": "Sistema",
+    "feedback": "Resposta tàctil",
+    "haptics": "Vibració"
   },
   "budgets": {
     "add": "Afegir pressupost",

@@ -109,6 +109,10 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   /// Rolling window (months) for time-series sections.
   int _window = 12;
 
+  /// Section the in-progress FAB drag would switch to (drives the centred
+  /// preview overlay); null when not dragging / below the arm threshold.
+  AnalyticsSection? _preview;
+
   @override
   void initState() {
     super.initState();
@@ -144,6 +148,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     });
   }
 
+  void _onPreview(AnalyticsSection? s) {
+    if (s == _preview) return;
+    setState(() => _preview = s);
+  }
+
   void _openSectionMenu(Translations? translations) {
     showModalBottomSheet<void>(
       context: context,
@@ -173,32 +182,56 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         section: _section,
         onTap: () => _openSectionMenu(translations),
         onSelect: _selectSection,
+        onPreview: _onPreview,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          if (_section.monthScoped)
-            AppTopBar(
-              month: _month,
-              onChangeMonth: _changeMonth,
-              pageController: _pageController,
-              monthForPage: _monthForPage,
-              fallbackPage: _kInitialPage,
-            )
-          else
-            AppTopBar(title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel()),
-          Expanded(
-            // Month-scoped sections live in a swipeable [PageView] (swipe left/
-            // right = prev/next month, tracked by the header label). Non-month
-            // sections (window/event selectors) disable the swipe and ignore the
-            // page index.
-            child: PageView.builder(
-              controller: _pageController,
-              physics: _section.monthScoped ? null : const NeverScrollableScrollPhysics(),
-              onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) {
-                final month = _section.monthScoped ? _monthForPage(index) : _month;
-                return _buildSection(month, currency, translations);
-              },
+          Column(
+            children: [
+              if (_section.monthScoped)
+                AppTopBar(
+                  month: _month,
+                  onChangeMonth: _changeMonth,
+                  pageController: _pageController,
+                  monthForPage: _monthForPage,
+                  fallbackPage: _kInitialPage,
+                )
+              else
+                AppTopBar(title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel()),
+              Expanded(
+                // Month-scoped sections live in a swipeable [PageView] (swipe
+                // left/right = prev/next month, tracked by the header label).
+                // Non-month sections (window/event selectors) disable the swipe
+                // and ignore the page index.
+                child: PageView.builder(
+                  controller: _pageController,
+                  physics: _section.monthScoped ? null : const NeverScrollableScrollPhysics(),
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (context, index) {
+                    final month = _section.monthScoped ? _monthForPage(index) : _month;
+                    return _buildSection(month, currency, translations);
+                  },
+                ),
+              ),
+            ],
+          ),
+          // Centred preview of the section a FAB drag would switch to.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 140),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: Tween(begin: 0.9, end: 1.0).animate(anim), child: FadeTransition(opacity: anim, child: child)),
+                  child: _preview == null
+                      ? const SizedBox.shrink(key: ValueKey('none'))
+                      : _SectionPreviewCard(
+                          key: ValueKey(_preview),
+                          section: _preview!,
+                          label: translations?.t(_preview!.labelKey()) ?? _preview!.fallbackLabel(),
+                        ),
+                ),
+              ),
             ),
           ),
         ],
@@ -254,11 +287,16 @@ class _SectionFab extends StatefulWidget {
     required this.section,
     required this.onTap,
     required this.onSelect,
+    required this.onPreview,
   });
 
   final AnalyticsSection section;
   final VoidCallback onTap;
   final ValueChanged<AnalyticsSection> onSelect;
+
+  /// Reports the section a live drag would switch to (null when the drag is
+  /// below the arm threshold or has ended) so the parent can show a preview.
+  final ValueChanged<AnalyticsSection?> onPreview;
 
   @override
   State<_SectionFab> createState() => _SectionFabState();
@@ -307,10 +345,18 @@ class _SectionFabState extends State<_SectionFab> {
     return widget.section;
   }
 
-  void _start(_DragAxis axis) => setState(() {
-        _axis = axis;
-        _drag = 0;
-      });
+  void _start(_DragAxis axis) {
+    setState(() {
+      _axis = axis;
+      _drag = 0;
+    });
+    _emitPreview();
+  }
+
+  void _update(double delta) {
+    setState(() => _drag += delta);
+    _emitPreview();
+  }
 
   void _end() {
     final target = _target;
@@ -319,6 +365,13 @@ class _SectionFabState extends State<_SectionFab> {
       _axis = _DragAxis.none;
       _drag = 0;
     });
+    _emitPreview();
+  }
+
+  /// Push the current preview target up to the parent (null when not armed).
+  void _emitPreview() {
+    final t = _target;
+    widget.onPreview(_dragging && t != widget.section ? t : null);
   }
 
   @override
@@ -328,11 +381,11 @@ class _SectionFabState extends State<_SectionFab> {
     final armed = _target != widget.section;
     return GestureDetector(
       onVerticalDragStart: (_) => _start(_DragAxis.vertical),
-      onVerticalDragUpdate: (d) => setState(() => _drag += d.delta.dy),
+      onVerticalDragUpdate: (d) => _update(d.delta.dy),
       onVerticalDragEnd: (_) => _end(),
       onVerticalDragCancel: _end,
       onHorizontalDragStart: (_) => _start(_DragAxis.horizontal),
-      onHorizontalDragUpdate: (d) => setState(() => _drag += d.delta.dx),
+      onHorizontalDragUpdate: (d) => _update(d.delta.dx),
       onHorizontalDragEnd: (_) => _end(),
       onHorizontalDragCancel: _end,
       child: AnimatedScale(
@@ -356,6 +409,44 @@ class _SectionFabState extends State<_SectionFab> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Centred floating card shown while a FAB drag is armed, previewing the
+/// section it will switch to (icon + name). Uses the app's `surface` (auto
+/// light/dark) with the hairline `borderSoft`.
+class _SectionPreviewCard extends StatelessWidget {
+  const _SectionPreviewCard({super.key, required this.section, required this.label});
+
+  final AnalyticsSection section;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppDimens.radiusPanel),
+        border: Border.all(color: colors.borderSoft),
+        boxShadow: AppShadows.card(colors),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(section.icon, size: 40, color: colors.text),
+          const SizedBox(height: AppSpacing.smMd),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                  color: colors.text,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }

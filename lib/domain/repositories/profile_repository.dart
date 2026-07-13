@@ -31,6 +31,12 @@ class ProfileRepository {
     );
   }
 
+  Future<void> setHapticsEnabled(bool enabled) async {
+    await (_db.update(_db.profile)..where((p) => p.id.equals(1))).write(
+      ProfileCompanion(hapticsEnabled: Value(enabled), updatedAt: Value(DateTime.now())),
+    );
+  }
+
   /// v1 only supports EUR; kept as a real write path (not a no-op) so the
   /// latent multi-currency "warns, doesn't block" behavior has somewhere to
   /// live once more currencies are added (plan §3.8, §6).

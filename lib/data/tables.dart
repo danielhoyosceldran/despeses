@@ -5,6 +5,7 @@ class Profile extends Table {
   TextColumn get language => text().withDefault(const Constant('en'))();
   TextColumn get currency => text().withDefault(const Constant('EUR'))();
   TextColumn get theme => text().withDefault(const Constant('light'))();
+  BoolColumn get hapticsEnabled => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

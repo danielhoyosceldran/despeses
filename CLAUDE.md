@@ -23,3 +23,14 @@ Two living reference docs, kept split by concern:
 
 If a change touches both (e.g. a new styled component on a screen), update both
 files.
+
+## Haptics
+
+The user's **Haptics** setting (`profile.hapticsEnabled`, editable on Account ›
+Profile) globally enables/disables vibration.
+
+**Rule — every vibration MUST go through `HapticsService`**
+(`lib/core/haptics/haptics.dart`, read it via `hapticsProvider`). It gates each
+call on the setting, so when Haptics is off nothing vibrates. **Never call
+`HapticFeedback` (or any platform vibration API) directly** anywhere else in the
+app — always route feedback through `ref.read(hapticsProvider)`.

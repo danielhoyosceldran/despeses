@@ -52,6 +52,21 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
     requiredDuringInsert: false,
     defaultValue: const Constant('light'),
   );
+  static const VerificationMeta _hapticsEnabledMeta = const VerificationMeta(
+    'hapticsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> hapticsEnabled = GeneratedColumn<bool>(
+    'haptics_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("haptics_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -82,6 +97,7 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
     language,
     currency,
     theme,
+    hapticsEnabled,
     createdAt,
     updatedAt,
   ];
@@ -116,6 +132,15 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
       context.handle(
         _themeMeta,
         theme.isAcceptableOrUnknown(data['theme']!, _themeMeta),
+      );
+    }
+    if (data.containsKey('haptics_enabled')) {
+      context.handle(
+        _hapticsEnabledMeta,
+        hapticsEnabled.isAcceptableOrUnknown(
+          data['haptics_enabled']!,
+          _hapticsEnabledMeta,
+        ),
       );
     }
     if (data.containsKey('created_at')) {
@@ -155,6 +180,10 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
         DriftSqlType.string,
         data['${effectivePrefix}theme'],
       )!,
+      hapticsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}haptics_enabled'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -177,6 +206,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
   final String language;
   final String currency;
   final String theme;
+  final bool hapticsEnabled;
   final DateTime createdAt;
   final DateTime updatedAt;
   const ProfileData({
@@ -184,6 +214,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     required this.language,
     required this.currency,
     required this.theme,
+    required this.hapticsEnabled,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -194,6 +225,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     map['language'] = Variable<String>(language);
     map['currency'] = Variable<String>(currency);
     map['theme'] = Variable<String>(theme);
+    map['haptics_enabled'] = Variable<bool>(hapticsEnabled);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -205,6 +237,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       language: Value(language),
       currency: Value(currency),
       theme: Value(theme),
+      hapticsEnabled: Value(hapticsEnabled),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -220,6 +253,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       language: serializer.fromJson<String>(json['language']),
       currency: serializer.fromJson<String>(json['currency']),
       theme: serializer.fromJson<String>(json['theme']),
+      hapticsEnabled: serializer.fromJson<bool>(json['hapticsEnabled']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -232,6 +266,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       'language': serializer.toJson<String>(language),
       'currency': serializer.toJson<String>(currency),
       'theme': serializer.toJson<String>(theme),
+      'hapticsEnabled': serializer.toJson<bool>(hapticsEnabled),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -242,6 +277,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     String? language,
     String? currency,
     String? theme,
+    bool? hapticsEnabled,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => ProfileData(
@@ -249,6 +285,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     language: language ?? this.language,
     currency: currency ?? this.currency,
     theme: theme ?? this.theme,
+    hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -258,6 +295,9 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       language: data.language.present ? data.language.value : this.language,
       currency: data.currency.present ? data.currency.value : this.currency,
       theme: data.theme.present ? data.theme.value : this.theme,
+      hapticsEnabled: data.hapticsEnabled.present
+          ? data.hapticsEnabled.value
+          : this.hapticsEnabled,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -270,6 +310,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
           ..write('language: $language, ')
           ..write('currency: $currency, ')
           ..write('theme: $theme, ')
+          ..write('hapticsEnabled: $hapticsEnabled, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -277,8 +318,15 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, language, currency, theme, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+    id,
+    language,
+    currency,
+    theme,
+    hapticsEnabled,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -287,6 +335,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
           other.language == this.language &&
           other.currency == this.currency &&
           other.theme == this.theme &&
+          other.hapticsEnabled == this.hapticsEnabled &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -296,6 +345,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
   final Value<String> language;
   final Value<String> currency;
   final Value<String> theme;
+  final Value<bool> hapticsEnabled;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const ProfileCompanion({
@@ -303,6 +353,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     this.language = const Value.absent(),
     this.currency = const Value.absent(),
     this.theme = const Value.absent(),
+    this.hapticsEnabled = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -311,6 +362,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     this.language = const Value.absent(),
     this.currency = const Value.absent(),
     this.theme = const Value.absent(),
+    this.hapticsEnabled = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -319,6 +371,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     Expression<String>? language,
     Expression<String>? currency,
     Expression<String>? theme,
+    Expression<bool>? hapticsEnabled,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -327,6 +380,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
       if (language != null) 'language': language,
       if (currency != null) 'currency': currency,
       if (theme != null) 'theme': theme,
+      if (hapticsEnabled != null) 'haptics_enabled': hapticsEnabled,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -337,6 +391,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     Value<String>? language,
     Value<String>? currency,
     Value<String>? theme,
+    Value<bool>? hapticsEnabled,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
@@ -345,6 +400,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
       language: language ?? this.language,
       currency: currency ?? this.currency,
       theme: theme ?? this.theme,
+      hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -365,6 +421,9 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     if (theme.present) {
       map['theme'] = Variable<String>(theme.value);
     }
+    if (hapticsEnabled.present) {
+      map['haptics_enabled'] = Variable<bool>(hapticsEnabled.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -381,6 +440,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
           ..write('language: $language, ')
           ..write('currency: $currency, ')
           ..write('theme: $theme, ')
+          ..write('hapticsEnabled: $hapticsEnabled, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -5216,6 +5276,7 @@ typedef $$ProfileTableCreateCompanionBuilder =
       Value<String> language,
       Value<String> currency,
       Value<String> theme,
+      Value<bool> hapticsEnabled,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -5225,6 +5286,7 @@ typedef $$ProfileTableUpdateCompanionBuilder =
       Value<String> language,
       Value<String> currency,
       Value<String> theme,
+      Value<bool> hapticsEnabled,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -5255,6 +5317,11 @@ class $$ProfileTableFilterComposer
 
   ColumnFilters<String> get theme => $composableBuilder(
     column: $table.theme,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5298,6 +5365,11 @@ class $$ProfileTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5329,6 +5401,11 @@ class $$ProfileTableAnnotationComposer
 
   GeneratedColumn<String> get theme =>
       $composableBuilder(column: $table.theme, builder: (column) => column);
+
+  GeneratedColumn<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5372,6 +5449,7 @@ class $$ProfileTableTableManager
                 Value<String> language = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<String> theme = const Value.absent(),
+                Value<bool> hapticsEnabled = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => ProfileCompanion(
@@ -5379,6 +5457,7 @@ class $$ProfileTableTableManager
                 language: language,
                 currency: currency,
                 theme: theme,
+                hapticsEnabled: hapticsEnabled,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -5388,6 +5467,7 @@ class $$ProfileTableTableManager
                 Value<String> language = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<String> theme = const Value.absent(),
+                Value<bool> hapticsEnabled = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => ProfileCompanion.insert(
@@ -5395,6 +5475,7 @@ class $$ProfileTableTableManager
                 language: language,
                 currency: currency,
                 theme: theme,
+                hapticsEnabled: hapticsEnabled,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),

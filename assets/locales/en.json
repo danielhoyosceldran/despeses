@@ -124,7 +124,9 @@
     "theme": "Theme",
     "theme_light": "Light",
     "theme_dark": "Dark",
-    "theme_system": "System"
+    "theme_system": "System",
+    "feedback": "Feedback",
+    "haptics": "Haptics"
   },
   "budgets": {
     "add": "Add budget",
