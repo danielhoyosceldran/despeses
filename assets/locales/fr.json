@@ -259,31 +259,53 @@
     "unexpected": "Imprévu"
   },
   "category": {
-    "food": "Alimentation",
-    "transport": "Transport",
-    "housing": "Logement",
-    "leisure": "Loisir",
-    "health": "Santé",
-    "clothing": "Vêtements",
-    "education": "Éducation",
-    "income": {
-      "salary": "Salaire",
-      "extra": "Revenu extra",
-      "gift": "Cadeau",
-      "investment": "Investissement",
-      "other": "Autres revenus"
+    "expense": {
+      "food": { "_": "Alimentation", "groceries": "Courses", "eating_out": "Repas dehors" },
+      "hygiene": "Hygiène",
+      "home": {
+        "_": "Logement",
+        "internet": "Internet",
+        "furniture": "Meubles",
+        "kitchen": "Cuisine",
+        "bathroom": "Salle de bain",
+        "electricity": "Électricité",
+        "gas": "Gaz",
+        "water": "Eau",
+        "rent": "Loyer",
+        "cleaning": "Ménage",
+        "others": "Autres"
+      },
+      "sports": {
+        "_": "Sport",
+        "climbing": { "_": "Escalade", "gym": "Salle d'escalade", "gear": "Matériel", "events": "Événements" },
+        "gym": "Salle de sport",
+        "pool": "Piscine",
+        "others": "Autres"
+      },
+      "clothes": {
+        "_": "Vêtements",
+        "clothing": { "_": "Habillement", "clothing": "Vêtements", "shoes": "Chaussures", "accessories": "Accessoires" },
+        "laundry": "Blanchisserie"
+      },
+      "health": {
+        "_": "Santé",
+        "general": "Général",
+        "medical_tests": "Examens médicaux",
+        "medicines": "Médicaments",
+        "psychologist": "Psychologue",
+        "physiotherapy": "Kinésithérapie"
+      },
+      "transport": {
+        "_": "Transport",
+        "car": "Voiture",
+        "public_transport": "Transport public",
+        "taxi": "Taxi"
+      },
+      "others": "Autres"
     },
-    "refund": {
-      "purchase_return": "Retour d'achat",
-      "deposit": "Remboursement de caution",
-      "other": "Autre remboursement"
-    },
-    "savings": {
-      "emergency": "Fonds d'urgence",
-      "retirement": "Retraite",
-      "goal": "Objectif",
-      "other": "Autre épargne"
-    }
+    "income": { "salary": "Salaire", "extra": "Extra", "others": "Autres" },
+    "refund": { "purchase": "Achat", "deposit": "Caution", "bizum": "Bizum", "others": "Autres" },
+    "savings": { "emergency_fund": "Fonds d'urgence", "regular": "Régulier", "monthly_extra": "Extra mensuel", "others": "Autres" }
   },
   "payment": {
     "cash": "Espèces",

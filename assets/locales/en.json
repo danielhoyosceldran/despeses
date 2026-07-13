@@ -259,31 +259,53 @@
     "unexpected": "Unexpected"
   },
   "category": {
-    "food": "Food",
-    "transport": "Transport",
-    "housing": "Housing",
-    "leisure": "Leisure",
-    "health": "Health",
-    "clothing": "Clothing",
-    "education": "Education",
-    "income": {
-      "salary": "Salary",
-      "extra": "Extra income",
-      "gift": "Gift",
-      "investment": "Investment",
-      "other": "Other income"
+    "expense": {
+      "food": { "_": "Food", "groceries": "Groceries", "eating_out": "Eating out" },
+      "hygiene": "Hygiene",
+      "home": {
+        "_": "Home",
+        "internet": "Internet",
+        "furniture": "Furniture",
+        "kitchen": "Kitchen",
+        "bathroom": "Bathroom",
+        "electricity": "Electricity",
+        "gas": "Gas",
+        "water": "Water",
+        "rent": "Rent",
+        "cleaning": "Cleaning",
+        "others": "Others"
+      },
+      "sports": {
+        "_": "Sports",
+        "climbing": { "_": "Climbing", "gym": "Climbing gym", "gear": "Gear", "events": "Events" },
+        "gym": "Gym",
+        "pool": "Pool",
+        "others": "Others"
+      },
+      "clothes": {
+        "_": "Clothes",
+        "clothing": { "_": "Clothing", "clothing": "Clothing", "shoes": "Shoes", "accessories": "Accessories" },
+        "laundry": "Laundry"
+      },
+      "health": {
+        "_": "Health",
+        "general": "General",
+        "medical_tests": "Medical tests",
+        "medicines": "Medicines",
+        "psychologist": "Psychologist",
+        "physiotherapy": "Physiotherapy"
+      },
+      "transport": {
+        "_": "Transport",
+        "car": "Car",
+        "public_transport": "Public transport",
+        "taxi": "Taxi"
+      },
+      "others": "Others"
     },
-    "refund": {
-      "purchase_return": "Purchase return",
-      "deposit": "Deposit refund",
-      "other": "Other refund"
-    },
-    "savings": {
-      "emergency": "Emergency fund",
-      "retirement": "Retirement",
-      "goal": "Goal",
-      "other": "Other savings"
-    }
+    "income": { "salary": "Salary", "extra": "Extra", "others": "Others" },
+    "refund": { "purchase": "Purchase", "deposit": "Deposit", "bizum": "Bizum", "others": "Others" },
+    "savings": { "emergency_fund": "Emergency fund", "regular": "Regular", "monthly_extra": "Monthly extra", "others": "Others" }
   },
   "payment": {
     "cash": "Cash",

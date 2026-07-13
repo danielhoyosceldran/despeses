@@ -259,31 +259,53 @@
     "unexpected": "Imprevisto"
   },
   "category": {
-    "food": "Alimentazione",
-    "transport": "Trasporto",
-    "housing": "Abitazione",
-    "leisure": "Svago",
-    "health": "Salute",
-    "clothing": "Abbigliamento",
-    "education": "Istruzione",
-    "income": {
-      "salary": "Stipendio",
-      "extra": "Entrata extra",
-      "gift": "Regalo",
-      "investment": "Investimento",
-      "other": "Altre entrate"
+    "expense": {
+      "food": { "_": "Alimentazione", "groceries": "Spesa", "eating_out": "Mangiare fuori" },
+      "hygiene": "Igiene",
+      "home": {
+        "_": "Casa",
+        "internet": "Internet",
+        "furniture": "Mobili",
+        "kitchen": "Cucina",
+        "bathroom": "Bagno",
+        "electricity": "Elettricità",
+        "gas": "Gas",
+        "water": "Acqua",
+        "rent": "Affitto",
+        "cleaning": "Pulizie",
+        "others": "Altro"
+      },
+      "sports": {
+        "_": "Sport",
+        "climbing": { "_": "Arrampicata", "gym": "Palestra di arrampicata", "gear": "Attrezzatura", "events": "Eventi" },
+        "gym": "Palestra",
+        "pool": "Piscina",
+        "others": "Altro"
+      },
+      "clothes": {
+        "_": "Abbigliamento",
+        "clothing": { "_": "Vestiti", "clothing": "Abbigliamento", "shoes": "Scarpe", "accessories": "Accessori" },
+        "laundry": "Lavanderia"
+      },
+      "health": {
+        "_": "Salute",
+        "general": "Generale",
+        "medical_tests": "Esami medici",
+        "medicines": "Medicine",
+        "psychologist": "Psicologo",
+        "physiotherapy": "Fisioterapia"
+      },
+      "transport": {
+        "_": "Trasporto",
+        "car": "Auto",
+        "public_transport": "Trasporto pubblico",
+        "taxi": "Taxi"
+      },
+      "others": "Altro"
     },
-    "refund": {
-      "purchase_return": "Reso acquisto",
-      "deposit": "Rimborso cauzione",
-      "other": "Altro rimborso"
-    },
-    "savings": {
-      "emergency": "Fondo di emergenza",
-      "retirement": "Pensione",
-      "goal": "Obiettivo",
-      "other": "Altri risparmi"
-    }
+    "income": { "salary": "Stipendio", "extra": "Extra", "others": "Altro" },
+    "refund": { "purchase": "Acquisto", "deposit": "Cauzione", "bizum": "Bizum", "others": "Altro" },
+    "savings": { "emergency_fund": "Fondo di emergenza", "regular": "Regolare", "monthly_extra": "Extra mensile", "others": "Altro" }
   },
   "payment": {
     "cash": "Contanti",

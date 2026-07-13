@@ -259,31 +259,53 @@
     "unexpected": "Imprevist"
   },
   "category": {
-    "food": "Alimentació",
-    "transport": "Transport",
-    "housing": "Habitatge",
-    "leisure": "Lleure",
-    "health": "Salut",
-    "clothing": "Roba",
-    "education": "Educació",
-    "income": {
-      "salary": "Nòmina",
-      "extra": "Ingrés extra",
-      "gift": "Regal",
-      "investment": "Inversió",
-      "other": "Altres ingressos"
+    "expense": {
+      "food": { "_": "Alimentació", "groceries": "Compra", "eating_out": "Menjar fora" },
+      "hygiene": "Higiene",
+      "home": {
+        "_": "Llar",
+        "internet": "Internet",
+        "furniture": "Mobles",
+        "kitchen": "Cuina",
+        "bathroom": "Bany",
+        "electricity": "Electricitat",
+        "gas": "Gas",
+        "water": "Aigua",
+        "rent": "Lloguer",
+        "cleaning": "Neteja",
+        "others": "Altres"
+      },
+      "sports": {
+        "_": "Esport",
+        "climbing": { "_": "Escalada", "gym": "Rocòdrom", "gear": "Material", "events": "Esdeveniments" },
+        "gym": "Gimnàs",
+        "pool": "Piscina",
+        "others": "Altres"
+      },
+      "clothes": {
+        "_": "Roba",
+        "clothing": { "_": "Vestimenta", "clothing": "Roba", "shoes": "Calçat", "accessories": "Accessoris" },
+        "laundry": "Bugaderia"
+      },
+      "health": {
+        "_": "Salut",
+        "general": "General",
+        "medical_tests": "Proves mèdiques",
+        "medicines": "Medicaments",
+        "psychologist": "Psicòleg",
+        "physiotherapy": "Fisioteràpia"
+      },
+      "transport": {
+        "_": "Transport",
+        "car": "Cotxe",
+        "public_transport": "Transport públic",
+        "taxi": "Taxi"
+      },
+      "others": "Altres"
     },
-    "refund": {
-      "purchase_return": "Devolució de compra",
-      "deposit": "Devolució de fiança",
-      "other": "Altre reemborsament"
-    },
-    "savings": {
-      "emergency": "Fons d'emergència",
-      "retirement": "Jubilació",
-      "goal": "Objectiu",
-      "other": "Altres estalvis"
-    }
+    "income": { "salary": "Nòmina", "extra": "Extra", "others": "Altres" },
+    "refund": { "purchase": "Compra", "deposit": "Fiança", "bizum": "Bizum", "others": "Altres" },
+    "savings": { "emergency_fund": "Fons d'emergència", "regular": "Regular", "monthly_extra": "Extra mensual", "others": "Altres" }
   },
   "payment": {
     "cash": "Efectiu",

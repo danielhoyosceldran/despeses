@@ -259,31 +259,53 @@
     "unexpected": "Imprevisto"
   },
   "category": {
-    "food": "Alimentación",
-    "transport": "Transporte",
-    "housing": "Vivienda",
-    "leisure": "Ocio",
-    "health": "Salud",
-    "clothing": "Ropa",
-    "education": "Educación",
-    "income": {
-      "salary": "Nómina",
-      "extra": "Ingreso extra",
-      "gift": "Regalo",
-      "investment": "Inversión",
-      "other": "Otros ingresos"
+    "expense": {
+      "food": { "_": "Alimentación", "groceries": "Compra", "eating_out": "Comer fuera" },
+      "hygiene": "Higiene",
+      "home": {
+        "_": "Hogar",
+        "internet": "Internet",
+        "furniture": "Muebles",
+        "kitchen": "Cocina",
+        "bathroom": "Baño",
+        "electricity": "Electricidad",
+        "gas": "Gas",
+        "water": "Agua",
+        "rent": "Alquiler",
+        "cleaning": "Limpieza",
+        "others": "Otros"
+      },
+      "sports": {
+        "_": "Deporte",
+        "climbing": { "_": "Escalada", "gym": "Rocódromo", "gear": "Material", "events": "Eventos" },
+        "gym": "Gimnasio",
+        "pool": "Piscina",
+        "others": "Otros"
+      },
+      "clothes": {
+        "_": "Ropa",
+        "clothing": { "_": "Vestimenta", "clothing": "Ropa", "shoes": "Calzado", "accessories": "Accesorios" },
+        "laundry": "Lavandería"
+      },
+      "health": {
+        "_": "Salud",
+        "general": "General",
+        "medical_tests": "Pruebas médicas",
+        "medicines": "Medicamentos",
+        "psychologist": "Psicólogo",
+        "physiotherapy": "Fisioterapia"
+      },
+      "transport": {
+        "_": "Transporte",
+        "car": "Coche",
+        "public_transport": "Transporte público",
+        "taxi": "Taxi"
+      },
+      "others": "Otros"
     },
-    "refund": {
-      "purchase_return": "Devolución de compra",
-      "deposit": "Devolución de fianza",
-      "other": "Otro reembolso"
-    },
-    "savings": {
-      "emergency": "Fondo de emergencia",
-      "retirement": "Jubilación",
-      "goal": "Objetivo",
-      "other": "Otros ahorros"
-    }
+    "income": { "salary": "Nómina", "extra": "Extra", "others": "Otros" },
+    "refund": { "purchase": "Compra", "deposit": "Fianza", "bizum": "Bizum", "others": "Otros" },
+    "savings": { "emergency_fund": "Fondo de emergencia", "regular": "Regular", "monthly_extra": "Extra mensual", "others": "Otros" }
   },
   "payment": {
     "cash": "Efectivo",
