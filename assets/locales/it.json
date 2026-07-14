@@ -137,7 +137,6 @@
     "new": "Nuovo budget",
     "edit": "Modifica budget",
     "select_value": "Seleziona valore",
-    "add_month": "Aggiungi mese",
     "empty": "Nessun budget attivo.",
     "no_expired": "Nessun budget scaduto.",
     "delete_warning": "Questo budget verrà eliminato definitivamente.",
@@ -150,15 +149,13 @@
     "dim_tag": "Etichetta",
     "dim_project": "Progetto",
     "dim_event": "Evento",
+    "type_monthly": "Mensile",
+    "type_monthly_hint": "Si ripete ogni mese: questo limite si applica a ogni mese singolarmente.",
     "type_range": "Intervallo",
-    "type_months": "Mesi specifici",
-    "type_total": "Totale storico",
-    "type_total_hint": "Accumula tutte le spese senza limite temporale.",
     "starts_month": "Da",
     "ends_month": "Fino a",
-    "optional": "opzionale",
-    "months_label": "Mesi",
-    "months_count": "mesi"
+    "period_auto_hint": "Fissato alla durata dell'evento o progetto.",
+    "entity_no_dates": "Questo evento o progetto non ha date di inizio/fine. Aggiungile prima per creare il budget."
   },
   "export": {
     "title": "Esporta",

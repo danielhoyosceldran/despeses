@@ -89,24 +89,29 @@ Personal/app settings hub, pushed over the shell from the header gear.
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 - **AppBar**: leading down-chevron (dismiss); centered title = date `TextButton` (opens the calendar panel).
 - **Body** Column:
-  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered tappable amount (`AmountText`, opens keypad) · `AppCard` of rows [Description field · Category · Payment method · Tags (count) · Row [Event | Project]] · `AppCard` with multiline Notes field.
+  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered tappable amount (`AmountText`, opens keypad) · Description field (themed filled input, no wrapping card) · `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field (themed filled input, no wrapping card).
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
   3. `BottomActionPanel`: `NumericKeypad` (amount), `_DatePanel` calendar (month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
-- Tapping a field row opens its panel; pickers auto-advance to next step (skip empty ref types). Pops `true` on save.
+- Tapping a field row opens its panel. "Next" auto-advances through amount → description → category → payment method, then stops; remaining fields (tags, event, project, notes) are filled manually. Skips empty ref types. Pops `true` on save.
 
 ### Budget entry (`budget_entry/budget_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
-- **AppBar**: leading down-chevron (dismiss).
+- **AppBar**: leading down-chevron (dismiss); title ("New budget" / "Edit budget").
 - **Body** Column:
-  1. Expanded ListView: Name field · "Limit" ListTile (euro icon, amount) → keypad · "Dimension" `SegmentedButton` (Category/Tag/Project/Event, disabled in edit) · "Select value" ListTile → picker (disabled in edit) · "Budget type" `SegmentedButton` (Range/Months/Total, disabled in edit) · conditional section:
-     - **Range**: Start month + End month ListTiles (clear-X on end).
-     - **Months**: Wrap of month Chips + "Add month" ActionChip.
-     - **Total**: hint text.
+  1. Expanded ListView:
+     - **Limit hero**: centered uppercase "LIMIT" header + centered `AmountText` (tap → keypad).
+     - **Name** field (themed filled input, no wrapping card).
+     - **Tracks** section (uppercase header) — 2×2 grid of toggle cells (Category/Tag/Project/Event, disabled in edit) + `AppCard` value row → picker (disabled in edit).
+     - **Period** section (uppercase header):
+       - **Category/Tag** dimension — `SegmentedButton` (Monthly/Range, disabled in edit) + conditional:
+         - **Monthly**: hint text (recurs every month).
+         - **Range**: `AppCard` with From + Until field rows (both required, divider between).
+       - **Project/Event** dimension — no picker; period is fixed to the entity's own duration. Read-only `AppCard` (From/Until months) + caption when the entity has dates, else a warning that the event/project needs start/end dates.
   2. Inline "Save" above panel when open.
   3. `BottomActionPanel`: `NumericKeypad`, `MonthPickerContent`, `CategoryPickerContent`, or `SimplePickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
-- Pops `true` on save.
+- New budget: keypad opens first; "Next" auto-advances amount → name, then stops (dimension, value, period chosen manually). Pops `true` on save.
 
 ### Account › Backup (`settings/backup_screen.dart`)
 - **AppBar**: empty.

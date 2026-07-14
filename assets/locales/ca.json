@@ -137,7 +137,6 @@
     "new": "Nou pressupost",
     "edit": "Editar pressupost",
     "select_value": "Seleccionar valor",
-    "add_month": "Afegir mes",
     "empty": "No hi ha pressupostos actius.",
     "no_expired": "No hi ha pressupostos expirats.",
     "delete_warning": "Aquest pressupost s'eliminarà permanentment.",
@@ -150,15 +149,13 @@
     "dim_tag": "Etiqueta",
     "dim_project": "Projecte",
     "dim_event": "Esdeveniment",
+    "type_monthly": "Mensual",
+    "type_monthly_hint": "Es repeteix cada mes: aquest límit s'aplica a cada mes per separat.",
     "type_range": "Rang",
-    "type_months": "Mesos concrets",
-    "type_total": "Total històric",
-    "type_total_hint": "Acumula totes les despeses sense límit temporal.",
     "starts_month": "Des de",
     "ends_month": "Fins a",
-    "optional": "opcional",
-    "months_label": "Mesos",
-    "months_count": "mesos"
+    "period_auto_hint": "Fixat a la durada de l'esdeveniment o projecte.",
+    "entity_no_dates": "Aquest esdeveniment o projecte no té dates d'inici/fi. Afegeix-les primer per pressupostar-lo."
   },
   "export": {
     "title": "Exportar",

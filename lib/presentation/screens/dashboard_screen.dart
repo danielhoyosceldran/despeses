@@ -102,7 +102,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final allBudgets = await budgetRepo.listAll();
     final progress = <String, int>{};
     for (final budget in allBudgets) {
-      progress[budget.id] = await budgetRepo.calculateProgress(budget);
+      progress[budget.id] = await budgetRepo.calculateProgress(budget, inMonth: _month);
     }
     if (!mounted) return;
     setState(() {

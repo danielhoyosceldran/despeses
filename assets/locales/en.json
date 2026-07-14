@@ -137,7 +137,6 @@
     "new": "New budget",
     "edit": "Edit budget",
     "select_value": "Select value",
-    "add_month": "Add month",
     "empty": "No active budgets.",
     "no_expired": "No expired budgets.",
     "delete_warning": "This budget will be permanently deleted.",
@@ -150,15 +149,13 @@
     "dim_tag": "Tag",
     "dim_project": "Project",
     "dim_event": "Event",
+    "type_monthly": "Monthly",
+    "type_monthly_hint": "Recurs every month: this limit applies to each month on its own.",
     "type_range": "Range",
-    "type_months": "Specific months",
-    "type_total": "Lifetime total",
-    "type_total_hint": "Tracks all expenses ever, with no time window.",
     "starts_month": "From",
     "ends_month": "Until",
-    "optional": "optional",
-    "months_label": "Months",
-    "months_count": "months"
+    "period_auto_hint": "Fixed to the event or project duration.",
+    "entity_no_dates": "This event or project has no start/end dates. Add them first to budget it."
   },
   "export": {
     "title": "Export",

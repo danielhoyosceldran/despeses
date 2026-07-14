@@ -174,6 +174,10 @@ All use `colors.shadow` (pre-baked opacity per theme).
 - **TextButton**: `accent` foreground.
 - **SegmentedButton**: track `mutedFill(0.5)`, selected segment `surface`, text
   Inter 14 w500, active `text` / inactive `textMuted`, container radius 14.
+- **Track cell** (budget entry Tracks 2×2 grid): 48-high toggle, `radiusBudget`
+  (12); selected = `accent` fill + `accent` border + `onAccent` w600 text,
+  unselected = `surface` fill + `border` + `text` w400; disabled `textDisabled`.
+  Selection transition `animFast`/`animCurve`.
 - **Chip**: `surfaceAlt` bg, selected `pillBackground(accent)`, pill radius, no
   border.
 - **Switch**: default Material 3 track; `activeThumbColor = accent` (set at call

@@ -188,8 +188,8 @@ class Budgets extends Table {
   IntColumn get amount => integer().customConstraint('NOT NULL CHECK (amount > 0)')();
   TextColumn get currency => text().withLength(min: 3, max: 3)();
   TextColumn get budgetType => text().customConstraint(
-      "NOT NULL CHECK (budget_type IN ('months', 'range', 'total'))")();
-  TextColumn get months => text().nullable()();
+      "NOT NULL CHECK (budget_type IN ('monthly', 'range'))")();
+  // Range budgets only. `monthly` budgets recur every month and leave both null.
   TextColumn get startsMonth => text().nullable()();
   TextColumn get endsMonth => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

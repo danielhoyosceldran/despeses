@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -7,20 +5,6 @@ import '../../data/database.dart';
 import 'category_repository.dart';
 
 const _uuid = Uuid();
-
-class BudgetMonth {
-  const BudgetMonth(this.year, this.month);
-
-  factory BudgetMonth.fromJson(Map<String, dynamic> json) =>
-      BudgetMonth(json['year'] as int, json['month'] as int);
-
-  final int year;
-  final int month;
-
-  String get key => '$year-${month.toString().padLeft(2, '0')}';
-
-  Map<String, dynamic> toJson() => {'year': year, 'month': month};
-}
 
 String monthKeyOf(DateTime date) =>
     '${date.year}-${date.month.toString().padLeft(2, '0')}';
@@ -44,7 +28,6 @@ class BudgetRepository {
     required int amountCents,
     required String currency,
     required String budgetType,
-    List<BudgetMonth>? months,
     String? startsMonth,
     String? endsMonth,
   }) async {
@@ -52,6 +35,21 @@ class BudgetRepository {
         [categoryId, tagId, projectId, eventId].where((d) => d != null).length;
     if (dimensionsSet != 1) {
       throw ArgumentError('Exactly one dimension (category/tag/project/event) must be set.');
+    }
+    switch (budgetType) {
+      case 'monthly':
+        // Recurring every month: no time bounds.
+        startsMonth = null;
+        endsMonth = null;
+      case 'range':
+        if (startsMonth == null || endsMonth == null) {
+          throw ArgumentError('A range budget requires both startsMonth and endsMonth.');
+        }
+        if (endsMonth.compareTo(startsMonth) < 0) {
+          throw ArgumentError('endsMonth must not be before startsMonth.');
+        }
+      default:
+        throw ArgumentError("budgetType must be 'monthly' or 'range'.");
     }
     final id = _uuid.v4();
     await _db.into(_db.budgets).insert(
@@ -65,7 +63,6 @@ class BudgetRepository {
             amount: amountCents,
             currency: currency,
             budgetType: budgetType,
-            months: Value(months == null ? null : jsonEncode(months.map((m) => m.toJson()).toList())),
             startsMonth: Value(startsMonth),
             endsMonth: Value(endsMonth),
           ),
@@ -89,33 +86,29 @@ class BudgetRepository {
     await (_db.delete(_db.budgets)..where((b) => b.id.equals(id))).go();
   }
 
-  List<BudgetMonth> decodeMonths(Budget budget) {
-    if (budget.months == null) return const [];
-    final list = jsonDecode(budget.months!) as List;
-    return list.map((e) => BudgetMonth.fromJson(e as Map<String, dynamic>)).toList();
-  }
-
-  /// `total` budgets are always active (divergence vs spec — the web code shows
-  /// them on the Dashboard regardless of navigated month).
+  /// `monthly` budgets recur every month, so they are active in any month.
+  /// `range` budgets are active only within their [start, end] month window.
   bool isActiveForMonth(Budget budget, String monthKey) {
     switch (budget.budgetType) {
-      case 'total':
+      case 'monthly':
         return true;
       case 'range':
         final afterStart = monthKey.compareTo(budget.startsMonth!) >= 0;
-        final beforeEnd = budget.endsMonth == null || monthKey.compareTo(budget.endsMonth!) <= 0;
+        final beforeEnd = monthKey.compareTo(budget.endsMonth!) <= 0;
         return afterStart && beforeEnd;
-      case 'months':
-        return decodeMonths(budget).any((m) => m.key == monthKey);
       default:
         return false;
     }
   }
 
-  /// Sums `expense` (+) and `refund` (-) over the budget's own configured
-  /// period; `income` is ignored. Recurses into category descendants so a
-  /// budget on a parent category also counts its subcategories' expenses.
-  Future<int> calculateProgress(Budget budget) async {
+  /// Sums `expense` (+) and `refund` (-) over the budget's configured period;
+  /// `income` is ignored. Recurses into category descendants so a budget on a
+  /// parent category also counts its subcategories' expenses.
+  ///
+  /// For `monthly` budgets the period is a single month — the month of
+  /// [inMonth] (defaults to the current month). `range` budgets ignore
+  /// [inMonth] and sum across their whole window.
+  Future<int> calculateProgress(Budget budget, {DateTime? inMonth}) async {
     final query = _db.select(_db.expenses)
       ..where((e) => e.currency.equals(budget.currency))
       ..where((e) => e.type.isIn(['expense', 'refund']));
@@ -144,7 +137,8 @@ class BudgetRepository {
       dimensionFiltered = expenses;
     }
 
-    final periodFiltered = dimensionFiltered.where((e) => _withinPeriod(budget, e.date));
+    final monthKey = monthKeyOf(inMonth ?? DateTime.now());
+    final periodFiltered = dimensionFiltered.where((e) => _withinPeriod(budget, e.date, monthKey));
 
     var total = 0;
     for (final e in periodFiltered) {
@@ -153,17 +147,15 @@ class BudgetRepository {
     return total;
   }
 
-  bool _withinPeriod(Budget budget, DateTime date) {
+  bool _withinPeriod(Budget budget, DateTime date, String monthKey) {
     switch (budget.budgetType) {
-      case 'total':
-        return true;
+      case 'monthly':
+        return monthKeyOf(date) == monthKey;
       case 'range':
         final key = monthKeyOf(date);
         final afterStart = key.compareTo(budget.startsMonth!) >= 0;
-        final beforeEnd = budget.endsMonth == null || key.compareTo(budget.endsMonth!) <= 0;
+        final beforeEnd = key.compareTo(budget.endsMonth!) <= 0;
         return afterStart && beforeEnd;
-      case 'months':
-        return decodeMonths(budget).any((m) => m.key == monthKeyOf(date));
       default:
         return false;
     }

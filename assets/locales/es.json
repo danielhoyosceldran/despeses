@@ -137,7 +137,6 @@
     "new": "Nuevo presupuesto",
     "edit": "Editar presupuesto",
     "select_value": "Seleccionar valor",
-    "add_month": "Añadir mes",
     "empty": "No hay presupuestos activos.",
     "no_expired": "No hay presupuestos expirados.",
     "delete_warning": "Este presupuesto se eliminará permanentemente.",
@@ -150,15 +149,13 @@
     "dim_tag": "Etiqueta",
     "dim_project": "Proyecto",
     "dim_event": "Evento",
+    "type_monthly": "Mensual",
+    "type_monthly_hint": "Se repite cada mes: este límite se aplica a cada mes por separado.",
     "type_range": "Rango",
-    "type_months": "Meses concretos",
-    "type_total": "Total histórico",
-    "type_total_hint": "Acumula todos los gastos sin límite temporal.",
     "starts_month": "Desde",
     "ends_month": "Hasta",
-    "optional": "opcional",
-    "months_label": "Meses",
-    "months_count": "meses"
+    "period_auto_hint": "Fijado a la duración del evento o proyecto.",
+    "entity_no_dates": "Este evento o proyecto no tiene fechas de inicio/fin. Añádelas primero para presupuestarlo."
   },
   "export": {
     "title": "Exportar",

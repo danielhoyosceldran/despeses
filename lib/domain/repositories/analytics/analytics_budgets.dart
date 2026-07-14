@@ -12,8 +12,9 @@ class BudgetPace {
   final int spentCents;
   final int limitCents;
 
-  /// Elapsed fraction of the budget period (0..1), or null for `total` budgets
-  /// which have no time bound.
+  /// Elapsed fraction of the budget period (0..1). For `monthly` budgets this
+  /// is how far through the current month we are; for `range` budgets, elapsed
+  /// months over total months.
   final double? timeFraction;
 
   double get spentFraction => limitCents == 0 ? 0 : spentCents / limitCents;
@@ -37,31 +38,27 @@ class BudgetAnalytics {
 
   final BudgetRepository _budgets;
 
-  /// (elapsedMonths, totalMonths) of a budget's configured period as of [asOf].
-  (int, int)? _periodMonths(Budget budget, DateTime asOf) {
-    final asOfKey = monthKeyOf(DateTime(asOf.year, asOf.month));
+  /// Elapsed fraction (0..1) of a budget's configured period as of [asOf].
+  double? _timeFraction(Budget budget, DateTime asOf) {
     switch (budget.budgetType) {
+      case 'monthly':
+        // Fraction of the current month elapsed (day-level).
+        final daysInMonth = DateTime(asOf.year, asOf.month + 1, 0).day;
+        return asOf.day / daysInMonth;
       case 'range':
         final start = budget.startsMonth!;
-        final end = budget.endsMonth;
+        final end = budget.endsMonth!;
+        final asOfKey = monthKeyOf(DateTime(asOf.year, asOf.month));
         int monthsBetween(String a, String b) {
           final pa = a.split('-');
           final pb = b.split('-');
           return (int.parse(pb[0]) - int.parse(pa[0])) * 12 + (int.parse(pb[1]) - int.parse(pa[1]));
         }
 
-        if (end == null) return null; // open-ended range: no total
         final total = monthsBetween(start, end) + 1;
         final elapsedTo = asOfKey.compareTo(end) > 0 ? end : (asOfKey.compareTo(start) < 0 ? start : asOfKey);
         final elapsed = (monthsBetween(start, elapsedTo) + 1).clamp(0, total);
-        return (elapsed, total);
-      case 'months':
-        final months = _budgets.decodeMonths(budget);
-        if (months.isEmpty) return null;
-        final total = months.length;
-        final elapsed = months.where((m) => m.key.compareTo(asOfKey) <= 0).length;
-        return (elapsed, total);
-      case 'total':
+        return total == 0 ? null : elapsed / total;
       default:
         return null;
     }
@@ -70,9 +67,8 @@ class BudgetAnalytics {
   /// A7.1–A7.3 — spent, limit, elapsed time fraction, over-pace flag, projection.
   Future<BudgetPace> pace(Budget budget, {DateTime? asOf}) async {
     final now = asOf ?? DateTime.now();
-    final spent = await _budgets.calculateProgress(budget);
-    final period = _periodMonths(budget, now);
-    final timeFraction = period == null || period.$2 == 0 ? null : period.$1 / period.$2;
+    final spent = await _budgets.calculateProgress(budget, inMonth: now);
+    final timeFraction = _timeFraction(budget, now);
     return BudgetPace(spentCents: spent, limitCents: budget.amount, timeFraction: timeFraction);
   }
 
@@ -90,10 +86,8 @@ class BudgetAnalytics {
     final overspends = <double>[];
     for (final b in budgets) {
       final ended = switch (b.budgetType) {
-        'range' => b.endsMonth != null && b.endsMonth!.compareTo(asOfKey) < 0,
-        'months' => _budgets.decodeMonths(b).every((m) => m.key.compareTo(asOfKey) < 0) &&
-            _budgets.decodeMonths(b).isNotEmpty,
-        _ => false, // total budgets never "end"
+        'range' => b.endsMonth!.compareTo(asOfKey) < 0,
+        _ => false, // monthly budgets recur forever, never "end"
       };
       if (!ended) continue;
       final spent = await _budgets.calculateProgress(b);

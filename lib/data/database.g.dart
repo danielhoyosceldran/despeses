@@ -4510,16 +4510,7 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     $customConstraints:
-        'NOT NULL CHECK (budget_type IN (\'months\', \'range\', \'total\'))',
-  );
-  static const VerificationMeta _monthsMeta = const VerificationMeta('months');
-  @override
-  late final GeneratedColumn<String> months = GeneratedColumn<String>(
-    'months',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
+        'NOT NULL CHECK (budget_type IN (\'monthly\', \'range\'))',
   );
   static const VerificationMeta _startsMonthMeta = const VerificationMeta(
     'startsMonth',
@@ -4578,7 +4569,6 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
     amount,
     currency,
     budgetType,
-    months,
     startsMonth,
     endsMonth,
     createdAt,
@@ -4657,12 +4647,6 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
     } else if (isInserting) {
       context.missing(_budgetTypeMeta);
     }
-    if (data.containsKey('months')) {
-      context.handle(
-        _monthsMeta,
-        months.isAcceptableOrUnknown(data['months']!, _monthsMeta),
-      );
-    }
     if (data.containsKey('starts_month')) {
       context.handle(
         _startsMonthMeta,
@@ -4735,10 +4719,6 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
         DriftSqlType.string,
         data['${effectivePrefix}budget_type'],
       )!,
-      months: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}months'],
-      ),
       startsMonth: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}starts_month'],
@@ -4774,7 +4754,6 @@ class Budget extends DataClass implements Insertable<Budget> {
   final int amount;
   final String currency;
   final String budgetType;
-  final String? months;
   final String? startsMonth;
   final String? endsMonth;
   final DateTime createdAt;
@@ -4789,7 +4768,6 @@ class Budget extends DataClass implements Insertable<Budget> {
     required this.amount,
     required this.currency,
     required this.budgetType,
-    this.months,
     this.startsMonth,
     this.endsMonth,
     required this.createdAt,
@@ -4815,9 +4793,6 @@ class Budget extends DataClass implements Insertable<Budget> {
     map['amount'] = Variable<int>(amount);
     map['currency'] = Variable<String>(currency);
     map['budget_type'] = Variable<String>(budgetType);
-    if (!nullToAbsent || months != null) {
-      map['months'] = Variable<String>(months);
-    }
     if (!nullToAbsent || startsMonth != null) {
       map['starts_month'] = Variable<String>(startsMonth);
     }
@@ -4848,9 +4823,6 @@ class Budget extends DataClass implements Insertable<Budget> {
       amount: Value(amount),
       currency: Value(currency),
       budgetType: Value(budgetType),
-      months: months == null && nullToAbsent
-          ? const Value.absent()
-          : Value(months),
       startsMonth: startsMonth == null && nullToAbsent
           ? const Value.absent()
           : Value(startsMonth),
@@ -4877,7 +4849,6 @@ class Budget extends DataClass implements Insertable<Budget> {
       amount: serializer.fromJson<int>(json['amount']),
       currency: serializer.fromJson<String>(json['currency']),
       budgetType: serializer.fromJson<String>(json['budgetType']),
-      months: serializer.fromJson<String?>(json['months']),
       startsMonth: serializer.fromJson<String?>(json['startsMonth']),
       endsMonth: serializer.fromJson<String?>(json['endsMonth']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -4897,7 +4868,6 @@ class Budget extends DataClass implements Insertable<Budget> {
       'amount': serializer.toJson<int>(amount),
       'currency': serializer.toJson<String>(currency),
       'budgetType': serializer.toJson<String>(budgetType),
-      'months': serializer.toJson<String?>(months),
       'startsMonth': serializer.toJson<String?>(startsMonth),
       'endsMonth': serializer.toJson<String?>(endsMonth),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -4915,7 +4885,6 @@ class Budget extends DataClass implements Insertable<Budget> {
     int? amount,
     String? currency,
     String? budgetType,
-    Value<String?> months = const Value.absent(),
     Value<String?> startsMonth = const Value.absent(),
     Value<String?> endsMonth = const Value.absent(),
     DateTime? createdAt,
@@ -4930,7 +4899,6 @@ class Budget extends DataClass implements Insertable<Budget> {
     amount: amount ?? this.amount,
     currency: currency ?? this.currency,
     budgetType: budgetType ?? this.budgetType,
-    months: months.present ? months.value : this.months,
     startsMonth: startsMonth.present ? startsMonth.value : this.startsMonth,
     endsMonth: endsMonth.present ? endsMonth.value : this.endsMonth,
     createdAt: createdAt ?? this.createdAt,
@@ -4951,7 +4919,6 @@ class Budget extends DataClass implements Insertable<Budget> {
       budgetType: data.budgetType.present
           ? data.budgetType.value
           : this.budgetType,
-      months: data.months.present ? data.months.value : this.months,
       startsMonth: data.startsMonth.present
           ? data.startsMonth.value
           : this.startsMonth,
@@ -4973,7 +4940,6 @@ class Budget extends DataClass implements Insertable<Budget> {
           ..write('amount: $amount, ')
           ..write('currency: $currency, ')
           ..write('budgetType: $budgetType, ')
-          ..write('months: $months, ')
           ..write('startsMonth: $startsMonth, ')
           ..write('endsMonth: $endsMonth, ')
           ..write('createdAt: $createdAt, ')
@@ -4993,7 +4959,6 @@ class Budget extends DataClass implements Insertable<Budget> {
     amount,
     currency,
     budgetType,
-    months,
     startsMonth,
     endsMonth,
     createdAt,
@@ -5012,7 +4977,6 @@ class Budget extends DataClass implements Insertable<Budget> {
           other.amount == this.amount &&
           other.currency == this.currency &&
           other.budgetType == this.budgetType &&
-          other.months == this.months &&
           other.startsMonth == this.startsMonth &&
           other.endsMonth == this.endsMonth &&
           other.createdAt == this.createdAt &&
@@ -5029,7 +4993,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
   final Value<int> amount;
   final Value<String> currency;
   final Value<String> budgetType;
-  final Value<String?> months;
   final Value<String?> startsMonth;
   final Value<String?> endsMonth;
   final Value<DateTime> createdAt;
@@ -5045,7 +5008,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     this.amount = const Value.absent(),
     this.currency = const Value.absent(),
     this.budgetType = const Value.absent(),
-    this.months = const Value.absent(),
     this.startsMonth = const Value.absent(),
     this.endsMonth = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -5062,7 +5024,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     required int amount,
     required String currency,
     required String budgetType,
-    this.months = const Value.absent(),
     this.startsMonth = const Value.absent(),
     this.endsMonth = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -5083,7 +5044,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     Expression<int>? amount,
     Expression<String>? currency,
     Expression<String>? budgetType,
-    Expression<String>? months,
     Expression<String>? startsMonth,
     Expression<String>? endsMonth,
     Expression<DateTime>? createdAt,
@@ -5100,7 +5060,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       if (amount != null) 'amount': amount,
       if (currency != null) 'currency': currency,
       if (budgetType != null) 'budget_type': budgetType,
-      if (months != null) 'months': months,
       if (startsMonth != null) 'starts_month': startsMonth,
       if (endsMonth != null) 'ends_month': endsMonth,
       if (createdAt != null) 'created_at': createdAt,
@@ -5119,7 +5078,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     Value<int>? amount,
     Value<String>? currency,
     Value<String>? budgetType,
-    Value<String?>? months,
     Value<String?>? startsMonth,
     Value<String?>? endsMonth,
     Value<DateTime>? createdAt,
@@ -5136,7 +5094,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       budgetType: budgetType ?? this.budgetType,
-      months: months ?? this.months,
       startsMonth: startsMonth ?? this.startsMonth,
       endsMonth: endsMonth ?? this.endsMonth,
       createdAt: createdAt ?? this.createdAt,
@@ -5175,9 +5132,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     if (budgetType.present) {
       map['budget_type'] = Variable<String>(budgetType.value);
     }
-    if (months.present) {
-      map['months'] = Variable<String>(months.value);
-    }
     if (startsMonth.present) {
       map['starts_month'] = Variable<String>(startsMonth.value);
     }
@@ -5208,7 +5162,6 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
           ..write('amount: $amount, ')
           ..write('currency: $currency, ')
           ..write('budgetType: $budgetType, ')
-          ..write('months: $months, ')
           ..write('startsMonth: $startsMonth, ')
           ..write('endsMonth: $endsMonth, ')
           ..write('createdAt: $createdAt, ')
@@ -9316,7 +9269,6 @@ typedef $$BudgetsTableCreateCompanionBuilder =
       required int amount,
       required String currency,
       required String budgetType,
-      Value<String?> months,
       Value<String?> startsMonth,
       Value<String?> endsMonth,
       Value<DateTime> createdAt,
@@ -9334,7 +9286,6 @@ typedef $$BudgetsTableUpdateCompanionBuilder =
       Value<int> amount,
       Value<String> currency,
       Value<String> budgetType,
-      Value<String?> months,
       Value<String?> startsMonth,
       Value<String?> endsMonth,
       Value<DateTime> createdAt,
@@ -9449,11 +9400,6 @@ class $$BudgetsTableFilterComposer
 
   ColumnFilters<String> get budgetType => $composableBuilder(
     column: $table.budgetType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get months => $composableBuilder(
-    column: $table.months,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9604,11 +9550,6 @@ class $$BudgetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get months => $composableBuilder(
-    column: $table.months,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get startsMonth => $composableBuilder(
     column: $table.startsMonth,
     builder: (column) => ColumnOrderings(column),
@@ -9747,9 +9688,6 @@ class $$BudgetsTableAnnotationComposer
     column: $table.budgetType,
     builder: (column) => column,
   );
-
-  GeneratedColumn<String> get months =>
-      $composableBuilder(column: $table.months, builder: (column) => column);
 
   GeneratedColumn<String> get startsMonth => $composableBuilder(
     column: $table.startsMonth,
@@ -9900,7 +9838,6 @@ class $$BudgetsTableTableManager
                 Value<int> amount = const Value.absent(),
                 Value<String> currency = const Value.absent(),
                 Value<String> budgetType = const Value.absent(),
-                Value<String?> months = const Value.absent(),
                 Value<String?> startsMonth = const Value.absent(),
                 Value<String?> endsMonth = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -9916,7 +9853,6 @@ class $$BudgetsTableTableManager
                 amount: amount,
                 currency: currency,
                 budgetType: budgetType,
-                months: months,
                 startsMonth: startsMonth,
                 endsMonth: endsMonth,
                 createdAt: createdAt,
@@ -9934,7 +9870,6 @@ class $$BudgetsTableTableManager
                 required int amount,
                 required String currency,
                 required String budgetType,
-                Value<String?> months = const Value.absent(),
                 Value<String?> startsMonth = const Value.absent(),
                 Value<String?> endsMonth = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -9950,7 +9885,6 @@ class $$BudgetsTableTableManager
                 amount: amount,
                 currency: currency,
                 budgetType: budgetType,
-                months: months,
                 startsMonth: startsMonth,
                 endsMonth: endsMonth,
                 createdAt: createdAt,

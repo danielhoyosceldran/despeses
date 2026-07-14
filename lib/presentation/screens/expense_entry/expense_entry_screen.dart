@@ -37,15 +37,14 @@ class ExpenseEntryScreen extends ConsumerStatefulWidget {
   ConsumerState<ExpenseEntryScreen> createState() => _ExpenseEntryScreenState();
 }
 
+// Auto-advance chain on "Next": amount → description → category → payment
+// method, then stop. Remaining fields (tags, event, project, notes) are filled
+// manually by the user.
 const _fieldStepOrder = [
   'amount',
+  'description',
   'category',
   'paymentMethod',
-  'tags',
-  'event',
-  'project',
-  'description',
-  'notes',
 ];
 
 class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
@@ -73,6 +72,10 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   void initState() {
     super.initState();
     _descriptionController.addListener(() => setState(() {}));
+    // Focusing a text field must dismiss any open bottom panel (keypad/pickers)
+    // so the OS keyboard doesn't stack on top of it.
+    _descriptionFocus.addListener(_dismissPanelOnTextFocus);
+    _notesFocus.addListener(_dismissPanelOnTextFocus);
     if (widget.expenseId != null) {
       _loadExisting(widget.expenseId!);
     } else {
@@ -115,7 +118,18 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         _panelContent = null;
       });
 
+  void _dismissPanelOnTextFocus() {
+    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus) && _openPanel != null) {
+      _closePanel();
+    }
+  }
+
+  /// Opening a bottom panel must drop any text-field focus so the OS keyboard
+  /// hides (otherwise it stacks on top of the panel).
+  void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
   void _openAmountPanel() {
+    _dismissKeyboard();
     setState(() {
       _openPanel = 'amount';
       _panelContent = null;
@@ -123,6 +137,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   }
 
   void _openDatePanel() {
+    _dismissKeyboard();
     setState(() {
       _openPanel = 'date';
       _panelContent = _DatePanel(
@@ -180,6 +195,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   Future<void> _openStep(String step) async {
     final translations = await ref.read(translationsProvider.future);
     if (!mounted) return;
+    _dismissKeyboard();
     switch (step) {
       case 'category':
         setState(() {
@@ -472,33 +488,28 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
+            // Description — themed filled input; carries its own surface, no
+            // wrapping card (its border would double up with the input's).
+            TextField(
+              controller: _descriptionController,
+              focusNode: _descriptionFocus,
+              maxLength: 300,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _openNextStep('description'),
+              decoration: InputDecoration(
+                labelText: translations?.t('common.description') ?? 'Description',
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
             AppCard(
               clip: true,
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    child: TextField(
-                      controller: _descriptionController,
-                      focusNode: _descriptionFocus,
-                      maxLength: 300,
-                      textInputAction: TextInputAction.next,
-                      onSubmitted: (_) => _notesFocus.requestFocus(),
-                      decoration: InputDecoration(
-                        labelText: translations?.t('common.description') ?? 'Description',
-                        border: InputBorder.none,
-                        filled: false,
-                        isDense: true,
-                        counterText: '',
-                        contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                      ),
-                    ),
-                  ),
+                  _fieldTile(labels?.category ?? (translations?.t('expenses.category') ?? 'Category'), () => _openStep('category')),
                   Divider(height: 1, color: colors.divider),
-                  _fieldTile(labels?.category ?? (translations?.t('expenses.select') ?? 'Select'), () => _openStep('category')),
-                  Divider(height: 1, color: colors.divider),
-                  _fieldTile(labels?.paymentMethod ?? (translations?.t('expenses.select') ?? 'Select'), () => _openStep('paymentMethod')),
+                  _fieldTile(labels?.paymentMethod ?? (translations?.t('expenses.payment_method') ?? 'Payment method'), () => _openStep('paymentMethod')),
                   Divider(height: 1, color: colors.divider),
                   _fieldTile(
                     _tagIds.isEmpty
@@ -526,20 +537,16 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            AppCard(
-              child: TextField(
-                controller: _notesController,
-                focusNode: _notesFocus,
-                maxLength: 1000,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: translations?.t('expenses.notes') ?? 'Notes',
-                  border: InputBorder.none,
-                  filled: false,
-                  isDense: true,
-                  counterText: '',
-                  contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-                ),
+            // Notes — the themed input carries its own filled surface; no
+            // wrapping card (its border would double up with the input's).
+            TextField(
+              controller: _notesController,
+              focusNode: _notesFocus,
+              maxLength: 1000,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: translations?.t('expenses.notes') ?? 'Notes',
+                counterText: '',
               ),
             ),
           ],
