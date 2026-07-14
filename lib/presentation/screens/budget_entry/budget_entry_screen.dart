@@ -13,6 +13,7 @@ import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/month_picker_dialog.dart';
 import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
+import '../../widgets/swipe_down_to_close.dart';
 
 /// Rich entry for budgets (plan §4), reusing the same keypad/panel pattern
 /// as transactions (plan §3). Full-screen, closes with X (not back arrow).
@@ -293,7 +294,10 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
+            child: SwipeDownToClose(
+              onClose: _close,
+              child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
                 TextField(
@@ -420,6 +424,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                     ),
                   ),
               ],
+              ),
             ),
           ),
           if (_openPanel != null)

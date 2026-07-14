@@ -118,7 +118,7 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 
 ### Account › Profile (`settings/profile_screen.dart`)
 - **AppBar**: empty.
-- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — three option rows (Light / Dark / System, trailing check on the selected one); **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text; **Feedback** — a toggle row (label + trailing `Switch`) for Haptics, a hairline divider, then a strength row (label + trailing current-level text above a 3-stop slider: Soft / Medium / Strong; dimmed and non-interactive when Haptics is off).
+- **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — three option rows (Light / Dark / System, trailing check on the selected one); **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text; **Feedback** — a single toggle row (label + trailing `Switch`) for Haptics.
 
 ### Settings › Events (`settings/events_screen.dart`)
 - **AppBar**: empty.

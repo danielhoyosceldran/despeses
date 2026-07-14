@@ -15,6 +15,7 @@ import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
+import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/tag_picker_sheet.dart';
 
 /// The rich transaction entry flow (plan §3): full-screen, own numeric
@@ -451,7 +452,10 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       builder: (context, snapshot) {
         final labels = snapshot.data;
 
-        return ListView(
+        return SwipeDownToClose(
+          onClose: _close,
+          child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
           children: [
             _buildTypeSelector(translations, colors, semantic),
@@ -539,6 +543,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               ),
             ),
           ],
+          ),
         );
       },
     );

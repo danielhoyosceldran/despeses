@@ -11,12 +11,12 @@ typedef SheetPageBuilder = Widget Function(
 /// A floating "add" button that is the **motor** of the entry screen's opening
 /// animation:
 /// - **tap** — opens the sheet with the normal open animation, and
-/// - **drag up** — the **button follows the finger 1:1** the whole drag. After a
-///   small arm threshold a haptic "confirms"; from that point the entry screen
-///   starts rising, tracking finger travel *beyond* the threshold (it trails the
-///   finger, so you feel like you're pulling it up at your own pace). Release
-///   past the threshold (or fling up) completes the open; release below cancels
-///   and everything settles back down.
+/// - **drag up** — the **button follows the finger 1:1** the whole drag. A haptic
+///   fires the instant the drag starts (the button "unsticks"), and the entry
+///   screen rises tracking finger travel from the very first pixel. A threshold
+///   acts only as the release trigger: release past it (or fling up) completes
+///   the open; release below cancels and everything settles back down (no haptic
+///   at the threshold).
 ///
 /// The sheet is shown in an [OverlayEntry] driven by a controller here — **not**
 /// a pushed route. Pushing a route mid-drag cancels the active drag gesture
@@ -44,8 +44,8 @@ class DragUpAction extends ConsumerStatefulWidget {
 
 class _DragUpActionState extends ConsumerState<DragUpAction>
     with SingleTickerProviderStateMixin {
-  /// Finger travel (px, upward) past which the drag is armed — the "small
-  /// recorrido" after which the open is confirmed and the sheet starts rising.
+  /// Finger travel (px, upward) past which release opens the sheet. Only a
+  /// release trigger — the sheet already tracks the finger from the first pixel.
   static const double _kThresholdPx = 72;
 
   /// Upward fling velocity (px/s) that opens regardless of distance.
@@ -129,6 +129,8 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
   void _start() {
     _height = MediaQuery.sizeOf(context).height;
     _present();
+    // Haptic the instant the drag begins — the button "unsticks".
+    ref.read(hapticsProvider).medium();
     setState(() {
       _dragging = true;
       _armed = false;
@@ -140,15 +142,10 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
     if (!_dragging || _height == 0) return;
     // Button follows the finger 1:1 (dy < 0 is upward).
     _dragPx = (_dragPx - dy).clamp(0.0, _height);
-    if (!_armed && _dragPx >= _kThresholdPx) {
-      _armed = true;
-      ref.read(hapticsProvider).medium();
-    }
-    // Sheet only starts after the threshold, then tracks finger travel beyond
-    // it (finger-at-threshold = closed, finger-at-top = open).
-    _sheet.value = _armed
-        ? ((_dragPx - _kThresholdPx) / (_height - _kThresholdPx)).clamp(0.0, 1.0)
-        : 0.0;
+    // Armed = past threshold; only decides open-on-release (no haptic here).
+    _armed = _dragPx >= _kThresholdPx;
+    // Sheet tracks finger travel from the first pixel.
+    _sheet.value = (_dragPx / _height).clamp(0.0, 1.0);
     setState(() {});
   }
 
