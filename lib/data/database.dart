@@ -2,11 +2,19 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../domain/backup/backup_service.dart';
 import 'tables.dart';
 
 part 'database.g.dart';
 
 const _uuid = Uuid();
+
+/// DEV-ONLY escape hatch. When true, a schema upgrade WIPES all data and
+/// reseeds from scratch (the app's old behavior). It MUST stay false in any
+/// build used with real data — flip it only in a throwaway dev checkout when
+/// reworking the seed. Real upgrades use the data-preserving steps in
+/// [AppDatabase.migration]'s onUpgrade instead.
+const bool _devReseedOnUpgrade = false;
 
 /// A default category node in the seed forest. [key] is an i18n key (see
 /// displayNameFor); [children] are its subcategories, recursively.
@@ -54,7 +62,11 @@ Future<void> _insertCategoryNode(
   Budgets,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
+  AppDatabase([QueryExecutor? executor, BackupService? backupService])
+      : _backupService = backupService ?? BackupService(),
+        super(executor ?? _openConnection());
+
+  final BackupService _backupService;
 
   static QueryExecutor _openConnection() {
     return driftDatabase(name: 'despeses');
@@ -69,17 +81,31 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedDefaults(this);
         },
-        // Dev app: existing data is not preserved on any schema bump (reseed) —
-        // drop all tables and recreate from scratch (e.g. v4 reworks the default
-        // category trees). Alternatively delete the DB file.
         onUpgrade: (m, from, to) async {
-          await customStatement('PRAGMA foreign_keys = OFF');
-          for (final table in allTables) {
-            await m.deleteTable(table.actualTableName);
+          // Safety net first: copy the current DB (main file + WAL sidecars)
+          // before touching it, so a buggy migration step — or the dev reseed
+          // below — can never destroy data unrecoverably. Never throws.
+          await _backupService.createAutoBackup();
+
+          if (_devReseedOnUpgrade) {
+            // DEV-ONLY: wipe everything and reseed. Guarded by a const that is
+            // false in real builds (see _devReseedOnUpgrade).
+            await customStatement('PRAGMA foreign_keys = OFF');
+            for (final table in allTables) {
+              await m.deleteTable(table.actualTableName);
+            }
+            await m.createAll();
+            await _seedDefaults(this);
+            await customStatement('PRAGMA foreign_keys = ON');
+            return;
           }
-          await m.createAll();
-          await _seedDefaults(this);
-          await customStatement('PRAGMA foreign_keys = ON');
+
+          // Data-preserving migrations. Add one `if (from < N)` block per
+          // schema bump, e.g.:
+          //   if (from < 7) await m.addColumn(expenses, expenses.someColumn);
+          //   if (from < 8) await m.createTable(recurring);
+          // v6 is the first version with real, non-destructive migrations, so
+          // there are no steps yet.
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

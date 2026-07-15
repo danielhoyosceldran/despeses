@@ -29,7 +29,12 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   Future<void> _export() async {
     setState(() => _busy = true);
     try {
-      final backup = await ref.read(backupServiceProvider).createBackup();
+      final db = ref.read(databaseProvider);
+      final backup = await ref.read(backupServiceProvider).createBackup(
+            // Flush the WAL into the main file so the single-file backup is
+            // complete; without this the last transactions could be missing.
+            checkpoint: () => db.customStatement('PRAGMA wal_checkpoint(TRUNCATE)'),
+          );
       if (!mounted) return;
       await Share.shareXFiles([XFile(backup.path)]);
     } catch (e) {

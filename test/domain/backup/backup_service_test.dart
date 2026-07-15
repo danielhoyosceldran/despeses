@@ -52,4 +52,47 @@ void main() {
     await File(p.join(tempDir.path, 'despeses.sqlite')).delete();
     expect(() => service.createBackup(), throwsStateError);
   });
+
+  test('createBackup runs the checkpoint before copying', () async {
+    var called = false;
+    final backup = await service.createBackup(checkpoint: () async {
+      called = true;
+      // Mutate the live file inside the checkpoint; the copy must capture this,
+      // proving the checkpoint ran first.
+      await File(p.join(tempDir.path, 'despeses.sqlite')).writeAsString('after-checkpoint');
+    });
+    expect(called, isTrue);
+    expect(await backup.readAsString(), 'after-checkpoint');
+  });
+
+  test('restoreBackup deletes stale -wal and -shm sidecars', () async {
+    final backup = await service.createBackup();
+    final dbPath = p.join(tempDir.path, 'despeses.sqlite');
+    await File('$dbPath-wal').writeAsString('stale-wal');
+    await File('$dbPath-shm').writeAsString('stale-shm');
+
+    await service.restoreBackup(backup);
+
+    expect(await File('$dbPath-wal').exists(), isFalse);
+    expect(await File('$dbPath-shm').exists(), isFalse);
+    expect(await File(dbPath).readAsString(), 'original-db-contents');
+  });
+
+  test('createAutoBackup copies main file plus WAL sidecars, never throwing', () async {
+    final dbPath = p.join(tempDir.path, 'despeses.sqlite');
+    await File('$dbPath-wal').writeAsString('wal-contents');
+    await File('$dbPath-shm').writeAsString('shm-contents');
+
+    final auto = await service.createAutoBackup();
+
+    expect(auto, isNotNull);
+    expect(await auto!.readAsString(), 'original-db-contents');
+    expect(await File('${auto.path}-wal').readAsString(), 'wal-contents');
+    expect(await File('${auto.path}-shm').readAsString(), 'shm-contents');
+  });
+
+  test('createAutoBackup returns null when there is no database yet', () async {
+    await File(p.join(tempDir.path, 'despeses.sqlite')).delete();
+    expect(await service.createAutoBackup(), isNull);
+  });
 }
