@@ -111,21 +111,36 @@ class CategoryRepository {
 
   /// All descendant ids (children, grandchildren, ...), excluding [id] itself.
   Future<Set<String>> descendantIds(String id) async {
+    return (await descendantMap())[id] ?? const <String>{};
+  }
+
+  /// Every category id → the set of all its descendant ids, computed from a
+  /// single full scan. Hot analytics loops (breakdown/ranking/monthlyByRoot)
+  /// need the subtree of many categories at once; calling [descendantIds] per
+  /// node re-scanned the whole table each time (R2 N+1). Build the map once and
+  /// look each subtree up in O(1).
+  Future<Map<String, Set<String>>> descendantMap() async {
     final all = await listAll();
     final byParent = <String?, List<Category>>{};
     for (final c in all) {
       byParent.putIfAbsent(c.parentId, () => []).add(c);
     }
-    final result = <String>{};
-    void collect(String parentId) {
-      for (final child in byParent[parentId] ?? const <Category>[]) {
+    final memo = <String, Set<String>>{};
+    Set<String> collect(String id) {
+      final cached = memo[id];
+      if (cached != null) return cached;
+      final result = <String>{};
+      for (final child in byParent[id] ?? const <Category>[]) {
         result.add(child.id);
-        collect(child.id);
+        result.addAll(collect(child.id));
       }
+      return memo[id] = result;
     }
 
-    collect(id);
-    return result;
+    for (final c in all) {
+      collect(c.id);
+    }
+    return memo;
   }
 
   Future<void> reorder(String? parentId, List<String> orderedIds) async {

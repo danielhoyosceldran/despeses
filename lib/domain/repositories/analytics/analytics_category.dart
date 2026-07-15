@@ -54,10 +54,11 @@ class CategoryAnalytics {
   }) async {
     final expenses = await _typeExpenses(range, type, currency);
     final children = await _categories.listChildren(parentId, type: type);
+    final descendants = await _categories.descendantMap();
 
     final slices = <CategorySlice>[];
     for (final child in children) {
-      final ids = {child.id, ...await _categories.descendantIds(child.id)};
+      final ids = {child.id, ...?descendants[child.id]};
       final amount = expenses
           .where((e) => e.categoryId != null && ids.contains(e.categoryId))
           .fold<int>(0, (sum, e) => sum + e.amount);
@@ -75,11 +76,12 @@ class CategoryAnalytics {
   }) async {
     final expenses = await _typeExpenses(range, type, currency);
     final roots = await _categories.listChildren(null, type: type);
+    final descendants = await _categories.descendantMap();
 
     final entries = <CategoryRankEntry>[];
     var total = 0;
     for (final root in roots) {
-      final ids = {root.id, ...await _categories.descendantIds(root.id)};
+      final ids = {root.id, ...?descendants[root.id]};
       final matching = expenses.where((e) => e.categoryId != null && ids.contains(e.categoryId)).toList();
       final amount = matching.fold<int>(0, (sum, e) => sum + e.amount);
       if (amount == 0) continue;
@@ -114,8 +116,9 @@ class CategoryAnalytics {
   }) async {
     final expenses = await _typeExpenses(range, type, currency);
     final roots = await _categories.listChildren(null, type: type);
+    final descendants = await _categories.descendantMap();
     final rootIds = <String, Set<String>>{
-      for (final r in roots) r.id: {r.id, ...await _categories.descendantIds(r.id)},
+      for (final r in roots) r.id: {r.id, ...?descendants[r.id]},
     };
 
     final result = <DateTime, Map<String, int>>{
@@ -145,6 +148,7 @@ class CategoryAnalytics {
   }) async {
     final expenses = await _typeExpenses(range, type, currency);
     final ids = {categoryId, ...await _categories.descendantIds(categoryId)};
+    // (single-category trend: one descendantIds lookup is fine here)
     final byMonth = <String, int>{};
     for (final e in expenses) {
       if (e.categoryId == null || !ids.contains(e.categoryId)) continue;

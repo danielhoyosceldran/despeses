@@ -109,9 +109,15 @@ class BudgetRepository {
   /// [inMonth] (defaults to the current month). `range` budgets ignore
   /// [inMonth] and sum across their whole window.
   Future<int> calculateProgress(Budget budget, {DateTime? inMonth}) async {
+    // Half-open date window [start, end) of the budget's period, so the DB
+    // (not Dart) restricts rows — a `monthly` budget no longer loads the whole
+    // category history just to keep one month (R2).
+    final (start, end) = _periodBounds(budget, inMonth ?? DateTime.now());
+
     final query = _db.select(_db.expenses)
       ..where((e) => e.currency.equals(budget.currency))
-      ..where((e) => e.type.isIn(['expense', 'refund']));
+      ..where((e) => e.type.isIn(['expense', 'refund']))
+      ..where((e) => e.date.isBiggerOrEqualValue(start) & e.date.isSmallerThanValue(end));
 
     if (budget.categoryId != null) {
       final ids = {budget.categoryId!, ...await _categories.descendantIds(budget.categoryId!)};
@@ -137,27 +143,32 @@ class BudgetRepository {
       dimensionFiltered = expenses;
     }
 
-    final monthKey = monthKeyOf(inMonth ?? DateTime.now());
-    final periodFiltered = dimensionFiltered.where((e) => _withinPeriod(budget, e.date, monthKey));
-
     var total = 0;
-    for (final e in periodFiltered) {
+    for (final e in dimensionFiltered) {
       total += e.type == 'refund' ? -e.amount : e.amount;
     }
     return total;
   }
 
-  bool _withinPeriod(Budget budget, DateTime date, String monthKey) {
+  /// Half-open `[start, end)` datetime window of a budget's period. `monthly`
+  /// budgets span the month of [inMonth]; `range` budgets span their whole
+  /// `[startsMonth, endsMonth]` window (end is the first day of the month
+  /// after `endsMonth`).
+  (DateTime, DateTime) _periodBounds(Budget budget, DateTime inMonth) {
     switch (budget.budgetType) {
-      case 'monthly':
-        return monthKeyOf(date) == monthKey;
       case 'range':
-        final key = monthKeyOf(date);
-        final afterStart = key.compareTo(budget.startsMonth!) >= 0;
-        final beforeEnd = key.compareTo(budget.endsMonth!) <= 0;
-        return afterStart && beforeEnd;
+        final s = _firstOfMonthKey(budget.startsMonth!);
+        final e = _firstOfMonthKey(budget.endsMonth!);
+        return (s, DateTime(e.year, e.month + 1));
+      case 'monthly':
       default:
-        return false;
+        final start = DateTime(inMonth.year, inMonth.month);
+        return (start, DateTime(start.year, start.month + 1));
     }
+  }
+
+  DateTime _firstOfMonthKey(String monthKey) {
+    final parts = monthKey.split('-');
+    return DateTime(int.parse(parts[0]), int.parse(parts[1]));
   }
 }

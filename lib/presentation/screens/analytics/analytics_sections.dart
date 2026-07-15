@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/i18n/display_name.dart';
-import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../domain/repositories/analytics/analytics_cashflow.dart';
-import '../../../domain/repositories/analytics/analytics_dashboard.dart';
-import '../../../domain/repositories/analytics/analytics_math.dart';
-import '../../../domain/repositories/budget_repository.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/charts/analytics_widgets.dart';
+import '../../widgets/error_retry.dart';
+import 'analytics_data_providers.dart';
 
 /// Shared helpers -----------------------------------------------------------
 
@@ -18,6 +14,9 @@ const _monthAbbr = ['', 'J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', '
 String _monthLabel(DateTime m) => _monthAbbr[m.month];
 
 Widget _loading() => const Center(child: CircularProgressIndicator());
+
+ErrorRetry _sectionError(VoidCallback onRetry) =>
+    ErrorRetry(onRetry: onRetry, message: 'Could not load this section.');
 
 /// A titled card wrapper for a single statistic (ref id + title + body).
 class StatCard extends StatelessWidget {
@@ -87,52 +86,38 @@ class HealthSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<(FinancialHealth, String?)>(
-      future: _load(ref),
-      builder: (context, snap) {
-        if (!snap.hasData) return _loading();
-        final (h, topLabel) = snap.data!;
-        final colors = context.appColors;
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            KpiTileGrid(tiles: [
-              KpiTile(label: 'Savings rate', value: _pct(h.savingsRate), color: colors.text),
-              KpiTile(label: 'vs 3M avg', value: _signedPct(h.spendVsAverage)),
-              KpiTile(label: 'Top category', value: topLabel ?? '—'),
-              KpiTile(
-                label: 'Budgets at risk',
-                value: '${h.budgetsAtRisk}',
-                color: h.budgetsAtRisk > 0 ? context.semanticColors.over : null,
-              ),
-              KpiTile(label: 'Projection', value: formatAmount(h.projectedSpend, currency)),
-              KpiTile(label: 'No-spend streak', value: '${h.noSpendStreak}d'),
-            ]),
-            const SizedBox(height: AppSpacing.md),
-            StatCard(
-              title: 'This month vs last (burn-up)',
-              subtitle: 'A1.4',
-              child: _BurnUp(month: month, currency: currency),
-            ),
-          ],
+    final args = (month: month, currency: currency);
+    return ref.watch(healthSectionProvider(args)).when(
+          loading: _loading,
+          error: (_, _) => _sectionError(() => ref.invalidate(healthSectionProvider(args))),
+          data: (value) {
+            final (h, topLabel) = value;
+            final colors = context.appColors;
+            return ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                KpiTileGrid(tiles: [
+                  KpiTile(label: 'Savings rate', value: _pct(h.savingsRate), color: colors.text),
+                  KpiTile(label: 'vs 3M avg', value: _signedPct(h.spendVsAverage)),
+                  KpiTile(label: 'Top category', value: topLabel ?? '—'),
+                  KpiTile(
+                    label: 'Budgets at risk',
+                    value: '${h.budgetsAtRisk}',
+                    color: h.budgetsAtRisk > 0 ? context.semanticColors.over : null,
+                  ),
+                  KpiTile(label: 'Projection', value: formatAmount(h.projectedSpend, currency)),
+                  KpiTile(label: 'No-spend streak', value: '${h.noSpendStreak}d'),
+                ]),
+                const SizedBox(height: AppSpacing.md),
+                StatCard(
+                  title: 'This month vs last (burn-up)',
+                  subtitle: 'A1.4',
+                  child: _BurnUp(month: month, currency: currency),
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
-  }
-
-  Future<(FinancialHealth, String?)> _load(WidgetRef ref) async {
-    final health = await ref.read(dashboardAnalyticsProvider).summary(month, currency);
-    String? topLabel;
-    if (health.topCategoryId != null) {
-      final t = await ref.read(translationsProvider.future);
-      final cats = await ref.read(referenceDataCacheProvider).categories();
-      final matches = cats.where((c) => c.id == health.topCategoryId);
-      if (matches.isNotEmpty) {
-        final c = matches.first;
-        topLabel = displayNameFor(t, name: c.name, isDefault: c.isDefault);
-      }
-    }
-    return (health, topLabel);
   }
 }
 
@@ -143,18 +128,19 @@ class _BurnUp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder(
-      future: ref.read(timeseriesAnalyticsProvider).burnUp(month, currency),
-      builder: (context, snap) {
-        if (!snap.hasData) return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
-        final data = snap.data!;
-        final colors = context.appColors;
-        return TrendLines(series: [
-          (color: colors.accent, values: [for (final p in data.current) (p.$2 / 100)]),
-          (color: colors.textMuted, values: [for (final p in data.previous) (p.$2 / 100)]),
-        ]);
-      },
-    );
+    final args = (month: month, currency: currency);
+    return ref.watch(burnUpProvider(args)).when(
+          loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator())),
+          error: (_, _) => SizedBox(
+              height: 160, child: _sectionError(() => ref.invalidate(burnUpProvider(args)))),
+          data: (data) {
+            final colors = context.appColors;
+            return TrendLines(series: [
+              (color: colors.accent, values: [for (final p in data.current) (p.$2 / 100)]),
+              (color: colors.textMuted, values: [for (final p in data.previous) (p.$2 / 100)]),
+            ]);
+          },
+        );
   }
 }
 
@@ -176,83 +162,62 @@ class TrendSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = DateRange.trailingMonths(month, window);
+    final args = (month: month, currency: currency, window: window);
     return Column(
       children: [
         WindowSelector(window: window, onWindow: onWindow),
         Expanded(
-          child: FutureBuilder(
-            future: _load(ref, range),
-            builder: (context, snap) {
-              if (!snap.hasData) return _loading();
-              final d = snap.data!;
-              final colors = context.appColors;
-              return ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  Row(children: [
-                    Expanded(child: KpiTile(label: 'MoM', value: _signedPct(d.mom))),
-                    const SizedBox(width: AppSpacing.smMd),
-                    Expanded(child: KpiTile(label: 'YoY', value: _signedPct(d.yoy))),
-                  ]),
-                  const SizedBox(height: AppSpacing.md),
-                  StatCard(
-                    title: 'Monthly spend',
-                    subtitle: 'A1.1 · A1.2 (3M avg)',
-                    child: Column(children: [
-                      MonthlyBars(
-                        values: [for (final t in d.totals) t.$2],
-                        labels: [for (final t in d.totals) _monthLabel(t.$1)],
-                        color: colors.accent,
+          child: ref.watch(trendSectionProvider(args)).when(
+                loading: _loading,
+                error: (_, _) => _sectionError(() => ref.invalidate(trendSectionProvider(args))),
+                data: (d) {
+                  final colors = context.appColors;
+                  return ListView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    children: [
+                      Row(children: [
+                        Expanded(child: KpiTile(label: 'MoM', value: _signedPct(d.mom))),
+                        const SizedBox(width: AppSpacing.smMd),
+                        Expanded(child: KpiTile(label: 'YoY', value: _signedPct(d.yoy))),
+                      ]),
+                      const SizedBox(height: AppSpacing.md),
+                      StatCard(
+                        title: 'Monthly spend',
+                        subtitle: 'A1.1 · A1.2 (3M avg)',
+                        child: Column(children: [
+                          MonthlyBars(
+                            values: [for (final t in d.totals) t.$2],
+                            labels: [for (final t in d.totals) _monthLabel(t.$1)],
+                            color: colors.accent,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          TrendLines(series: [
+                            (color: context.semanticColors.savings, values: [for (final a in d.movingAvg) a.$2 / 100])
+                          ], height: 60),
+                        ]),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TrendLines(series: [
-                        (color: context.semanticColors.savings, values: [for (final a in d.movingAvg) a.$2 / 100])
-                      ], height: 60),
-                    ]),
-                  ),
-                  StatCard(
-                    title: 'Average by weekday',
-                    subtitle: 'A1.6',
-                    child: MonthlyBars(
-                      values: [for (var w = 1; w <= 7; w++) (d.weekday[w] ?? 0).round()],
-                      labels: const ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-                      color: colors.textMuted,
-                    ),
-                  ),
-                  StatCard(
-                    title: 'Calendar heatmap',
-                    subtitle: 'A1.7',
-                    child: _HeatmapView(month: month, heat: d.heat),
-                  ),
-                ],
-              );
-            },
-          ),
+                      StatCard(
+                        title: 'Average by weekday',
+                        subtitle: 'A1.6',
+                        child: MonthlyBars(
+                          values: [for (var w = 1; w <= 7; w++) (d.weekday[w] ?? 0).round()],
+                          labels: const ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+                          color: colors.textMuted,
+                        ),
+                      ),
+                      StatCard(
+                        title: 'Calendar heatmap',
+                        subtitle: 'A1.7',
+                        child: _HeatmapView(month: month, heat: d.heat),
+                      ),
+                    ],
+                  );
+                },
+              ),
         ),
       ],
     );
   }
-
-  Future<_TrendData> _load(WidgetRef ref, DateRange range) async {
-    final ts = ref.read(timeseriesAnalyticsProvider);
-    final totals = await ts.monthlyTotals(range, currency);
-    final movingAvg = await ts.movingAverage(range, currency);
-    final mm = await ts.momYoY(month, currency);
-    final weekday = await ts.averageByWeekday(range, currency);
-    final heat = await ts.calendarHeat(month, currency);
-    return _TrendData(totals, movingAvg, mm.mom.fraction, mm.yoy.fraction, weekday, heat);
-  }
-}
-
-class _TrendData {
-  _TrendData(this.totals, this.movingAvg, this.mom, this.yoy, this.weekday, this.heat);
-  final List<(DateTime, int)> totals;
-  final List<(DateTime, double)> movingAvg;
-  final double? mom;
-  final double? yoy;
-  final Map<int, double> weekday;
-  final Map<int, int> heat;
 }
 
 class _HeatmapView extends StatelessWidget {
@@ -288,76 +253,59 @@ class CashflowSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = DateRange.trailingMonths(month, window);
+    final args = (month: month, currency: currency, window: window);
     return Column(
       children: [
         WindowSelector(window: window, onWindow: onWindow),
         Expanded(
-          child: FutureBuilder(
-            future: _load(ref, range),
-            builder: (context, snap) {
-              if (!snap.hasData) return _loading();
-              final d = snap.data!;
-              final colors = context.appColors;
-              return ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  StatCard(
-                    title: 'Net cash-flow',
-                    subtitle: 'A2.1 (income − spend − savings)',
-                    child: MonthlyBars(
-                      values: [for (final m in d.months) m.net],
-                      labels: [for (final m in d.months) _monthLabel(m.month)],
-                      color: colors.accent,
-                    ),
-                  ),
-                  StatCard(
-                    title: 'Savings rate',
-                    subtitle: 'A2.2 (savings / income, this month)',
-                    child: RingGauge(
-                      fraction: d.months.isEmpty ? 0 : d.months.last.savingsRate,
-                      label: 'Of income kept as savings this month',
-                      color: context.semanticColors.savings,
-                    ),
-                  ),
-                  StatCard(
-                    title: 'Cumulative balance',
-                    subtitle: 'A2.3',
-                    child: TrendLines(series: [
-                      (color: colors.accent, values: [for (final b in d.balance) b.$2 / 100])
-                    ]),
-                  ),
-                  StatCard(
-                    title: 'Savings — cumulative',
-                    subtitle: 'Ahorro acumulado',
-                    child: TrendLines(series: [
-                      (color: context.semanticColors.savings, values: [for (final s in d.savings) s.$2 / 100])
-                    ]),
-                  ),
-                ],
-              );
-            },
-          ),
+          child: ref.watch(cashflowSectionProvider(args)).when(
+                loading: _loading,
+                error: (_, _) => _sectionError(() => ref.invalidate(cashflowSectionProvider(args))),
+                data: (d) {
+                  final colors = context.appColors;
+                  return ListView(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    children: [
+                      StatCard(
+                        title: 'Net cash-flow',
+                        subtitle: 'A2.1 (income − spend − savings)',
+                        child: MonthlyBars(
+                          values: [for (final m in d.months) m.net],
+                          labels: [for (final m in d.months) _monthLabel(m.month)],
+                          color: colors.accent,
+                        ),
+                      ),
+                      StatCard(
+                        title: 'Savings rate',
+                        subtitle: 'A2.2 (savings / income, this month)',
+                        child: RingGauge(
+                          fraction: d.months.isEmpty ? 0 : d.months.last.savingsRate,
+                          label: 'Of income kept as savings this month',
+                          color: context.semanticColors.savings,
+                        ),
+                      ),
+                      StatCard(
+                        title: 'Cumulative balance',
+                        subtitle: 'A2.3',
+                        child: TrendLines(series: [
+                          (color: colors.accent, values: [for (final b in d.balance) b.$2 / 100])
+                        ]),
+                      ),
+                      StatCard(
+                        title: 'Savings — cumulative',
+                        subtitle: 'Ahorro acumulado',
+                        child: TrendLines(series: [
+                          (color: context.semanticColors.savings, values: [for (final s in d.savings) s.$2 / 100])
+                        ]),
+                      ),
+                    ],
+                  );
+                },
+              ),
         ),
       ],
     );
   }
-
-  Future<_CashflowData> _load(WidgetRef ref, DateRange range) async {
-    final cf = ref.read(cashflowAnalyticsProvider);
-    return _CashflowData(
-      await cf.monthly(range, currency),
-      await cf.cumulativeBalance(range, currency),
-      await cf.cumulativeSavings(range, currency),
-    );
-  }
-}
-
-class _CashflowData {
-  _CashflowData(this.months, this.balance, this.savings);
-  final List<MonthlyCashflow> months;
-  final List<(DateTime, int)> balance;
-  final List<(DateTime, int)> savings;
 }
 
 /// Payment ------------------------------------------------------------------
@@ -370,48 +318,34 @@ class PaymentSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder(
-      future: _load(ref),
-      builder: (context, snap) {
-        if (!snap.hasData) return _loading();
-        final d = snap.data!;
-        if (d.byMethod.isEmpty) return const _Empty('No payment data.');
-        final entries = d.byMethod.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            StatCard(
-              title: 'Spend by payment method',
-              subtitle: 'A5.1',
-              child: RankedList(entries: [
-                for (var i = 0; i < entries.length; i++)
-                  RankedEntry(
-                    label: d.labels[entries[i].key] ?? '—',
-                    trailing: formatAmount(entries[i].value, currency),
-                    amountCents: entries[i].value,
-                    color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-                  ),
-              ]),
-            ),
-          ],
+    final args = (month: month, currency: currency);
+    return ref.watch(paymentSectionProvider(args)).when(
+          loading: _loading,
+          error: (_, _) => _sectionError(() => ref.invalidate(paymentSectionProvider(args))),
+          data: (d) {
+            if (d.byMethod.isEmpty) return const _Empty('No payment data.');
+            final entries = d.byMethod.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+            return ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                StatCard(
+                  title: 'Spend by payment method',
+                  subtitle: 'A5.1',
+                  child: RankedList(entries: [
+                    for (var i = 0; i < entries.length; i++)
+                      RankedEntry(
+                        label: d.labels[entries[i].key] ?? '—',
+                        trailing: formatAmount(entries[i].value, currency),
+                        amountCents: entries[i].value,
+                        color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                      ),
+                  ]),
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
   }
-
-  Future<_PaymentData> _load(WidgetRef ref) async {
-    final by = await ref.read(paymentAnalyticsProvider).byMethod(DateRange.month(month), currency);
-    final t = await ref.read(translationsProvider.future);
-    final methods = await ref.read(referenceDataCacheProvider).paymentMethods();
-    final labels = {for (final m in methods) m.id: displayNameFor(t, name: m.name, isDefault: m.isDefault)};
-    return _PaymentData(by, labels);
-  }
-}
-
-class _PaymentData {
-  _PaymentData(this.byMethod, this.labels);
-  final Map<String?, int> byMethod;
-  final Map<String, String> labels;
 }
 
 /// Behavior -----------------------------------------------------------------
@@ -424,71 +358,53 @@ class BehaviorSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = DateRange.month(month);
-    return FutureBuilder(
-      future: _load(ref, range),
-      builder: (context, snap) {
-        if (!snap.hasData) return _loading();
-        final d = snap.data!;
-        final colors = context.appColors;
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            KpiTileGrid(tiles: [
-              KpiTile(label: 'Transactions', value: '${d.stats.count}'),
-              KpiTile(label: 'Mean ticket', value: formatAmount(d.stats.mean.round(), currency)),
-              KpiTile(label: 'Median ticket', value: formatAmount(d.stats.median.round(), currency)),
-              KpiTile(label: 'Max ticket', value: formatAmount(d.stats.max, currency)),
-            ]),
-            const SizedBox(height: AppSpacing.md),
-            StatCard(
-              title: 'Amount distribution',
-              subtitle: 'A8.3',
-              child: MonthlyBars(
-                values: d.histogram,
-                labels: const ['<5', '<10', '<25', '<50', '<100', '100+'],
-                color: colors.accent,
-              ),
-            ),
-            StatCard(
-              title: 'Ant spend',
-              subtitle: 'A8.5 (micro-transactions < 5 $currency)',
-              child: Text(
-                '${formatAmount(d.ant.total, currency)}  ·  ${d.ant.count} txns',
-                style: appDisplay(colors, fontSize: 20),
-              ),
-            ),
-            StatCard(
-              title: 'Refunds',
-              subtitle: 'A8.7',
-              child: RingGauge(
-                fraction: d.refundRatio,
-                label: 'Refunded vs gross spend',
-                color: context.semanticColors.refund,
-              ),
-            ),
-          ],
+    final args = (month: month, currency: currency);
+    return ref.watch(behaviorSectionProvider(args)).when(
+          loading: _loading,
+          error: (_, _) => _sectionError(() => ref.invalidate(behaviorSectionProvider(args))),
+          data: (d) {
+            final colors = context.appColors;
+            return ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                KpiTileGrid(tiles: [
+                  KpiTile(label: 'Transactions', value: '${d.stats.count}'),
+                  KpiTile(label: 'Mean ticket', value: formatAmount(d.stats.mean.round(), currency)),
+                  KpiTile(label: 'Median ticket', value: formatAmount(d.stats.median.round(), currency)),
+                  KpiTile(label: 'Max ticket', value: formatAmount(d.stats.max, currency)),
+                ]),
+                const SizedBox(height: AppSpacing.md),
+                StatCard(
+                  title: 'Amount distribution',
+                  subtitle: 'A8.3',
+                  child: MonthlyBars(
+                    values: d.histogram,
+                    labels: const ['<5', '<10', '<25', '<50', '<100', '100+'],
+                    color: colors.accent,
+                  ),
+                ),
+                StatCard(
+                  title: 'Ant spend',
+                  subtitle: 'A8.5 (micro-transactions < 5 $currency)',
+                  child: Text(
+                    '${formatAmount(d.ant.total, currency)}  ·  ${d.ant.count} txns',
+                    style: appDisplay(colors, fontSize: 20),
+                  ),
+                ),
+                StatCard(
+                  title: 'Refunds',
+                  subtitle: 'A8.7',
+                  child: RingGauge(
+                    fraction: d.refundRatio,
+                    label: 'Refunded vs gross spend',
+                    color: context.semanticColors.refund,
+                  ),
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
   }
-
-  Future<_BehaviorData> _load(WidgetRef ref, DateRange range) async {
-    final b = ref.read(behaviorAnalyticsProvider);
-    final stats = await b.ticketStats(range, currency);
-    final histogram = await b.histogram(range, currency, const [500, 1000, 2500, 5000, 10000]);
-    final ant = await b.antSpend(range, currency, 500);
-    final refunds = await b.refunds(range, currency);
-    return _BehaviorData(stats, histogram, ant, refunds.ratio);
-  }
-}
-
-class _BehaviorData {
-  _BehaviorData(this.stats, this.histogram, this.ant, this.refundRatio);
-  final dynamic stats;
-  final List<int> histogram;
-  final ({int total, int count}) ant;
-  final double refundRatio;
 }
 
 /// Quality ------------------------------------------------------------------
@@ -501,26 +417,27 @@ class QualitySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<double>(
-      future: ref.read(tagAnalyticsProvider).coverageGap(DateRange.month(month), currency),
-      builder: (context, snap) {
-        if (!snap.hasData) return _loading();
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            StatCard(
-              title: 'Tag coverage gap',
-              subtitle: 'A4.3',
-              child: RingGauge(
-                fraction: snap.data!,
-                label: 'Of transactions have no tag',
-                color: context.semanticColors.over,
-              ),
-            ),
-          ],
+    final args = (month: month, currency: currency);
+    return ref.watch(qualitySectionProvider(args)).when(
+          loading: _loading,
+          error: (_, _) => _sectionError(() => ref.invalidate(qualitySectionProvider(args))),
+          data: (gap) {
+            return ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                StatCard(
+                  title: 'Tag coverage gap',
+                  subtitle: 'A4.3',
+                  child: RingGauge(
+                    fraction: gap,
+                    label: 'Of transactions have no tag',
+                    color: context.semanticColors.over,
+                  ),
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
   }
 }
 
@@ -534,94 +451,57 @@ class BudgetsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder(
-      future: _load(ref),
-      builder: (context, snap) {
-        if (!snap.hasData) return _loading();
-        final rows = snap.data!;
-        if (rows.isEmpty) return const _Empty('No active budgets.');
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            for (final r in rows)
-              StatCard(
-                title: r.name,
-                subtitle: 'A7.1–A7.3',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                          child: LinearProgressIndicator(
-                            value: r.spentFraction.clamp(0.0, 1.0),
-                            minHeight: 6,
-                            backgroundColor: context.appColors.surfaceAlt,
-                            valueColor: AlwaysStoppedAnimation(
-                              r.overPace ? context.semanticColors.over : context.semanticColors.savings,
+    final args = (month: month, currency: currency);
+    return ref.watch(budgetSectionProvider(args)).when(
+          loading: _loading,
+          error: (_, _) => _sectionError(() => ref.invalidate(budgetSectionProvider(args))),
+          data: (rows) {
+            if (rows.isEmpty) return const _Empty('No active budgets.');
+            return ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                for (final r in rows)
+                  StatCard(
+                    title: r.name,
+                    subtitle: 'A7.1–A7.3',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                              child: LinearProgressIndicator(
+                                value: r.spentFraction.clamp(0.0, 1.0),
+                                minHeight: 6,
+                                backgroundColor: context.appColors.surfaceAlt,
+                                valueColor: AlwaysStoppedAnimation(
+                                  r.overPace ? context.semanticColors.over : context.semanticColors.savings,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.smMd),
-                      Text('${formatAmount(r.spent, currency)} / ${formatAmount(r.limit, currency)}',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ]),
-                    if (r.projected != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'Projected close: ${formatAmount(r.projected!, currency)}${r.overPace ? '  ⚠ over pace' : ''}',
-                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                              color: r.overPace ? context.semanticColors.over : context.appColors.textMuted,
-                            ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-          ],
+                          const SizedBox(width: AppSpacing.smMd),
+                          Text('${formatAmount(r.spent, currency)} / ${formatAmount(r.limit, currency)}',
+                              style: Theme.of(context).textTheme.bodySmall),
+                        ]),
+                        if (r.projected != null) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Projected close: ${formatAmount(r.projected!, currency)}${r.overPace ? '  ⚠ over pace' : ''}',
+                            style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                                  color: r.overPace ? context.semanticColors.over : context.appColors.textMuted,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
         );
-      },
-    );
   }
-
-  Future<List<_BudgetRow>> _load(WidgetRef ref) async {
-    final repo = ref.read(budgetRepositoryProvider);
-    final analytics = ref.read(budgetAnalyticsProvider);
-    final monthKey = monthKeyOf(DateTime(month.year, month.month));
-    final active = (await repo.listAll()).where((b) => repo.isActiveForMonth(b, monthKey)).toList();
-    final rows = <_BudgetRow>[];
-    for (final b in active) {
-      final pace = await analytics.pace(b);
-      rows.add(_BudgetRow(
-        name: b.name,
-        spent: pace.spentCents,
-        limit: pace.limitCents,
-        spentFraction: pace.spentFraction,
-        overPace: pace.overPace,
-        projected: pace.projectedEndCents,
-      ));
-    }
-    return rows;
-  }
-}
-
-class _BudgetRow {
-  _BudgetRow({
-    required this.name,
-    required this.spent,
-    required this.limit,
-    required this.spentFraction,
-    required this.overPace,
-    required this.projected,
-  });
-  final String name;
-  final int spent;
-  final int limit;
-  final double spentFraction;
-  final bool overPace;
-  final int? projected;
 }
 
 /// Events -------------------------------------------------------------------
@@ -639,35 +519,34 @@ class _EventsSectionState extends ConsumerState<EventsSection> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: ref.read(referenceDataCacheProvider).events(),
-      builder: (context, snap) {
-        if (!snap.hasData) return _loading();
-        final events = snap.data!;
-        if (events.isEmpty) return const _Empty('No events yet.');
-        _selectedEventId ??= events.first.id;
-        final selected = events.firstWhere((e) => e.id == _selectedEventId);
-        return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _selectedEventId,
-              decoration: const InputDecoration(labelText: 'Event'),
-              items: [for (final e in events) DropdownMenuItem(value: e.id, child: Text(e.name))],
-              onChanged: (v) => setState(() => _selectedEventId = v),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _EventBody(
-              key: ValueKey(_selectedEventId),
-              eventId: selected.id,
-              startsAt: selected.startsAt,
-              endsAt: selected.endsAt,
-              currency: widget.currency,
-            ),
-          ],
+    return ref.watch(eventListProvider).when(
+          loading: _loading,
+          error: (_, _) => _sectionError(() => ref.invalidate(eventListProvider)),
+          data: (events) {
+            if (events.isEmpty) return const _Empty('No events yet.');
+            _selectedEventId ??= events.first.id;
+            final selected = events.firstWhere((e) => e.id == _selectedEventId);
+            return ListView(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedEventId,
+                  decoration: const InputDecoration(labelText: 'Event'),
+                  items: [for (final e in events) DropdownMenuItem(value: e.id, child: Text(e.name))],
+                  onChanged: (v) => setState(() => _selectedEventId = v),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _EventBody(
+                  key: ValueKey(_selectedEventId),
+                  eventId: selected.id,
+                  startsAt: selected.startsAt,
+                  endsAt: selected.endsAt,
+                  currency: widget.currency,
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
   }
 }
 
@@ -687,61 +566,45 @@ class _EventBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder(
-      future: _load(ref),
-      builder: (context, snap) {
-        if (!snap.hasData) return const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
-        final d = snap.data!;
-        final colors = context.appColors;
-        return Column(
-          children: [
-            Row(children: [
-              Expanded(child: KpiTile(label: 'Total cost', value: formatAmount(d.total, currency))),
-              const SizedBox(width: AppSpacing.smMd),
-              Expanded(
-                child: KpiTile(
-                  label: 'Cost / day',
-                  value: d.perDay == null ? '—' : formatAmount(d.perDay!.round(), currency),
+    final args = (eventId: eventId, startsAt: startsAt, endsAt: endsAt, currency: currency);
+    return ref.watch(eventSectionProvider(args)).when(
+          loading: () => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+          error: (_, _) => SizedBox(
+              height: 120, child: _sectionError(() => ref.invalidate(eventSectionProvider(args)))),
+          data: (d) {
+            final colors = context.appColors;
+            return Column(
+              children: [
+                Row(children: [
+                  Expanded(child: KpiTile(label: 'Total cost', value: formatAmount(d.total, currency))),
+                  const SizedBox(width: AppSpacing.smMd),
+                  Expanded(
+                    child: KpiTile(
+                      label: 'Cost / day',
+                      value: d.perDay == null ? '—' : formatAmount(d.perDay!.round(), currency),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: AppSpacing.md),
+                StatCard(
+                  title: 'Spend timeline',
+                  subtitle: 'A6.5',
+                  child: TrendLines(series: [
+                    (color: colors.accent, values: [for (final p in d.timeline) p.$2 / 100])
+                  ]),
                 ),
-              ),
-            ]),
-            const SizedBox(height: AppSpacing.md),
-            StatCard(
-              title: 'Spend timeline',
-              subtitle: 'A6.5',
-              child: TrendLines(series: [
-                (color: colors.accent, values: [for (final p in d.timeline) p.$2 / 100])
-              ]),
-            ),
-            if (d.outOfRange > 0)
-              StatCard(
-                title: 'Out-of-range transactions',
-                subtitle: 'A6.6',
-                child: Text('${d.outOfRange} transaction(s) dated outside the event period.',
-                    style: TextStyle(color: context.semanticColors.over)),
-              ),
-          ],
+                if (d.outOfRange > 0)
+                  StatCard(
+                    title: 'Out-of-range transactions',
+                    subtitle: 'A6.6',
+                    child: Text('${d.outOfRange} transaction(s) dated outside the event period.',
+                        style: TextStyle(color: context.semanticColors.over)),
+                  ),
+              ],
+            );
+          },
         );
-      },
-    );
   }
-
-  Future<_EventData> _load(WidgetRef ref) async {
-    final ev = ref.read(eventAnalyticsProvider);
-    final total = await ev.totalCost(eventId: eventId);
-    final perDay = await ev.costPerDay(startsAt: startsAt, endsAt: endsAt, eventId: eventId);
-    final timeline = await ev.timeline(eventId: eventId);
-    final oor = await ev.outOfRange(eventId: eventId, startsAt: startsAt, endsAt: endsAt);
-    return _EventData(total, perDay, timeline, oor.length);
-  }
-}
-
-class _EventData {
-  _EventData(this.total, this.perDay, this.timeline, this.outOfRange);
-  final int total;
-  final double? perDay;
-  final List<(DateTime, int)> timeline;
-  final int outOfRange;
 }
 
 class _Empty extends StatelessWidget {

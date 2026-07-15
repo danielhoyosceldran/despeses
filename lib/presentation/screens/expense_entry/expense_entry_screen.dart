@@ -63,6 +63,11 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
 
   bool _loadingExisting = false;
 
+  /// Resolved display labels for the picked category/method/event/project.
+  /// Resolved once when a selection changes (not inside `build`) so typing in
+  /// the description no longer re-runs the lookup and flickers the tiles (R4).
+  _FieldLabels _labels = const _FieldLabels();
+
   /// Which field currently has its panel open, if any.
   String? _openPanel;
   Widget? _panelContent;
@@ -71,7 +76,6 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   @override
   void initState() {
     super.initState();
-    _descriptionController.addListener(() => setState(() {}));
     // Focusing a text field must dismiss any open bottom panel (keypad/pickers)
     // so the OS keyboard doesn't stack on top of it.
     _descriptionFocus.addListener(_dismissPanelOnTextFocus);
@@ -111,6 +115,14 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _notesController.text = expense.notes ?? '';
       _loadingExisting = false;
     });
+    _refreshLabels();
+  }
+
+  /// Recomputes [_labels] off [build]. Call after any dimension selection
+  /// changes (category/method/event/project) or after loading an existing row.
+  Future<void> _refreshLabels() async {
+    final labels = await _resolveLabels();
+    if (mounted) setState(() => _labels = labels);
   }
 
   void _closePanel() => setState(() {
@@ -207,6 +219,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             onSelected: (selected) {
               ref.read(hapticsProvider).selection();
               setState(() => _categoryId = selected.id);
+              _refreshLabels();
               _closePanel();
               _openNextStep('category');
             },
@@ -224,6 +237,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             onSelected: (selected) {
               ref.read(hapticsProvider).selection();
               setState(() => _paymentMethodId = selected.id);
+              _refreshLabels();
               _closePanel();
               _openNextStep('paymentMethod');
             },
@@ -262,6 +276,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             onSelected: (selected) {
               ref.read(hapticsProvider).selection();
               setState(() => _eventId = selected.id);
+              _refreshLabels();
               _closePanel();
               _openNextStep('event');
             },
@@ -279,6 +294,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             onSelected: (selected) {
               ref.read(hapticsProvider).selection();
               setState(() => _projectId = selected.id);
+              _refreshLabels();
               _closePanel();
               _openNextStep('project');
             },
@@ -393,12 +409,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               child: _openPanel == 'tags'
                   ? Row(
                       children: [
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: _canSave ? _save : null,
-                            child: Text(translations?.t('common.save') ?? 'Save'),
-                          ),
-                        ),
+                        Expanded(child: _saveButton(translations)),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: FilledButton(
@@ -410,13 +421,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
                         ),
                       ],
                     )
-                  : SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _canSave ? _save : null,
-                        child: Text(translations?.t('common.save') ?? 'Save'),
-                      ),
-                    ),
+                  : SizedBox(width: double.infinity, child: _saveButton(translations)),
             ),
           BottomActionPanel(
             isOpen: _openPanel != null,
@@ -443,16 +448,23 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _canSave ? _save : null,
-                    child: Text(translations?.t('common.save') ?? 'Save'),
-                  ),
-                ),
+                child: SizedBox(width: double.infinity, child: _saveButton(translations)),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Save button whose enabled state tracks the description field directly (via
+  /// [ValueListenableBuilder]) instead of rebuilding the whole screen on every
+  /// keystroke (R4). Amount/category/method/date already trigger `setState`.
+  Widget _saveButton(Translations? translations) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _descriptionController,
+      builder: (context, _, _) => FilledButton(
+        onPressed: _canSave ? _save : null,
+        child: Text(translations?.t('common.save') ?? 'Save'),
       ),
     );
   }
@@ -463,12 +475,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     AppSemanticColors semantic,
     String currency,
   ) {
-    return FutureBuilder<_FieldLabels>(
-      future: _resolveLabels(),
-      builder: (context, snapshot) {
-        final labels = snapshot.data;
-
-        return SwipeDownToClose(
+    final labels = _labels;
+    return SwipeDownToClose(
           onClose: _close,
           child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -507,9 +515,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  _fieldTile(labels?.category ?? (translations?.t('expenses.category') ?? 'Category'), () => _openStep('category')),
+                  _fieldTile(labels.category ?? (translations?.t('expenses.category') ?? 'Category'), () => _openStep('category')),
                   Divider(height: 1, color: colors.divider),
-                  _fieldTile(labels?.paymentMethod ?? (translations?.t('expenses.payment_method') ?? 'Payment method'), () => _openStep('paymentMethod')),
+                  _fieldTile(labels.paymentMethod ?? (translations?.t('expenses.payment_method') ?? 'Payment method'), () => _openStep('paymentMethod')),
                   Divider(height: 1, color: colors.divider),
                   _fieldTile(
                     _tagIds.isEmpty
@@ -524,11 +532,11 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Expanded(
-                          child: _fieldTile(labels?.event ?? (translations?.t('expenses.event') ?? 'Event'), () => _openStep('event')),
+                          child: _fieldTile(labels.event ?? (translations?.t('expenses.event') ?? 'Event'), () => _openStep('event')),
                         ),
                         VerticalDivider(width: 1, color: colors.divider),
                         Expanded(
-                          child: _fieldTile(labels?.project ?? (translations?.t('expenses.project') ?? 'Project'), () => _openStep('project')),
+                          child: _fieldTile(labels.project ?? (translations?.t('expenses.project') ?? 'Project'), () => _openStep('project')),
                         ),
                       ],
                     ),
@@ -552,8 +560,6 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
           ],
           ),
         );
-      },
-    );
   }
 
   /// Compact tappable field row for the entry card (tighter padding than a
@@ -608,6 +614,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       // Category trees differ per type — the previous selection is invalid.
       _categoryId = null;
     });
+    _refreshLabels();
   }
 
   Future<_FieldLabels> _resolveLabels() async {

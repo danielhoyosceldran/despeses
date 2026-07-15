@@ -18,6 +18,7 @@ import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/drag_up_fab.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
+import '../widgets/error_retry.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/thin_progress_bar.dart';
 import 'expense_entry/expense_entry_screen.dart';
@@ -413,9 +414,18 @@ class _MonthPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<List<Expense>>(
+    // StatefulBuilder gives the error state a local rebuild for Retry: the
+    // month fetch isn't cached on failure, so re-running build re-issues it.
+    return StatefulBuilder(
+      builder: (context, setLocalState) => FutureBuilder<List<Expense>>(
       future: fetchExpenses(month),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return ErrorRetry(
+            onRetry: () => setLocalState(() {}),
+            message: 'Could not load this month.',
+          );
+        }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final expenses = snapshot.data!;
         final colors = context.appColors;
@@ -492,6 +502,7 @@ class _MonthPage extends ConsumerWidget {
           ],
         );
       },
+      ),
     );
   }
 }

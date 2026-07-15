@@ -32,6 +32,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 | `MonthPickerDialog` / `...Content` | Month picker (Dialog 300×340 or embedded). Year stepper Row + 3-col grid of 12 months. |
 | `AppCard` | Rounded surface container, configurable padding/margin. |
 | `ThinProgressBar` | Thin horizontal progress bar (track + fill). Budget progress. |
+| `ErrorRetry` | Centered async-failure placeholder: alert icon, message, outlined "Retry" button. Shown in place of a stuck spinner when a section/month load fails (Analytics sections, Dashboard month). |
 
 ---
 
@@ -46,6 +47,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
   3. Expanded horizontal `PageView` of month pages (swipe = month ±1, kept in sync with `MonthHeaderBar`). Each month page is a scrolling `ListView` driving the hero collapse, top→bottom:
      - If active budgets: "Active budgets" header + budget tiles (name, `ThinProgressBar`, spent/limit).
      - Transactions **grouped by day**: per-day header (uppercase day label + signed day total) followed by transaction rows (optional selection Checkbox, uppercase category line, title, method subtitle, signed amount). "No transactions" text when empty. Tap = edit / toggle; long-press = select.
+     - On load failure the page body shows `ErrorRetry` instead of the transaction list.
 
 ### Expenses (`expenses_screen.dart`)
 - **Header**: `AppTopBar` title "Expenses", trailing filter action (tinted when active) → `ExpenseFilterSheet` + settings gear. Selection mode: "N selected", X, trash.
@@ -62,7 +64,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 Sectioned screen navigated by a section FAB.
 - **Header**: `AppTopBar` — month mode (month pager) only on month-scoped sections; on non-month sections (Trend, Cash flow, Events) it shows the section title instead of the pager. Settings gear always right.
 - **Section FAB**: circular FAB showing the current section's own icon (no label). Tap opens a bottom-sheet menu listing every section, each with its icon (current highlighted with a check). Drag gestures: a **vertical** drag steps sections one at a time (up = next, down = previous); a **horizontal-left** drag toggles between the two **preferred** sections (Categories ↔ Tags). Neither collides with the body's horizontal month swipe (that lives in the PageView). While a drag is armed, a **centred floating preview card** (`_SectionPreviewCard`: target section's icon + name) appears mid-screen over the body. Section order: Categories · Tags · Health · Trend · Cash flow · Payment · Behavior · Quality · Budgets · Events.
-- **Body**: a `PageView` — month-scoped sections are swipeable left/right to change month (tracked by the header label + chevrons, mirroring Dashboard); non-month sections (Trend, Cash flow, Events) disable the swipe. Each section is a scrolling `ListView` of `StatCard`s / panels. Time-series sections (Trend, Cash flow) render a `[6M][12M][24M]` `WindowSelector` at the top instead of using month.
+- **Body**: a `PageView` — month-scoped sections are swipeable left/right to change month (tracked by the header label + chevrons, mirroring Dashboard); non-month sections (Trend, Cash flow, Events) disable the swipe. Each section is a scrolling `ListView` of `StatCard`s / panels. Time-series sections (Trend, Cash flow) render a `[6M][12M][24M]` `WindowSelector` at the top instead of using month. Each section has three states: loading spinner, `ErrorRetry` on failure, or its data body.
 - **Sections**:
   - **Categories / Tags** (preferred): `AppCard.large` donut (`DonutChart`) with the total in the hole; Categories supports drill-down (tap slice/legend → breadcrumb Row with circular back). Legend rows below (`LegendRow`). Leaf-only, so no "direct" slice.
   - **Health**: `KpiTile` grid (savings rate, vs 3M avg, top category, budgets at risk, projection, no-spend streak) + burn-up `TrendLines`.

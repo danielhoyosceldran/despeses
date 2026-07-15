@@ -73,13 +73,14 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _seedDefaults(this);
+          await _createIndexes(this);
         },
         onUpgrade: (m, from, to) async {
           // Safety net first: copy the current DB (main file + WAL sidecars)
@@ -96,21 +97,32 @@ class AppDatabase extends _$AppDatabase {
             }
             await m.createAll();
             await _seedDefaults(this);
+            await _createIndexes(this);
             await customStatement('PRAGMA foreign_keys = ON');
             return;
           }
 
           // Data-preserving migrations. Add one `if (from < N)` block per
           // schema bump, e.g.:
-          //   if (from < 7) await m.addColumn(expenses, expenses.someColumn);
-          //   if (from < 8) await m.createTable(recurring);
-          // v6 is the first version with real, non-destructive migrations, so
-          // there are no steps yet.
+          //   if (from < 8) await m.addColumn(expenses, expenses.someColumn);
+          //   if (from < 9) await m.createTable(recurring);
+          // v7 adds the analytics/listing indexes on `expenses` (R3).
+          if (from < 7) await _createIndexes(this);
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
+}
+
+/// Indexes on the hottest `expenses` query paths (R3): every analytics/listing
+/// query filters by `date` and/or `category_id`, which were full table scans.
+/// Declared here (not via table annotations) so no codegen step is needed and
+/// the same statements serve both onCreate and the v7 migration.
+Future<void> _createIndexes(AppDatabase db) async {
+  await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
+  await db.customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)');
 }
 
 Future<void> _seedDefaults(AppDatabase db) async {

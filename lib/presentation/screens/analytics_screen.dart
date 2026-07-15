@@ -8,14 +8,13 @@ import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
-import '../../domain/repositories/analytics/analytics_category.dart';
-import '../../domain/repositories/analytics/analytics_math.dart';
-import '../../domain/repositories/analytics/analytics_tags.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/charts/analytics_widgets.dart';
 import '../widgets/charts/donut_chart.dart';
+import '../widgets/error_retry.dart';
+import 'analytics/analytics_data_providers.dart';
 import 'analytics/analytics_sections.dart';
 
 /// The Analytics sections, in tab-strip order. Category and Tags are the
@@ -111,8 +110,10 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   int _window = 12;
 
   /// Section the in-progress FAB drag would switch to (drives the centred
-  /// preview overlay); null when not dragging / below the arm threshold.
-  AnalyticsSection? _preview;
+  /// preview overlay); null when not dragging / below the arm threshold. A
+  /// [ValueNotifier] (not setState) so the ~60fps drag updates rebuild only the
+  /// small overlay, not the whole screen + PageView (R1).
+  final ValueNotifier<AnalyticsSection?> _preview = ValueNotifier(null);
 
   @override
   void initState() {
@@ -124,6 +125,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _preview.dispose();
     super.dispose();
   }
 
@@ -149,10 +151,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
     });
   }
 
-  void _onPreview(AnalyticsSection? s) {
-    if (s == _preview) return;
-    setState(() => _preview = s);
-  }
+  void _onPreview(AnalyticsSection? s) => _preview.value = s;
 
   void _openSectionMenu(Translations? translations) {
     showModalBottomSheet<void>(
@@ -171,9 +170,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Rebuild when returning to the Analytics tab (data may have changed).
+    // Reload section data when returning to the Analytics tab (it may have
+    // changed on another tab). The screen stays mounted across tabs, so
+    // invalidating the cached section providers is what forces the refetch.
     ref.listen(currentTabIndexProvider, (_, next) {
-      if (next == 3) setState(() {});
+      if (next == 3) invalidateAnalyticsSections(ref);
     });
     final translations = ref.watch(translationsProvider).asData?.value;
     final currency = ref.watch(profileStreamProvider).asData?.value.currency ?? 'EUR';
@@ -216,21 +217,25 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               ),
             ],
           ),
-          // Centred preview of the section a FAB drag would switch to.
+          // Centred preview of the section a FAB drag would switch to. Only
+          // this overlay rebuilds as the drag updates _preview (R1).
           Positioned.fill(
             child: IgnorePointer(
               child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 140),
-                  transitionBuilder: (child, anim) =>
-                      ScaleTransition(scale: Tween(begin: 0.9, end: 1.0).animate(anim), child: FadeTransition(opacity: anim, child: child)),
-                  child: _preview == null
-                      ? const SizedBox.shrink(key: ValueKey('none'))
-                      : _SectionPreviewCard(
-                          key: ValueKey(_preview),
-                          section: _preview!,
-                          label: translations?.t(_preview!.labelKey()) ?? _preview!.fallbackLabel(),
-                        ),
+                child: ValueListenableBuilder<AnalyticsSection?>(
+                  valueListenable: _preview,
+                  builder: (context, preview, _) => AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 140),
+                    transitionBuilder: (child, anim) =>
+                        ScaleTransition(scale: Tween(begin: 0.9, end: 1.0).animate(anim), child: FadeTransition(opacity: anim, child: child)),
+                    child: preview == null
+                        ? const SizedBox.shrink(key: ValueKey('none'))
+                        : _SectionPreviewCard(
+                            key: ValueKey(preview),
+                            section: preview,
+                            label: translations?.t(preview.labelKey()) ?? preview.fallbackLabel(),
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -552,17 +557,16 @@ class _CategorySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final parentId = breadcrumb.isEmpty ? null : breadcrumb.last.id;
-    final future = _load(ref, parentId);
-    return FutureBuilder<_CategoryData>(
-      future: future,
-      builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        final data = snap.data!;
+    final args = (month: month, currency: currency, parentId: parentId);
+    return ref.watch(categorySectionProvider(args)).when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => ErrorRetry(onRetry: () => ref.invalidate(categorySectionProvider(args)), message: 'Could not load this section.'),
+      data: (data) {
         final colors = context.appColors;
         final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents);
 
         if (data.slices.isEmpty) {
-          return _EmptyState(text: ref.read(translationsProvider).asData?.value.t('analytics.empty_category') ?? 'No category data.');
+          return _EmptyState(text: data.translations.t('analytics.empty_category'));
         }
 
         return ListView(
@@ -618,37 +622,6 @@ class _CategorySection extends ConsumerWidget {
       },
     );
   }
-
-  Future<_CategoryData> _load(WidgetRef ref, String? parentId) async {
-    final analytics = ref.read(categoryAnalyticsProvider);
-    final translations = await ref.read(translationsProvider.future);
-    final allCategories = await ref.read(referenceDataCacheProvider).categories();
-    final slices = await analytics.breakdown(
-      DateRange.month(month),
-      parentId: parentId,
-      type: 'expense',
-      currency: currency,
-    );
-    final byId = {for (final c in allCategories) c.id: c};
-    final labels = <String, String>{};
-    final hasChildren = <String, bool>{};
-    for (final s in slices) {
-      final c = byId[s.categoryId];
-      if (c == null) continue;
-      labels[s.categoryId] = displayNameFor(translations, name: c.name, isDefault: c.isDefault);
-      hasChildren[s.categoryId] = allCategories.any((x) => x.parentId == s.categoryId);
-    }
-    return _CategoryData(slices, labels, hasChildren, byId, translations);
-  }
-}
-
-class _CategoryData {
-  _CategoryData(this.slices, this.labels, this.hasChildren, this.categoryById, this.translations);
-  final List<CategorySlice> slices;
-  final Map<String, String> labels;
-  final Map<String, bool> hasChildren;
-  final Map<String, Category> categoryById;
-  final Translations translations;
 }
 
 class _BreadcrumbRow extends StatelessWidget {
@@ -696,11 +669,11 @@ class _TagsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<_TagData>(
-      future: _load(ref),
-      builder: (context, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        final data = snap.data!;
+    final args = (month: month, currency: currency);
+    return ref.watch(tagSectionProvider(args)).when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, _) => ErrorRetry(onRetry: () => ref.invalidate(tagSectionProvider(args)), message: 'Could not load this section.'),
+      data: (data) {
         final colors = context.appColors;
         if (data.slices.isEmpty) {
           return _EmptyState(text: data.translations.t('analytics.empty_tag'));
@@ -748,27 +721,6 @@ class _TagsSection extends ConsumerWidget {
       },
     );
   }
-
-  Future<_TagData> _load(WidgetRef ref) async {
-    final analytics = ref.read(tagAnalyticsProvider);
-    final translations = await ref.read(translationsProvider.future);
-    final allTags = await ref.read(referenceDataCacheProvider).tags();
-    final slices = await analytics.byTag(DateRange.month(month), currency);
-    final byId = {for (final t in allTags) t.id: t};
-    final labels = {
-      for (final s in slices)
-        if (byId[s.tagId] != null)
-          s.tagId: displayNameFor(translations, name: byId[s.tagId]!.name, isDefault: byId[s.tagId]!.isDefault),
-    };
-    return _TagData(slices, labels, translations);
-  }
-}
-
-class _TagData {
-  _TagData(this.slices, this.labels, this.translations);
-  final List<TagSlice> slices;
-  final Map<String, String> labels;
-  final Translations translations;
 }
 
 class _EmptyState extends StatelessWidget {
