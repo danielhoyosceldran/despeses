@@ -2,12 +2,20 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import 'analytics/analytics_math.dart';
 import 'category_repository.dart';
 
 const _uuid = Uuid();
 
 String monthKeyOf(DateTime date) =>
     '${date.year}-${date.month.toString().padLeft(2, '0')}';
+
+/// Comparable ordinal for a `YYYY-MM` key: `year * 12 + month`. Compares months
+/// numerically, so ordering is correct regardless of zero-padding.
+int _monthOrdinal(String key) {
+  final parts = key.split('-');
+  return int.parse(parts[0]) * 12 + int.parse(parts[1]);
+}
 
 class BudgetRepository {
   BudgetRepository(this._db, this._categories);
@@ -45,7 +53,7 @@ class BudgetRepository {
         if (startsMonth == null || endsMonth == null) {
           throw ArgumentError('A range budget requires both startsMonth and endsMonth.');
         }
-        if (endsMonth.compareTo(startsMonth) < 0) {
+        if (_monthOrdinal(endsMonth) < _monthOrdinal(startsMonth)) {
           throw ArgumentError('endsMonth must not be before startsMonth.');
         }
       default:
@@ -93,8 +101,9 @@ class BudgetRepository {
       case 'monthly':
         return true;
       case 'range':
-        final afterStart = monthKey.compareTo(budget.startsMonth!) >= 0;
-        final beforeEnd = monthKey.compareTo(budget.endsMonth!) <= 0;
+        final ordinal = _monthOrdinal(monthKey);
+        final afterStart = ordinal >= _monthOrdinal(budget.startsMonth!);
+        final beforeEnd = ordinal <= _monthOrdinal(budget.endsMonth!);
         return afterStart && beforeEnd;
       default:
         return false;
@@ -145,7 +154,7 @@ class BudgetRepository {
 
     var total = 0;
     for (final e in dimensionFiltered) {
-      total += e.type == 'refund' ? -e.amount : e.amount;
+      total += signedAmountOf(e);
     }
     return total;
   }

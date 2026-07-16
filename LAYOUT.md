@@ -6,7 +6,7 @@ Structural reference for every screen: layout and UI elements only — **no visu
 
 ## Navigation shell
 
-`AppShell` — `NavigationBar` (bottom) with 5 tabs: **Dashboard · Expenses · Budgets · Analytics · Settings**. The Settings tab holds the data catalog (categories, tags, …). Expenses tab is behind a feature flag. Horizontal drag on the nav bar switches tabs. Body cross-fade/slide transition on tab change. Root route intercepts system back: requires a second back press within 2s to exit (toast on first press).
+`AppShell` — `NavigationBar` (bottom) with 5 tabs: **Dashboard · Expenses · Budgets · Analytics · Settings**. The Settings tab holds the data catalog (categories, tags, …). Expenses tab is behind a feature flag. Horizontal drag on the nav bar switches tabs. Tab change is instant (the shell's IndexedStack); no body transition — animating the shell itself duplicates its GlobalKey. Root route intercepts system back: requires a second back press within 2s to exit (toast on first press).
 
 The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Export · Backup) pushed over the shell — distinct from the Settings tab.
 
@@ -33,6 +33,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 | `AppCard` | Rounded surface container, configurable padding/margin. |
 | `ThinProgressBar` | Thin horizontal progress bar (track + fill). Budget progress. |
 | `ErrorRetry` | Centered async-failure placeholder: alert icon, message, outlined "Retry" button. Shown in place of a stuck spinner when a section/month load fails (Analytics sections, Dashboard month). |
+| `EmptyState` | Centered "nothing here" placeholder: single centered text line. Shared empty state for Analytics sections and lists. |
 
 ---
 
@@ -43,6 +44,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 - **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body** Column, top→bottom:
   1. `AppTopBar` — month/year chevron nav + settings gear (shared across months).
+  1b. **Recurring banner** (`_RecurringBanner`, shown only when recurring occurrences are pending and not in selection mode): repeat icon + pending-count text + "Review" affordance + chevron. Tap → `/settings/recurring`.
   2. **Balance hero** (`_BalanceHeader`, shared, sits *outside* the PageView): "Total Balance" label + large balance amount, then a Row of 2 collapsing stat tiles (Income · Spent; each = icon chip in a row beside a label + amount column). **Collapses on inner scroll**: balance shrinks, stat tiles fold away, a hairline bottom border fades in.
   3. Expanded horizontal `PageView` of month pages (swipe = month ±1, kept in sync with `MonthHeaderBar`). Each month page is a scrolling `ListView` driving the hero collapse, top→bottom:
      - If active budgets: "Active budgets" header + budget tiles (name, `ThinProgressBar`, spent/limit).
@@ -80,7 +82,7 @@ Sectioned screen navigated by a section FAB.
 ### Settings (`settings_screen.dart`)
 Data catalog tab.
 - **Header**: `AppTopBar` title "Settings" + gear (→ Account hub).
-- **Body**: single `AppCard` Column of `HairlineListTile` nav rows: Categories, Tags, Tag groups, Payment methods, Events, Projects.
+- **Body**: single `AppCard` Column of `HairlineListTile` nav rows: Recurring, Categories, Tags, Tag groups, Payment methods, Events, Projects. The Recurring row shows a trailing accent count badge when there are pending occurrences.
 
 ### Account (`account_screen.dart`)
 Personal/app settings hub, pushed over the shell from the header gear.
@@ -93,9 +95,10 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 - **Body** Column:
   1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered tappable amount (`AmountText`, opens keypad) · Description field (themed filled input, no wrapping card) · `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field (themed filled input, no wrapping card).
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
-  3. `BottomActionPanel`: `NumericKeypad` (amount), `_DatePanel` calendar (month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
+  3. `BottomActionPanel`: `NumericKeypad` (amount), `CalendarPanel` (shared month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
 - Tapping a field row opens its panel. "Next" auto-advances through amount → description → category → payment method, then stops; remaining fields (tags, event, project, notes) are filled manually. Skips empty ref types. Pops `true` on save.
+- Can be opened pre-filled from a `ExpenseSeed` (recurring "edit & confirm" flow): all fields hydrated, keypad does not auto-open.
 
 ### Budget entry (`budget_entry/budget_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
@@ -114,6 +117,23 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
   3. `BottomActionPanel`: `NumericKeypad`, `MonthPickerContent`, `CategoryPickerContent`, or `SimplePickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
 - New budget: keypad opens first; "Next" auto-advances amount → name, then stops (dimension, value, period chosen manually). Pops `true` on save.
+
+### Recurring entry (`recurring/recurring_entry_screen.dart`)
+Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. Creates/edits a recurring-transaction template. Every field editable in both new and edit modes.
+- **AppBar**: leading down-chevron (dismiss); centered title ("New recurring" / "Edit recurring").
+- **Body** Column:
+  1. Expanded ListView: centered type selector (Expense · Income · Refund · Savings) · big centered tappable amount (`AmountText`, opens keypad) · Description field · **Schedule** section (uppercase header): `SegmentedButton` (Monthly/Weekly/Yearly) + `AppCard` with Starts row and Ends row (Ends shows "No end date" placeholder with a trailing clear button when set) · **Details** section (uppercase header): `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field.
+  2. Inline "Save" above panel when open ("Save"+"Next" in tags step).
+  3. `BottomActionPanel`: `NumericKeypad`, `CalendarPanel` (start/end date), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
+  4. No panel: bottom SafeArea full-width "Save" button.
+- New: keypad opens first; "Next" moves amount → description. Save requires amount > 0 + non-empty description + end date not before start. Pops `true` on save (then materializes any already-due dates).
+
+### Settings › Recurring (`recurring/recurring_screen.dart`)
+- **Header**: `AppTopBar` title "Recurring". Selection mode (long-press a template): "N selected", X (clear), trash (delete-confirm).
+- **FAB**: "+" → RecurringEntryScreen (new). Tap, or drag up to interactively pull it up from the bottom.
+- **Body** `ListView`, two stacked sections:
+  - **Pending** (only when occurrences await confirmation): uppercase "PENDING" header with a "Confirm all" TextButton when >1, then one `_PendingCard` per occurrence — description + due date + amount, with Skip / Edit / Confirm actions. Confirm → creates the real transaction; Edit → opens the seeded `ExpenseEntryScreen`; Skip → discards. Actions show a toast.
+  - **Templates**: uppercase "TEMPLATES" header, then one `_TemplateCard` per template (name, subtitle = frequency + next date, or "Paused"; trailing amount + active `Switch`). Tap = edit; long-press = select. `EmptyState` when none.
 
 ### Account › Backup (`settings/backup_screen.dart`)
 - **AppBar**: empty.
@@ -156,5 +176,6 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 
 ## Cross-screen patterns
 - Tab screens (Dashboard, Expenses, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
-- Selection mode (multi-delete) on Dashboard, Expenses, Budgets swaps `AppTopBar` contents (count + clear + delete).
-- Entry screens (expense/budget) use the in-screen `BottomActionPanel` + `NumericKeypad` + embedded pickers, not modal sheets. The Expenses list uses a true modal filter sheet.
+- Selection mode (multi-delete) on Dashboard, Expenses, Budgets, Recurring swaps `AppTopBar` contents (count + clear + delete).
+- Entry screens (expense/budget/recurring) use the in-screen `BottomActionPanel` + `NumericKeypad` + embedded pickers, not modal sheets. The Expenses list uses a true modal filter sheet.
+- Recurring (reached from the Settings hub, but not a `settings/*` list screen) renders an `AppTopBar` + FAB like a tab screen, rather than the `PageTitleHeader` used by the catalog list screens.

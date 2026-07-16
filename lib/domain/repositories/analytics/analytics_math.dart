@@ -51,6 +51,10 @@ int signedSpend(Iterable<Expense> expenses) {
   return total;
 }
 
+/// Signed amount of a single spend transaction: `expense` positive, `refund`
+/// negative. Only meaningful for lists already filtered to expense/refund.
+int signedAmountOf(Expense e) => e.type == 'refund' ? -e.amount : e.amount;
+
 /// Plain sum of the (always-positive) amounts of a single transaction [type].
 int sumOfType(Iterable<Expense> expenses, String type) {
   var total = 0;

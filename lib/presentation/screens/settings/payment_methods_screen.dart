@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
@@ -61,18 +62,35 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   }
 
   Future<bool> _confirmDelete(String label) {
+    final translations = ref.read(translationsProvider).asData?.value;
     return showConfirmDialog(
       context,
-      title: 'Delete payment method',
-      message: 'Delete "$label"? Expenses using it will keep their data but lose the reference.',
+      title: translations?.t('payment_methods.delete_title') ?? 'Delete payment method',
+      message: (translations?.t('payment_methods.delete_message') ??
+              'Delete "{{name}}"? Expenses using it will keep their data but lose the reference.')
+          .replaceAll('{{name}}', label),
       destructive: true,
     );
   }
 
   Future<void> _delete(PaymentMethod method) async {
+    final index = _methods.indexOf(method);
     setState(() => _methods.remove(method));
-    await ref.read(paymentMethodRepositoryProvider).delete(method.id);
-    ref.read(referenceDataCacheProvider).invalidate();
+    try {
+      await ref.read(paymentMethodRepositoryProvider).delete(method.id);
+      ref.read(referenceDataCacheProvider).invalidate();
+    } catch (_) {
+      if (index >= 0) setState(() => _methods.insert(index, method));
+      if (mounted) {
+        final translations = ref.read(translationsProvider).asData?.value;
+        showAppToast(
+          context,
+          (translations?.t('common.error_delete_named') ?? 'Could not delete "{{name}}"')
+              .replaceAll('{{name}}', method.name),
+          variant: ToastVariant.error,
+        );
+      }
+    }
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {

@@ -6,6 +6,7 @@ import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/tag_repository.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
@@ -65,20 +66,37 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
   }
 
   Future<bool> _confirmDelete(String label) {
+    final translations = ref.read(translationsProvider).asData?.value;
     return showConfirmDialog(
       context,
-      title: 'Delete tag group',
-      message: 'Its tags will be moved to "Ungrouped" first, then "$label" is deleted.',
+      title: translations?.t('tag_groups.delete_title') ?? 'Delete tag group',
+      message: (translations?.t('tag_groups.delete_message') ??
+              'Its tags will be moved to "Ungrouped" first, then "{{name}}" is deleted.')
+          .replaceAll('{{name}}', label),
       destructive: true,
     );
   }
 
   Future<void> _delete(TagGroup group) async {
+    final index = _groups.indexOf(group);
     setState(() => _groups.remove(group));
     try {
+      // Throws StateError for the reserved "ungrouped" group — treat like any
+      // failure: restore the row and tell the user, don't swallow it (X2).
       await ref.read(tagGroupRepositoryProvider).delete(group.id);
-    } on StateError catch (_) {}
-    ref.read(referenceDataCacheProvider).invalidate();
+      ref.read(referenceDataCacheProvider).invalidate();
+    } catch (_) {
+      if (index >= 0) setState(() => _groups.insert(index, group));
+      if (mounted) {
+        final translations = ref.read(translationsProvider).asData?.value;
+        showAppToast(
+          context,
+          (translations?.t('common.error_delete_named') ?? 'Could not delete "{{name}}"')
+              .replaceAll('{{name}}', group.name),
+          variant: ToastVariant.error,
+        );
+      }
+    }
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {

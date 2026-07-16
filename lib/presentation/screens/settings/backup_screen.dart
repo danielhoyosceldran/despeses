@@ -27,6 +27,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   bool _busy = false;
 
   Future<void> _export() async {
+    final translations = ref.read(translationsProvider).asData?.value;
     setState(() => _busy = true);
     try {
       final db = ref.read(databaseProvider);
@@ -38,13 +39,20 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       if (!mounted) return;
       await Share.shareXFiles([XFile(backup.path)]);
     } catch (e) {
-      if (mounted) showAppToast(context, 'Backup failed: $e', variant: ToastVariant.error);
+      if (mounted) {
+        showAppToast(
+          context,
+          (translations?.t('backup.export_failed') ?? 'Backup failed: {{error}}').replaceAll('{{error}}', '$e'),
+          variant: ToastVariant.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _import() async {
+    final translations = ref.read(translationsProvider).asData?.value;
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['sqlite'],
@@ -55,9 +63,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (!mounted) return;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Restore backup',
-      message: 'This overwrites all current data with the selected backup. This cannot be undone. Continue?',
-      confirmLabel: 'Restore',
+      title: translations?.t('backup.restore_title') ?? 'Restore backup',
+      message: translations?.t('backup.restore_confirm_message') ??
+          'This overwrites all current data with the selected backup. This cannot be undone. Continue?',
+      confirmLabel: translations?.t('backup.restore') ?? 'Restore',
       destructive: true,
     );
     if (!confirmed) return;
@@ -71,10 +80,20 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       ref.invalidate(databaseProvider);
       ref.invalidate(referenceDataCacheProvider);
       if (mounted) {
-        showAppToast(context, 'Backup restored. Restart the app to see all changes.', variant: ToastVariant.success);
+        showAppToast(
+          context,
+          translations?.t('backup.restored') ?? 'Backup restored. Restart the app to see all changes.',
+          variant: ToastVariant.success,
+        );
       }
     } catch (e) {
-      if (mounted) showAppToast(context, 'Restore failed: $e', variant: ToastVariant.error);
+      if (mounted) {
+        showAppToast(
+          context,
+          (translations?.t('backup.restore_failed') ?? 'Restore failed: {{error}}').replaceAll('{{error}}', '$e'),
+          variant: ToastVariant.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -82,6 +101,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final translations = ref.watch(translationsProvider).asData?.value;
     return Scaffold(
       appBar: AppBar(),
       body: AbsorbPointer(
@@ -95,8 +115,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 children: [
                   HairlineListTile(
                     icon: LucideIcons.upload300,
-                    title: 'Export backup',
-                    subtitle: 'Copies the local database and opens the share sheet',
+                    title: translations?.t('backup.export_title') ?? 'Export backup',
+                    subtitle: translations?.t('backup.export_subtitle') ??
+                        'Copies the local database and opens the share sheet',
                     trailing: _busy
                         ? const SizedBox(
                             width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
@@ -105,8 +126,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   ),
                   HairlineListTile(
                     icon: LucideIcons.download300,
-                    title: 'Restore backup',
-                    subtitle: 'Pick a .sqlite file — this overwrites all current data',
+                    title: translations?.t('backup.restore_title') ?? 'Restore backup',
+                    subtitle: translations?.t('backup.restore_subtitle') ??
+                        'Pick a .sqlite file — this overwrites all current data',
                     onTap: _busy ? null : _import,
                     showDivider: false,
                   ),

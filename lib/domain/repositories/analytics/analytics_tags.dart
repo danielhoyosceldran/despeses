@@ -74,7 +74,7 @@ class TagAnalytics {
     for (final link in links) {
       final e = byId[link.expenseId];
       if (e == null || (e.type != 'expense' && e.type != 'refund')) continue;
-      final signed = e.type == 'refund' ? -e.amount : e.amount;
+      final signed = signedAmountOf(e);
       final row = result.putIfAbsent(link.tagId, () => {});
       row[e.categoryId] = (row[e.categoryId] ?? 0) + signed;
     }

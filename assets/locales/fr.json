@@ -35,7 +35,52 @@
     "section_quality": "Qualité",
     "section_budgets": "Budgets",
     "section_events": "Événements",
-    "tag_disclaimer": "Une transaction avec plusieurs étiquettes compte entièrement dans chacune — les parts peuvent dépasser le total."
+    "tag_disclaimer": "Une transaction avec plusieurs étiquettes compte entièrement dans chacune — les parts peuvent dépasser le total.",
+    "error_section": "Impossible de charger cette section.",
+    "empty_payment": "Pas de données de paiement.",
+    "kpi_savings_rate": "Taux d'épargne",
+    "kpi_vs_3m_avg": "vs moy. 3M",
+    "kpi_top_category": "Catégorie principale",
+    "kpi_budgets_at_risk": "Budgets à risque",
+    "kpi_projection": "Projection",
+    "kpi_no_spend_streak": "Série sans dépense",
+    "kpi_mom": "MoM",
+    "kpi_yoy": "YoY",
+    "kpi_transactions": "Transactions",
+    "kpi_mean_ticket": "Panier moyen",
+    "kpi_median_ticket": "Panier médian",
+    "kpi_max_ticket": "Panier max",
+    "kpi_total_cost": "Coût total",
+    "kpi_cost_per_day": "Coût / jour",
+    "stat_burnup": "Ce mois vs précédent (cumul)",
+    "stat_monthly_spend": "Dépense mensuelle",
+    "stat_3month_avg": "Moyenne sur 3 mois",
+    "stat_avg_weekday": "Moyenne par jour de semaine",
+    "stat_calendar_heatmap": "Carte de chaleur du calendrier",
+    "stat_net_cashflow": "Flux de trésorerie net",
+    "stat_net_cashflow_sub": "revenus − dépense − épargne",
+    "stat_savings_rate": "Taux d'épargne",
+    "stat_savings_rate_sub": "épargne / revenus, ce mois",
+    "ring_savings_kept": "Des revenus conservés en épargne ce mois",
+    "stat_cumulative_balance": "Solde cumulé",
+    "stat_savings_cumulative": "Épargne — cumul",
+    "stat_savings_cumulative_sub": "Cumul",
+    "stat_spend_by_payment": "Dépense par moyen de paiement",
+    "stat_amount_distribution": "Répartition des montants",
+    "stat_ant_spend": "Dépenses fourmi",
+    "stat_ant_spend_sub": "micro-transactions < 5 {{currency}}",
+    "stat_refunds": "Remboursements",
+    "ring_refunded": "Remboursé vs dépense brute",
+    "stat_tag_coverage_gap": "Couverture des étiquettes",
+    "ring_no_tag": "Des transactions sans étiquette",
+    "stat_spend_timeline": "Chronologie des dépenses",
+    "stat_out_of_range": "Transactions hors période",
+    "out_of_range_body": "{{count}} transaction(s) datée(s) hors de la période de l'événement.",
+    "empty_budgets": "Aucun budget actif.",
+    "empty_events": "Aucun événement pour le moment.",
+    "event_label": "Événement",
+    "budget_projected_close": "Clôture prévue :",
+    "budget_over_pace": "⚠ hors rythme"
   },
   "settings": {
     "toggle_theme": "Changer le thème"
@@ -47,6 +92,7 @@
     "payment_methods": "Moyens de paiement",
     "events": "Événements",
     "projects": "Projets",
+    "recurring": "Récurrents",
     "profile": "Profil",
     "export": "Exporter"
   },
@@ -77,7 +123,12 @@
     "default_warning": "Modifier cet élément par défaut supprimera sa traduction définitivement.",
     "delete_confirm_title": "Confirmer la suppression",
     "move_up": "Monter",
-    "move_down": "Descendre"
+    "move_down": "Descendre",
+    "retry": "Réessayer",
+    "error_generic": "Impossible de charger.",
+    "delete_named": "Supprimer « {{name}} » ?",
+    "delete_with_budgets": "« {{name}} » a {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
+    "error_delete_named": "Impossible de supprimer « {{name}} »"
   },
   "categories": {
     "add": "Ajouter une catégorie",
@@ -87,32 +138,52 @@
     "name_placeholder": "Nom de la catégorie",
     "max_depth": "Niveau maximum d'imbrication atteint (3 niveaux).",
     "delete_warning": "Cela supprimera toutes les sous-catégories et budgets liés. Les dépenses perdront leur catégorie.",
-    "delete_warning_budgets": "Cette catégorie a {{count}} budget(s) lié(s) qui seront supprimés."
+    "delete_warning_budgets": "Cette catégorie a {{count}} budget(s) lié(s) qui seront supprimés.",
+    "new": "Nouvelle catégorie",
+    "delete_title": "Supprimer la catégorie",
+    "delete_with_budgets": "« {{name}} » (et ses sous-catégories) a {{count}} budget(s) qui seront aussi supprimés. Continuer ?"
   },
   "tags": {
     "add": "Ajouter une étiquette",
     "empty_group": "Aucune étiquette dans ce groupe.",
-    "delete_warning": "Supprimer cette étiquette la retirera de toutes les dépenses."
+    "delete_warning": "Supprimer cette étiquette la retirera de toutes les dépenses.",
+    "new": "Nouvelle étiquette",
+    "edit": "Modifier l'étiquette",
+    "delete_title": "Supprimer l'étiquette"
   },
   "tag_groups": {
     "empty": "Aucun groupe d'étiquettes pour l'instant.",
-    "delete_warning": "Les étiquettes de ce groupe seront déplacées vers Sans groupe avant la suppression."
+    "delete_warning": "Les étiquettes de ce groupe seront déplacées vers Sans groupe avant la suppression.",
+    "new": "Nouveau groupe d'étiquettes",
+    "rename": "Renommer le groupe d'étiquettes",
+    "delete_title": "Supprimer le groupe d'étiquettes",
+    "delete_message": "Ses étiquettes seront d'abord déplacées vers « Sans groupe », puis « {{name}} » est supprimé."
   },
   "payment_methods": {
     "empty": "Aucun moyen de paiement pour l'instant.",
-    "delete_warning": "Supprimer ce moyen de paiement le retirera de toutes les dépenses."
+    "delete_warning": "Supprimer ce moyen de paiement le retirera de toutes les dépenses.",
+    "new": "Nouveau moyen de paiement",
+    "edit": "Modifier le moyen de paiement",
+    "delete_title": "Supprimer le moyen de paiement",
+    "delete_message": "Supprimer « {{name}} » ? Les dépenses qui l'utilisent garderont leurs données mais perdront la référence."
   },
   "events": {
     "add": "Ajouter un événement",
     "empty": "Aucun événement pour l'instant.",
     "delete_warning": "Supprimer cet événement le retirera de toutes les dépenses. Les budgets liés seront également supprimés.",
-    "delete_warning_budgets": "Cet événement a {{count}} budget(s) lié(s) qui seront supprimés."
+    "delete_warning_budgets": "Cet événement a {{count}} budget(s) lié(s) qui seront supprimés.",
+    "new": "Nouvel événement",
+    "edit": "Modifier l'événement",
+    "delete_title": "Supprimer l'événement"
   },
   "projects": {
     "add": "Ajouter un projet",
     "empty": "Aucun projet pour l'instant.",
     "delete_warning": "Supprimer ce projet le retirera de toutes les dépenses. Les budgets liés seront également supprimés.",
-    "delete_warning_budgets": "Ce projet a {{count}} budget(s) lié(s) qui seront supprimés."
+    "delete_warning_budgets": "Ce projet a {{count}} budget(s) lié(s) qui seront supprimés.",
+    "new": "Nouveau projet",
+    "edit": "Modifier le projet",
+    "delete_title": "Supprimer le projet"
   },
   "profile": {
     "account": "Compte",
@@ -131,6 +202,34 @@
     "haptics_soft": "Douce",
     "haptics_medium": "Moyenne",
     "haptics_strong": "Forte"
+  },
+  "recurring": {
+    "title": "Récurrents",
+    "new": "Nouveau récurrent",
+    "edit": "Modifier le récurrent",
+    "schedule": "Périodicité",
+    "freq_monthly": "Mensuel",
+    "freq_weekly": "Hebdomadaire",
+    "freq_yearly": "Annuel",
+    "starts": "Début",
+    "ends": "Fin",
+    "no_end": "Sans date de fin",
+    "details": "Détails",
+    "next": "Prochain",
+    "paused": "En pause",
+    "pending": "En attente",
+    "confirm_all": "Tout confirmer",
+    "templates": "Modèles",
+    "empty": "Aucune transaction récurrente pour l'instant.",
+    "confirm": "Confirmer",
+    "skip": "Ignorer",
+    "confirmed": "Ajouté à vos transactions.",
+    "skipped": "Ignoré.",
+    "delete_title": "Supprimer le récurrent",
+    "delete_message": "Supprimer {{count}} modèle(s) récurrent(s) ? Les éléments en attente seront aussi supprimés.",
+    "banner_one": "1 transaction récurrente en attente",
+    "banner_many": "{{count}} transactions récurrentes en attente",
+    "review": "Vérifier"
   },
   "budgets": {
     "add": "Ajouter un budget",
@@ -188,7 +287,25 @@
     "net_balance": "Solde net",
     "active_budgets": "Budgets actifs",
     "budgets_coming_soon": "Suivi des budgets bientôt disponible.",
-    "no_expenses": "Aucune dépense ce mois-ci."
+    "no_expenses": "Aucune dépense ce mois-ci.",
+    "total_balance": "Solde total",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "no_transactions": "Aucune transaction",
+    "delete_title": "Supprimer les transactions",
+    "delete_message": "Supprimer {{count}} transaction(s) sélectionnée(s) ?",
+    "error_load_month": "Impossible de charger ce mois."
+  },
+  "backup": {
+    "export_title": "Exporter la sauvegarde",
+    "export_subtitle": "Copie la base de données locale et ouvre le menu de partage",
+    "restore_title": "Restaurer la sauvegarde",
+    "restore_subtitle": "Choisissez un fichier .sqlite — cela écrase toutes les données actuelles",
+    "restore_confirm_message": "Cela écrase toutes les données actuelles avec la sauvegarde sélectionnée. Action irréversible. Continuer ?",
+    "restore": "Restaurer",
+    "restored": "Sauvegarde restaurée. Redémarrez l'app pour voir tous les changements.",
+    "export_failed": "Échec de la sauvegarde : {{error}}",
+    "restore_failed": "Échec de la restauration : {{error}}"
   },
   "expenses": {
     "add": "Ajouter une dépense",
@@ -261,7 +378,11 @@
   },
   "category": {
     "expense": {
-      "food": { "_": "Alimentation", "groceries": "Courses", "eating_out": "Repas dehors" },
+      "food": {
+        "_": "Alimentation",
+        "groceries": "Courses",
+        "eating_out": "Repas dehors"
+      },
       "hygiene": "Hygiène",
       "home": {
         "_": "Logement",
@@ -278,14 +399,24 @@
       },
       "sports": {
         "_": "Sport",
-        "climbing": { "_": "Escalade", "gym": "Salle d'escalade", "gear": "Matériel", "events": "Événements" },
+        "climbing": {
+          "_": "Escalade",
+          "gym": "Salle d'escalade",
+          "gear": "Matériel",
+          "events": "Événements"
+        },
         "gym": "Salle de sport",
         "pool": "Piscine",
         "others": "Autres"
       },
       "clothes": {
         "_": "Vêtements",
-        "clothing": { "_": "Habillement", "clothing": "Vêtements", "shoes": "Chaussures", "accessories": "Accessoires" },
+        "clothing": {
+          "_": "Habillement",
+          "clothing": "Vêtements",
+          "shoes": "Chaussures",
+          "accessories": "Accessoires"
+        },
         "laundry": "Blanchisserie"
       },
       "health": {
@@ -304,9 +435,23 @@
       },
       "others": "Autres"
     },
-    "income": { "salary": "Salaire", "extra": "Extra", "others": "Autres" },
-    "refund": { "purchase": "Achat", "deposit": "Caution", "bizum": "Bizum", "others": "Autres" },
-    "savings": { "emergency_fund": "Fonds d'urgence", "regular": "Régulier", "monthly_extra": "Extra mensuel", "others": "Autres" }
+    "income": {
+      "salary": "Salaire",
+      "extra": "Extra",
+      "others": "Autres"
+    },
+    "refund": {
+      "purchase": "Achat",
+      "deposit": "Caution",
+      "bizum": "Bizum",
+      "others": "Autres"
+    },
+    "savings": {
+      "emergency_fund": "Fonds d'urgence",
+      "regular": "Régulier",
+      "monthly_extra": "Extra mensuel",
+      "others": "Autres"
+    }
   },
   "payment": {
     "cash": "Espèces",

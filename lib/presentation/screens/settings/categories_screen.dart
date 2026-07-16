@@ -6,6 +6,7 @@ import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
@@ -92,21 +93,39 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   Future<bool> _confirmDelete(Category category, String label) async {
     final budgetCount = await ref.read(categoryRepositoryProvider).budgetCount(category.id);
     if (!mounted) return false;
+    final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? '"$label" (and its subcategories) has $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete "$label"?';
+        ? (translations?.t('categories.delete_with_budgets') ??
+                '"{{name}}" (and its subcategories) has {{count}} budget(s) that will also be deleted. Continue?')
+            .replaceAll('{{name}}', label)
+            .replaceAll('{{count}}', '$budgetCount')
+        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', label);
     return showConfirmDialog(
       context,
-      title: 'Delete category',
+      title: translations?.t('categories.delete_title') ?? 'Delete category',
       message: message,
       destructive: true,
     );
   }
 
   Future<void> _delete(Category category) async {
+    final index = _children.indexOf(category);
     setState(() => _children.remove(category));
-    await ref.read(categoryRepositoryProvider).delete(category.id);
-    ref.read(referenceDataCacheProvider).invalidate();
+    try {
+      await ref.read(categoryRepositoryProvider).delete(category.id);
+      ref.read(referenceDataCacheProvider).invalidate();
+    } catch (_) {
+      if (index >= 0) setState(() => _children.insert(index, category));
+      if (mounted) {
+        final translations = ref.read(translationsProvider).asData?.value;
+        showAppToast(
+          context,
+          (translations?.t('common.error_delete_named') ?? 'Could not delete "{{name}}"')
+              .replaceAll('{{name}}', category.name),
+          variant: ToastVariant.error,
+        );
+      }
+    }
   }
 
   Future<void> _reorder(int oldIndex, int newIndex) async {

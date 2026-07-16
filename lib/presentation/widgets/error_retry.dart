@@ -10,10 +10,12 @@ class ErrorRetry extends StatelessWidget {
     super.key,
     required this.onRetry,
     this.message = 'Could not load this.',
+    this.retryLabel = 'Retry',
   });
 
   final VoidCallback onRetry;
   final String message;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,7 @@ class ErrorRetry extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(LucideIcons.refreshCw300, size: 16),
-              label: const Text('Retry'),
+              label: Text(retryLabel),
             ),
           ],
         ),

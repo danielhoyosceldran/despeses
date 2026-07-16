@@ -26,6 +26,17 @@ class _AppShellState extends ConsumerState<AppShell> {
   static const _exitWindow = Duration(seconds: 2);
   DateTime? _lastBackAt;
 
+  @override
+  void initState() {
+    super.initState();
+    // Materialize any due recurring transactions once per launch (feature
+    // 3.13). Fire-and-forget after the first frame; failures are non-fatal —
+    // the pending inbox just won't gain new entries this run.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(recurringRepositoryProvider).materializeDue();
+    });
+  }
+
   static const _labels = [
     'Dashboard',
     'Expenses',
@@ -87,33 +98,13 @@ class _AppShellState extends ConsumerState<AppShell> {
         showAppToast(context, t?.t('exit.toast') ?? 'Press back again to exit');
       },
       child: Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 280),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final slide = Tween<Offset>(
-            begin: const Offset(0.06, 0),
-            end: Offset.zero,
-          ).animate(animation);
-          return ClipRect(
-            child: SlideTransition(
-              position: slide,
-              child: FadeTransition(opacity: animation, child: child),
-            ),
-          );
-        },
-        layoutBuilder: (currentChild, previousChildren) => Stack(
-          children: [
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        ),
-        child: KeyedSubtree(
-          key: ValueKey(navigationShell.currentIndex),
-          child: navigationShell,
-        ),
-      ),
+      // NOTE: do NOT wrap [navigationShell] in an AnimatedSwitcher/any widget
+      // that keeps two copies mounted at once. StatefulNavigationShell carries
+      // a single internal GlobalKey, so cross-fading tab changes mounts that
+      // key twice for a frame → "Duplicate GlobalKey detected" crash. The
+      // shell's own IndexedStack already switches branches instantly. A real
+      // tab transition would need StatefulShellRoute.navigatorContainerBuilder.
+      body: navigationShell,
       bottomNavigationBar: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onHorizontalDragEnd: (details) {

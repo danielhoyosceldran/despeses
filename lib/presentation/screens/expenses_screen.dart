@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/format/money.dart';
 import '../../core/navigation/bottom_up_route.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -234,7 +235,7 @@ class _ExpenseTile extends ConsumerWidget {
         title: Text(title),
         subtitle: Text(DateFormat.yMMMd().format(expense.date)),
         trailing: Text(
-          '$sign${(expense.amount / 100).toStringAsFixed(2)} ${expense.currency}',
+          '$sign${formatMoney(expense.amount, expense.currency)}',
           style: TextStyle(color: color, fontWeight: FontWeight.w600, fontFeatures: const [FontFeature.tabularFigures()]),
         ),
         onTap: onTap,

@@ -1,4 +1,5 @@
 import '../../../data/database.dart';
+import '../budget_repository.dart';
 import '../category_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
@@ -152,11 +153,11 @@ class CategoryAnalytics {
     final byMonth = <String, int>{};
     for (final e in expenses) {
       if (e.categoryId == null || !ids.contains(e.categoryId)) continue;
-      final key = '${e.date.year}-${e.date.month}';
+      final key = monthKeyOf(e.date);
       byMonth[key] = (byMonth[key] ?? 0) + e.amount;
     }
     return [
-      for (final m in monthsIn(range)) (m, byMonth['${m.year}-${m.month}'] ?? 0),
+      for (final m in monthsIn(range)) (m, byMonth[monthKeyOf(m)] ?? 0),
     ];
   }
 }

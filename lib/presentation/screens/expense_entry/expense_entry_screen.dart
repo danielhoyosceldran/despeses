@@ -12,6 +12,7 @@ import '../../../data/database.dart';
 import '../../widgets/amount_text.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/bottom_action_panel.dart';
+import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
@@ -22,11 +23,45 @@ import '../../widgets/tag_picker_sheet.dart';
 /// keypad, field rows opening embedded bottom panels, auto-advancing steps
 /// (skipping tags/event/project when the user hasn't created any), category
 /// drill-down, fixed save bar.
+/// Initial values to pre-fill a *new* transaction with — used by the recurring
+/// "edit & confirm" flow (feature 3.13), which opens this screen seeded from a
+/// pending occurrence so the user can tweak (e.g. the amount of a variable
+/// bill) before it becomes a real expense.
+class ExpenseSeed {
+  const ExpenseSeed({
+    required this.type,
+    required this.amountCents,
+    required this.date,
+    this.description,
+    this.notes,
+    this.categoryId,
+    this.paymentMethodId,
+    this.eventId,
+    this.projectId,
+    this.tagIds = const [],
+  });
+
+  final String type;
+  final int amountCents;
+  final DateTime date;
+  final String? description;
+  final String? notes;
+  final String? categoryId;
+  final String? paymentMethodId;
+  final String? eventId;
+  final String? projectId;
+  final List<String> tagIds;
+}
+
 class ExpenseEntryScreen extends ConsumerStatefulWidget {
-  const ExpenseEntryScreen({super.key, this.expenseId, this.onClose});
+  const ExpenseEntryScreen({super.key, this.expenseId, this.seed, this.onClose});
 
   /// When set, edits an existing transaction instead of creating a new one.
   final String? expenseId;
+
+  /// When set (and [expenseId] is null), pre-fills a new transaction. See
+  /// [ExpenseSeed].
+  final ExpenseSeed? seed;
 
   /// Overlay-mode close hook. When null the screen closes via `Navigator.pop`
   /// (it was pushed as a route); when set — e.g. opened as the interactive
@@ -82,9 +117,28 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     _notesFocus.addListener(_dismissPanelOnTextFocus);
     if (widget.expenseId != null) {
       _loadExisting(widget.expenseId!);
+    } else if (widget.seed != null) {
+      _hydrateFromSeed(widget.seed!);
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel());
     }
+  }
+
+  /// Pre-fills a new transaction from a [ExpenseSeed] (recurring confirm flow).
+  /// Unlike a blank new entry, the keypad does not auto-open — the user is
+  /// reviewing already-filled values, not starting from scratch.
+  void _hydrateFromSeed(ExpenseSeed seed) {
+    _type = seed.type;
+    _amountCents = seed.amountCents;
+    _date = seed.date;
+    _categoryId = seed.categoryId;
+    _paymentMethodId = seed.paymentMethodId;
+    _eventId = seed.eventId;
+    _projectId = seed.projectId;
+    _tagIds = List.of(seed.tagIds);
+    _descriptionController.text = seed.description ?? '';
+    _notesController.text = seed.notes ?? '';
+    _refreshLabels();
   }
 
   @override
@@ -152,7 +206,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     _dismissKeyboard();
     setState(() {
       _openPanel = 'date';
-      _panelContent = _DatePanel(
+      _panelContent = CalendarPanel(
         initial: _date ?? DateTime.now(),
         onSelected: (picked) {
           ref.read(hapticsProvider).selection();
@@ -675,97 +729,4 @@ class _FieldLabels {
   final String? paymentMethod;
   final String? event;
   final String? project;
-}
-
-/// Own calendar panel (plan §3.2): month navigation, today marked, week
-/// starts Monday. Replaces the native `showDatePicker`.
-class _DatePanel extends StatefulWidget {
-  const _DatePanel({required this.initial, required this.onSelected});
-
-  final DateTime initial;
-  final ValueChanged<DateTime> onSelected;
-
-  @override
-  State<_DatePanel> createState() => _DatePanelState();
-}
-
-class _DatePanelState extends State<_DatePanel> {
-  late DateTime _month = DateTime(widget.initial.year, widget.initial.month);
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final today = DateTime.now();
-    final firstOfMonth = DateTime(_month.year, _month.month, 1);
-    final leadingBlanks = (firstOfMonth.weekday - DateTime.monday) % 7;
-    final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(LucideIcons.chevronLeft300),
-                onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)),
-              ),
-              Text(DateFormat.yMMMM().format(_month), style: Theme.of(context).textTheme.titleMedium),
-              IconButton(
-                icon: const Icon(LucideIcons.chevronRight300),
-                onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: GridView.count(
-              crossAxisCount: 7,
-              children: [
-                for (var i = 0; i < leadingBlanks; i++) const SizedBox.shrink(),
-                for (var d = 1; d <= daysInMonth; d++)
-                  _DayCell(
-                    day: d,
-                    isToday: today.year == _month.year && today.month == _month.month && today.day == d,
-                    onTap: () => widget.onSelected(DateTime(_month.year, _month.month, d)),
-                    accent: colors.accent,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DayCell extends StatelessWidget {
-  const _DayCell({required this.day, required this.isToday, required this.onTap, required this.accent});
-
-  final int day;
-  final bool isToday;
-  final VoidCallback onTap;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Center(
-        child: Container(
-          width: 32,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: isToday
-              ? BoxDecoration(color: accent.withValues(alpha: 0.15), shape: BoxShape.circle)
-              : null,
-          child: Text('$day', style: isToday ? TextStyle(color: accent, fontWeight: FontWeight.w600) : null),
-        ),
-      ),
-    );
-  }
 }

@@ -16,8 +16,10 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final translationsAsync = ref.watch(translationsProvider);
     final t = translationsAsync.asData?.value;
+    final pendingCount = ref.watch(pendingRecurringCountProvider).asData?.value ?? 0;
 
     final items = [
+      (LucideIcons.repeat300, 'settings_nav.recurring', 'Recurring', '/settings/recurring'),
       (LucideIcons.gitBranch300, 'settings_nav.categories', 'Categories', '/settings/categories'),
       (LucideIcons.tag300, 'settings_nav.tags', 'Tags', '/settings/tags'),
       (LucideIcons.list300, 'settings_nav.tag_groups', 'Tag groups', '/settings/tag-groups'),
@@ -42,6 +44,9 @@ class SettingsScreen extends ConsumerWidget {
                         HairlineListTile(
                           icon: icon,
                           title: t?.t(key) ?? fallback,
+                          trailing: (key == 'settings_nav.recurring' && pendingCount > 0)
+                              ? _PendingBadge(count: pendingCount)
+                              : null,
                           onTap: () => context.push(path),
                           showDivider: index != items.length - 1,
                         ),
@@ -52,6 +57,29 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Accent pill showing the count of recurring occurrences awaiting confirmation.
+class _PendingBadge extends StatelessWidget {
+  const _PendingBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.accent,
+        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(color: colors.onAccent, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }

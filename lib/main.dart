@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/format/money.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router.dart';
 import 'core/theme/app_theme.dart';
@@ -17,6 +18,8 @@ class DespesesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileStreamProvider);
     final locale = profileAsync.asData?.value.language;
+    // Keep money formatting in sync with the profile language (C1).
+    setMoneyLocale(locale);
     final themeMode = switch (profileAsync.asData?.value.theme) {
       'dark' => ThemeMode.dark,
       'light' => ThemeMode.light,

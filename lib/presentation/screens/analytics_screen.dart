@@ -13,6 +13,7 @@ import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/charts/analytics_widgets.dart';
 import '../widgets/charts/donut_chart.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/error_retry.dart';
 import 'analytics/analytics_data_providers.dart';
 import 'analytics/analytics_sections.dart';
@@ -566,7 +567,7 @@ class _CategorySection extends ConsumerWidget {
         final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents);
 
         if (data.slices.isEmpty) {
-          return _EmptyState(text: data.translations.t('analytics.empty_category'));
+          return EmptyState(data.translations.t('analytics.empty_category'));
         }
 
         return ListView(
@@ -676,7 +677,7 @@ class _TagsSection extends ConsumerWidget {
       data: (data) {
         final colors = context.appColors;
         if (data.slices.isEmpty) {
-          return _EmptyState(text: data.translations.t('analytics.empty_tag'));
+          return EmptyState(data.translations.t('analytics.empty_tag'));
         }
         final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents.abs());
         return ListView(
@@ -719,18 +720,6 @@ class _TagsSection extends ConsumerWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: Text(text)),
     );
   }
 }

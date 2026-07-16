@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
@@ -72,16 +73,39 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   Future<bool> _confirmDelete(Project project) async {
     final budgetCount = await ref.read(projectRepositoryProvider).budgetCount(project.id);
     if (!mounted) return false;
+    final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? '"${project.name}" has $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete "${project.name}"?';
-    return showConfirmDialog(context, title: 'Delete project', message: message, destructive: true);
+        ? (translations?.t('common.delete_with_budgets') ??
+                '"{{name}}" has {{count}} budget(s) that will also be deleted. Continue?')
+            .replaceAll('{{name}}', project.name)
+            .replaceAll('{{count}}', '$budgetCount')
+        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', project.name);
+    return showConfirmDialog(
+      context,
+      title: translations?.t('projects.delete_title') ?? 'Delete project',
+      message: message,
+      destructive: true,
+    );
   }
 
   Future<void> _delete(Project project) async {
+    final index = _projects.indexOf(project);
     setState(() => _projects.remove(project));
-    await ref.read(projectRepositoryProvider).delete(project.id);
-    ref.read(referenceDataCacheProvider).invalidate();
+    try {
+      await ref.read(projectRepositoryProvider).delete(project.id);
+      ref.read(referenceDataCacheProvider).invalidate();
+    } catch (_) {
+      if (index >= 0) setState(() => _projects.insert(index, project));
+      if (mounted) {
+        final translations = ref.read(translationsProvider).asData?.value;
+        showAppToast(
+          context,
+          (translations?.t('common.error_delete_named') ?? 'Could not delete "{{name}}"')
+              .replaceAll('{{name}}', project.name),
+          variant: ToastVariant.error,
+        );
+      }
+    }
   }
 
   @override

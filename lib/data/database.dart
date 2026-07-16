@@ -60,6 +60,9 @@ Future<void> _insertCategoryNode(
   Expenses,
   ExpenseTags,
   Budgets,
+  Recurrings,
+  RecurringTags,
+  RecurringOccurrences,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor, BackupService? backupService])
@@ -73,7 +76,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -81,6 +84,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedDefaults(this);
           await _createIndexes(this);
+          await _createRecurringIndexes(this);
         },
         onUpgrade: (m, from, to) async {
           // Safety net first: copy the current DB (main file + WAL sidecars)
@@ -108,6 +112,14 @@ class AppDatabase extends _$AppDatabase {
           //   if (from < 9) await m.createTable(recurring);
           // v7 adds the analytics/listing indexes on `expenses` (R3).
           if (from < 7) await _createIndexes(this);
+          // v8 adds recurring-transaction tables (feature 3.13): template,
+          // its tags, and the pending-occurrence inbox. Additive only.
+          if (from < 8) {
+            await m.createTable(recurrings);
+            await m.createTable(recurringTags);
+            await m.createTable(recurringOccurrences);
+            await _createRecurringIndexes(this);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -123,6 +135,16 @@ Future<void> _createIndexes(AppDatabase db) async {
   await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
   await db.customStatement(
       'CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)');
+}
+
+/// Indexes on the recurring feature's hot paths (feature 3.13): the
+/// materializer scans active templates by `next_date`, and the pending inbox
+/// lists occurrences by `due_date`.
+Future<void> _createRecurringIndexes(AppDatabase db) async {
+  await db.customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_recurrings_next ON recurrings(next_date)');
+  await db.customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_recurring_occ_due ON recurring_occurrences(due_date)');
 }
 
 Future<void> _seedDefaults(AppDatabase db) async {

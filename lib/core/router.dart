@@ -14,6 +14,7 @@ import '../presentation/screens/settings/events_screen.dart';
 import '../presentation/screens/settings/payment_methods_screen.dart';
 import '../presentation/screens/settings/profile_screen.dart';
 import '../presentation/screens/settings/projects_screen.dart';
+import '../presentation/screens/recurring/recurring_screen.dart';
 import '../presentation/screens/settings/tag_groups_screen.dart';
 import '../presentation/screens/settings/tags_screen.dart';
 import '../presentation/screens/settings_screen.dart';
@@ -87,6 +88,10 @@ final appRouter = GoRouter(
                 GoRoute(
                   path: 'projects',
                   builder: (context, state) => const ProjectsScreen(),
+                ),
+                GoRoute(
+                  path: 'recurring',
+                  builder: (context, state) => const RecurringScreen(),
                 ),
               ],
             ),

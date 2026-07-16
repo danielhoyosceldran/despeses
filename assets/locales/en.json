@@ -35,7 +35,52 @@
     "section_quality": "Quality",
     "section_budgets": "Budgets",
     "section_events": "Events",
-    "tag_disclaimer": "A transaction with several tags counts fully in each — slices can add up to more than the total."
+    "tag_disclaimer": "A transaction with several tags counts fully in each — slices can add up to more than the total.",
+    "error_section": "Could not load this section.",
+    "empty_payment": "No payment data.",
+    "kpi_savings_rate": "Savings rate",
+    "kpi_vs_3m_avg": "vs 3M avg",
+    "kpi_top_category": "Top category",
+    "kpi_budgets_at_risk": "Budgets at risk",
+    "kpi_projection": "Projection",
+    "kpi_no_spend_streak": "No-spend streak",
+    "kpi_mom": "MoM",
+    "kpi_yoy": "YoY",
+    "kpi_transactions": "Transactions",
+    "kpi_mean_ticket": "Mean ticket",
+    "kpi_median_ticket": "Median ticket",
+    "kpi_max_ticket": "Max ticket",
+    "kpi_total_cost": "Total cost",
+    "kpi_cost_per_day": "Cost / day",
+    "stat_burnup": "This month vs last (burn-up)",
+    "stat_monthly_spend": "Monthly spend",
+    "stat_3month_avg": "3-month average",
+    "stat_avg_weekday": "Average by weekday",
+    "stat_calendar_heatmap": "Calendar heatmap",
+    "stat_net_cashflow": "Net cash-flow",
+    "stat_net_cashflow_sub": "income − spend − savings",
+    "stat_savings_rate": "Savings rate",
+    "stat_savings_rate_sub": "savings / income, this month",
+    "ring_savings_kept": "Of income kept as savings this month",
+    "stat_cumulative_balance": "Cumulative balance",
+    "stat_savings_cumulative": "Savings — cumulative",
+    "stat_savings_cumulative_sub": "Running total",
+    "stat_spend_by_payment": "Spend by payment method",
+    "stat_amount_distribution": "Amount distribution",
+    "stat_ant_spend": "Ant spend",
+    "stat_ant_spend_sub": "micro-transactions < 5 {{currency}}",
+    "stat_refunds": "Refunds",
+    "ring_refunded": "Refunded vs gross spend",
+    "stat_tag_coverage_gap": "Tag coverage gap",
+    "ring_no_tag": "Of transactions have no tag",
+    "stat_spend_timeline": "Spend timeline",
+    "stat_out_of_range": "Out-of-range transactions",
+    "out_of_range_body": "{{count}} transaction(s) dated outside the event period.",
+    "empty_budgets": "No active budgets.",
+    "empty_events": "No events yet.",
+    "event_label": "Event",
+    "budget_projected_close": "Projected close:",
+    "budget_over_pace": "⚠ over pace"
   },
   "settings": {
     "toggle_theme": "Toggle theme"
@@ -47,6 +92,7 @@
     "payment_methods": "Payment methods",
     "events": "Events",
     "projects": "Projects",
+    "recurring": "Recurring",
     "profile": "Profile",
     "export": "Export"
   },
@@ -77,7 +123,12 @@
     "default_warning": "Editing a default item will remove its translation permanently.",
     "delete_confirm_title": "Confirm deletion",
     "move_up": "Move up",
-    "move_down": "Move down"
+    "move_down": "Move down",
+    "retry": "Retry",
+    "error_generic": "Could not load this.",
+    "delete_named": "Delete \"{{name}}\"?",
+    "delete_with_budgets": "\"{{name}}\" has {{count}} budget(s) that will also be deleted. Continue?",
+    "error_delete_named": "Could not delete \"{{name}}\""
   },
   "categories": {
     "add": "Add category",
@@ -87,32 +138,52 @@
     "name_placeholder": "Category name",
     "max_depth": "Maximum nesting level reached (3 levels).",
     "delete_warning": "This will also delete all subcategories and any budgets linked to this category. Expenses will lose their category.",
-    "delete_warning_budgets": "This category has {{count}} linked budget(s) that will be deleted. Subcategories and expenses will also be affected."
+    "delete_warning_budgets": "This category has {{count}} linked budget(s) that will be deleted. Subcategories and expenses will also be affected.",
+    "new": "New category",
+    "delete_title": "Delete category",
+    "delete_with_budgets": "\"{{name}}\" (and its subcategories) has {{count}} budget(s) that will also be deleted. Continue?"
   },
   "tags": {
     "add": "Add tag",
     "empty_group": "No tags in this group.",
-    "delete_warning": "Deleting this tag will remove it from all expenses."
+    "delete_warning": "Deleting this tag will remove it from all expenses.",
+    "new": "New tag",
+    "edit": "Edit tag",
+    "delete_title": "Delete tag"
   },
   "tag_groups": {
     "empty": "No tag groups yet.",
-    "delete_warning": "Tags in this group will be moved to Ungrouped before deletion."
+    "delete_warning": "Tags in this group will be moved to Ungrouped before deletion.",
+    "new": "New tag group",
+    "rename": "Rename tag group",
+    "delete_title": "Delete tag group",
+    "delete_message": "Its tags will be moved to \"Ungrouped\" first, then \"{{name}}\" is deleted."
   },
   "payment_methods": {
     "empty": "No payment methods yet.",
-    "delete_warning": "Deleting this payment method will remove it from all expenses."
+    "delete_warning": "Deleting this payment method will remove it from all expenses.",
+    "new": "New payment method",
+    "edit": "Edit payment method",
+    "delete_title": "Delete payment method",
+    "delete_message": "Delete \"{{name}}\"? Expenses using it will keep their data but lose the reference."
   },
   "events": {
     "add": "Add event",
     "empty": "No events yet.",
     "delete_warning": "Deleting this event will remove it from all expenses. Any linked budgets will also be deleted.",
-    "delete_warning_budgets": "This event has {{count}} linked budget(s) that will be deleted."
+    "delete_warning_budgets": "This event has {{count}} linked budget(s) that will be deleted.",
+    "new": "New event",
+    "edit": "Edit event",
+    "delete_title": "Delete event"
   },
   "projects": {
     "add": "Add project",
     "empty": "No projects yet.",
     "delete_warning": "Deleting this project will remove it from all expenses. Any linked budgets will also be deleted.",
-    "delete_warning_budgets": "This project has {{count}} linked budget(s) that will be deleted."
+    "delete_warning_budgets": "This project has {{count}} linked budget(s) that will be deleted.",
+    "new": "New project",
+    "edit": "Edit project",
+    "delete_title": "Delete project"
   },
   "profile": {
     "account": "Account",
@@ -131,6 +202,34 @@
     "haptics_soft": "Soft",
     "haptics_medium": "Medium",
     "haptics_strong": "Strong"
+  },
+  "recurring": {
+    "title": "Recurring",
+    "new": "New recurring",
+    "edit": "Edit recurring",
+    "schedule": "Schedule",
+    "freq_monthly": "Monthly",
+    "freq_weekly": "Weekly",
+    "freq_yearly": "Yearly",
+    "starts": "Starts",
+    "ends": "Ends",
+    "no_end": "No end date",
+    "details": "Details",
+    "next": "Next",
+    "paused": "Paused",
+    "pending": "Pending",
+    "confirm_all": "Confirm all",
+    "templates": "Templates",
+    "empty": "No recurring transactions yet.",
+    "confirm": "Confirm",
+    "skip": "Skip",
+    "confirmed": "Added to your transactions.",
+    "skipped": "Skipped.",
+    "delete_title": "Delete recurring",
+    "delete_message": "Delete {{count}} recurring template(s)? Pending items will also be removed.",
+    "banner_one": "1 recurring transaction is waiting",
+    "banner_many": "{{count}} recurring transactions are waiting",
+    "review": "Review"
   },
   "budgets": {
     "add": "Add budget",
@@ -188,7 +287,25 @@
     "net_balance": "Net balance",
     "active_budgets": "Active budgets",
     "budgets_coming_soon": "Budget tracking coming soon.",
-    "no_expenses": "No expenses this month."
+    "no_expenses": "No expenses this month.",
+    "total_balance": "Total Balance",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "no_transactions": "No transactions",
+    "delete_title": "Delete transactions",
+    "delete_message": "Delete {{count}} selected transaction(s)?",
+    "error_load_month": "Could not load this month."
+  },
+  "backup": {
+    "export_title": "Export backup",
+    "export_subtitle": "Copies the local database and opens the share sheet",
+    "restore_title": "Restore backup",
+    "restore_subtitle": "Pick a .sqlite file — this overwrites all current data",
+    "restore_confirm_message": "This overwrites all current data with the selected backup. This cannot be undone. Continue?",
+    "restore": "Restore",
+    "restored": "Backup restored. Restart the app to see all changes.",
+    "export_failed": "Backup failed: {{error}}",
+    "restore_failed": "Restore failed: {{error}}"
   },
   "expenses": {
     "add": "Add expense",
@@ -261,7 +378,11 @@
   },
   "category": {
     "expense": {
-      "food": { "_": "Food", "groceries": "Groceries", "eating_out": "Eating out" },
+      "food": {
+        "_": "Food",
+        "groceries": "Groceries",
+        "eating_out": "Eating out"
+      },
       "hygiene": "Hygiene",
       "home": {
         "_": "Home",
@@ -278,14 +399,24 @@
       },
       "sports": {
         "_": "Sports",
-        "climbing": { "_": "Climbing", "gym": "Climbing gym", "gear": "Gear", "events": "Events" },
+        "climbing": {
+          "_": "Climbing",
+          "gym": "Climbing gym",
+          "gear": "Gear",
+          "events": "Events"
+        },
         "gym": "Gym",
         "pool": "Pool",
         "others": "Others"
       },
       "clothes": {
         "_": "Clothes",
-        "clothing": { "_": "Clothing", "clothing": "Clothing", "shoes": "Shoes", "accessories": "Accessories" },
+        "clothing": {
+          "_": "Clothing",
+          "clothing": "Clothing",
+          "shoes": "Shoes",
+          "accessories": "Accessories"
+        },
         "laundry": "Laundry"
       },
       "health": {
@@ -304,9 +435,23 @@
       },
       "others": "Others"
     },
-    "income": { "salary": "Salary", "extra": "Extra", "others": "Others" },
-    "refund": { "purchase": "Purchase", "deposit": "Deposit", "bizum": "Bizum", "others": "Others" },
-    "savings": { "emergency_fund": "Emergency fund", "regular": "Regular", "monthly_extra": "Monthly extra", "others": "Others" }
+    "income": {
+      "salary": "Salary",
+      "extra": "Extra",
+      "others": "Others"
+    },
+    "refund": {
+      "purchase": "Purchase",
+      "deposit": "Deposit",
+      "bizum": "Bizum",
+      "others": "Others"
+    },
+    "savings": {
+      "emergency_fund": "Emergency fund",
+      "regular": "Regular",
+      "monthly_extra": "Monthly extra",
+      "others": "Others"
+    }
   },
   "payment": {
     "cash": "Cash",

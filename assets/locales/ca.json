@@ -35,7 +35,52 @@
     "section_quality": "Qualitat",
     "section_budgets": "Pressupostos",
     "section_events": "Esdeveniments",
-    "tag_disclaimer": "Una transacció amb diverses etiquetes compta sencera a cadascuna: els trossos poden sumar més que el total."
+    "tag_disclaimer": "Una transacció amb diverses etiquetes compta sencera a cadascuna: els trossos poden sumar més que el total.",
+    "error_section": "No s'ha pogut carregar aquesta secció.",
+    "empty_payment": "Sense dades de pagament.",
+    "kpi_savings_rate": "Taxa d'estalvi",
+    "kpi_vs_3m_avg": "vs mitjana 3M",
+    "kpi_top_category": "Categoria principal",
+    "kpi_budgets_at_risk": "Pressupostos en risc",
+    "kpi_projection": "Projecció",
+    "kpi_no_spend_streak": "Ratxa sense despesa",
+    "kpi_mom": "MoM",
+    "kpi_yoy": "YoY",
+    "kpi_transactions": "Transaccions",
+    "kpi_mean_ticket": "Tiquet mitjà",
+    "kpi_median_ticket": "Tiquet median",
+    "kpi_max_ticket": "Tiquet màxim",
+    "kpi_total_cost": "Cost total",
+    "kpi_cost_per_day": "Cost / dia",
+    "stat_burnup": "Aquest mes vs anterior (acumulat)",
+    "stat_monthly_spend": "Despesa mensual",
+    "stat_3month_avg": "Mitjana de 3 mesos",
+    "stat_avg_weekday": "Mitjana per dia de la setmana",
+    "stat_calendar_heatmap": "Mapa de calor del calendari",
+    "stat_net_cashflow": "Flux de caixa net",
+    "stat_net_cashflow_sub": "ingressos − despesa − estalvi",
+    "stat_savings_rate": "Taxa d'estalvi",
+    "stat_savings_rate_sub": "estalvi / ingressos, aquest mes",
+    "ring_savings_kept": "Dels ingressos guardats com a estalvi aquest mes",
+    "stat_cumulative_balance": "Balanç acumulat",
+    "stat_savings_cumulative": "Estalvi — acumulat",
+    "stat_savings_cumulative_sub": "Acumulat",
+    "stat_spend_by_payment": "Despesa per mètode de pagament",
+    "stat_amount_distribution": "Distribució d'imports",
+    "stat_ant_spend": "Despesa formiga",
+    "stat_ant_spend_sub": "microtransaccions < 5 {{currency}}",
+    "stat_refunds": "Reemborsaments",
+    "ring_refunded": "Reemborsat vs despesa bruta",
+    "stat_tag_coverage_gap": "Cobertura d'etiquetes",
+    "ring_no_tag": "De les transaccions sense etiqueta",
+    "stat_spend_timeline": "Cronologia de despesa",
+    "stat_out_of_range": "Transaccions fora de rang",
+    "out_of_range_body": "{{count}} transacció(ns) amb data fora del període de l'esdeveniment.",
+    "empty_budgets": "No hi ha pressupostos actius.",
+    "empty_events": "Encara no hi ha esdeveniments.",
+    "event_label": "Esdeveniment",
+    "budget_projected_close": "Tancament previst:",
+    "budget_over_pace": "⚠ fora de ritme"
   },
   "settings": {
     "toggle_theme": "Canviar tema"
@@ -47,6 +92,7 @@
     "payment_methods": "Mètodes de pagament",
     "events": "Esdeveniments",
     "projects": "Projectes",
+    "recurring": "Recurrents",
     "profile": "Perfil",
     "export": "Exportar"
   },
@@ -77,7 +123,12 @@
     "default_warning": "Editar aquest element predeterminat eliminarà la seva traducció permanentment.",
     "delete_confirm_title": "Confirmar eliminació",
     "move_up": "Pujar",
-    "move_down": "Baixar"
+    "move_down": "Baixar",
+    "retry": "Reintentar",
+    "error_generic": "No s'ha pogut carregar.",
+    "delete_named": "Eliminar \"{{name}}\"?",
+    "delete_with_budgets": "\"{{name}}\" té {{count}} pressupost(os) que també s'eliminaran. Continuar?",
+    "error_delete_named": "No s'ha pogut eliminar \"{{name}}\""
   },
   "categories": {
     "add": "Afegir categoria",
@@ -87,32 +138,52 @@
     "name_placeholder": "Nom de la categoria",
     "max_depth": "Nivell màxim d'anidament assolit (3 nivells).",
     "delete_warning": "Això eliminarà totes les subcategories i pressupostos vinculats. Les despeses perdran la seva categoria.",
-    "delete_warning_budgets": "Aquesta categoria té {{count}} pressupost(os) vinculat(s) que s'eliminaran."
+    "delete_warning_budgets": "Aquesta categoria té {{count}} pressupost(os) vinculat(s) que s'eliminaran.",
+    "new": "Nova categoria",
+    "delete_title": "Eliminar categoria",
+    "delete_with_budgets": "\"{{name}}\" (i les seves subcategories) té {{count}} pressupost(os) que també s'eliminaran. Continuar?"
   },
   "tags": {
     "add": "Afegir etiqueta",
     "empty_group": "No hi ha etiquetes en aquest grup.",
-    "delete_warning": "Eliminar aquesta etiqueta la treurà de totes les despeses."
+    "delete_warning": "Eliminar aquesta etiqueta la treurà de totes les despeses.",
+    "new": "Nova etiqueta",
+    "edit": "Editar etiqueta",
+    "delete_title": "Eliminar etiqueta"
   },
   "tag_groups": {
     "empty": "Encara no hi ha grups d'etiquetes.",
-    "delete_warning": "Les etiquetes d'aquest grup es mouran a Sense grup abans d'eliminar-lo."
+    "delete_warning": "Les etiquetes d'aquest grup es mouran a Sense grup abans d'eliminar-lo.",
+    "new": "Nou grup d'etiquetes",
+    "rename": "Reanomenar grup d'etiquetes",
+    "delete_title": "Eliminar grup d'etiquetes",
+    "delete_message": "Les seves etiquetes es mouran a \"Sense grup\" primer, després s'elimina \"{{name}}\"."
   },
   "payment_methods": {
     "empty": "Encara no hi ha mètodes de pagament.",
-    "delete_warning": "Eliminar aquest mètode de pagament el treurà de totes les despeses."
+    "delete_warning": "Eliminar aquest mètode de pagament el treurà de totes les despeses.",
+    "new": "Nou mètode de pagament",
+    "edit": "Editar mètode de pagament",
+    "delete_title": "Eliminar mètode de pagament",
+    "delete_message": "Eliminar \"{{name}}\"? Les despeses que l'usen conservaran les seves dades però perdran la referència."
   },
   "events": {
     "add": "Afegir esdeveniment",
     "empty": "Encara no hi ha esdeveniments.",
     "delete_warning": "Eliminar aquest esdeveniment el treurà de totes les despeses. Els pressupostos vinculats també s'eliminaran.",
-    "delete_warning_budgets": "Aquest esdeveniment té {{count}} pressupost(os) vinculat(s) que s'eliminaran."
+    "delete_warning_budgets": "Aquest esdeveniment té {{count}} pressupost(os) vinculat(s) que s'eliminaran.",
+    "new": "Nou esdeveniment",
+    "edit": "Editar esdeveniment",
+    "delete_title": "Eliminar esdeveniment"
   },
   "projects": {
     "add": "Afegir projecte",
     "empty": "Encara no hi ha projectes.",
     "delete_warning": "Eliminar aquest projecte el treurà de totes les despeses. Els pressupostos vinculats també s'eliminaran.",
-    "delete_warning_budgets": "Aquest projecte té {{count}} pressupost(os) vinculat(s) que s'eliminaran."
+    "delete_warning_budgets": "Aquest projecte té {{count}} pressupost(os) vinculat(s) que s'eliminaran.",
+    "new": "Nou projecte",
+    "edit": "Editar projecte",
+    "delete_title": "Eliminar projecte"
   },
   "profile": {
     "account": "Compte",
@@ -131,6 +202,34 @@
     "haptics_soft": "Suau",
     "haptics_medium": "Mitjana",
     "haptics_strong": "Forta"
+  },
+  "recurring": {
+    "title": "Recurrents",
+    "new": "Nou recurrent",
+    "edit": "Edita recurrent",
+    "schedule": "Periodicitat",
+    "freq_monthly": "Mensual",
+    "freq_weekly": "Setmanal",
+    "freq_yearly": "Anual",
+    "starts": "Comença",
+    "ends": "Acaba",
+    "no_end": "Sense data de fi",
+    "details": "Detalls",
+    "next": "Següent",
+    "paused": "En pausa",
+    "pending": "Pendents",
+    "confirm_all": "Confirma-ho tot",
+    "templates": "Plantilles",
+    "empty": "Encara no hi ha moviments recurrents.",
+    "confirm": "Confirma",
+    "skip": "Omet",
+    "confirmed": "Afegit als teus moviments.",
+    "skipped": "Omès.",
+    "delete_title": "Elimina recurrent",
+    "delete_message": "Vols eliminar {{count}} plantilla/es recurrent(s)? També s'eliminaran els pendents.",
+    "banner_one": "Tens 1 moviment recurrent pendent",
+    "banner_many": "Tens {{count}} moviments recurrents pendents",
+    "review": "Revisa"
   },
   "budgets": {
     "add": "Afegir pressupost",
@@ -188,7 +287,25 @@
     "net_balance": "Balanç net",
     "active_budgets": "Pressupostos actius",
     "budgets_coming_soon": "Seguiment de pressupostos properament.",
-    "no_expenses": "No hi ha despeses aquest mes."
+    "no_expenses": "No hi ha despeses aquest mes.",
+    "total_balance": "Balanç total",
+    "today": "Avui",
+    "yesterday": "Ahir",
+    "no_transactions": "Sense transaccions",
+    "delete_title": "Eliminar transaccions",
+    "delete_message": "Eliminar {{count}} transacció(ns) seleccionada(es)?",
+    "error_load_month": "No s'ha pogut carregar aquest mes."
+  },
+  "backup": {
+    "export_title": "Exportar còpia",
+    "export_subtitle": "Copia la base de dades local i obre el menú de compartir",
+    "restore_title": "Restaurar còpia",
+    "restore_subtitle": "Tria un fitxer .sqlite — això sobreescriu totes les dades actuals",
+    "restore_confirm_message": "Això sobreescriu totes les dades actuals amb la còpia seleccionada. No es pot desfer. Continuar?",
+    "restore": "Restaurar",
+    "restored": "Còpia restaurada. Reinicia l'app per veure tots els canvis.",
+    "export_failed": "Error en la còpia: {{error}}",
+    "restore_failed": "Error en la restauració: {{error}}"
   },
   "expenses": {
     "add": "Afegir despesa",
@@ -261,7 +378,11 @@
   },
   "category": {
     "expense": {
-      "food": { "_": "Alimentació", "groceries": "Compra", "eating_out": "Menjar fora" },
+      "food": {
+        "_": "Alimentació",
+        "groceries": "Compra",
+        "eating_out": "Menjar fora"
+      },
       "hygiene": "Higiene",
       "home": {
         "_": "Llar",
@@ -278,14 +399,24 @@
       },
       "sports": {
         "_": "Esport",
-        "climbing": { "_": "Escalada", "gym": "Rocòdrom", "gear": "Material", "events": "Esdeveniments" },
+        "climbing": {
+          "_": "Escalada",
+          "gym": "Rocòdrom",
+          "gear": "Material",
+          "events": "Esdeveniments"
+        },
         "gym": "Gimnàs",
         "pool": "Piscina",
         "others": "Altres"
       },
       "clothes": {
         "_": "Roba",
-        "clothing": { "_": "Vestimenta", "clothing": "Roba", "shoes": "Calçat", "accessories": "Accessoris" },
+        "clothing": {
+          "_": "Vestimenta",
+          "clothing": "Roba",
+          "shoes": "Calçat",
+          "accessories": "Accessoris"
+        },
         "laundry": "Bugaderia"
       },
       "health": {
@@ -304,9 +435,23 @@
       },
       "others": "Altres"
     },
-    "income": { "salary": "Nòmina", "extra": "Extra", "others": "Altres" },
-    "refund": { "purchase": "Compra", "deposit": "Fiança", "bizum": "Bizum", "others": "Altres" },
-    "savings": { "emergency_fund": "Fons d'emergència", "regular": "Regular", "monthly_extra": "Extra mensual", "others": "Altres" }
+    "income": {
+      "salary": "Nòmina",
+      "extra": "Extra",
+      "others": "Altres"
+    },
+    "refund": {
+      "purchase": "Compra",
+      "deposit": "Fiança",
+      "bizum": "Bizum",
+      "others": "Altres"
+    },
+    "savings": {
+      "emergency_fund": "Fons d'emergència",
+      "regular": "Regular",
+      "monthly_extra": "Extra mensual",
+      "others": "Altres"
+    }
   },
   "payment": {
     "cash": "Efectiu",

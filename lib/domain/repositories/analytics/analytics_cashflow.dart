@@ -1,4 +1,5 @@
 import '../../../data/database.dart';
+import '../budget_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
 
@@ -36,13 +37,13 @@ class CashflowAnalytics {
     final expenses = await expensesInRange(_db, range, currency);
     final byMonth = <String, List<Expense>>{};
     for (final e in expenses) {
-      final key = '${e.date.year}-${e.date.month}';
+      final key = monthKeyOf(e.date);
       byMonth.putIfAbsent(key, () => []).add(e);
     }
     return [
       for (final month in monthsIn(range))
         () {
-          final group = byMonth['${month.year}-${month.month}'] ?? const [];
+          final group = byMonth[monthKeyOf(month)] ?? const [];
           return MonthlyCashflow(
             month: month,
             income: sumOfType(group, 'income'),

@@ -1,4 +1,5 @@
 import '../../../data/database.dart';
+import '../budget_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
 
@@ -41,10 +42,10 @@ class BehaviorAnalytics {
     final txns = await _spendTxns(range, currency);
     final byMonth = <String, int>{};
     for (final e in txns) {
-      byMonth['${e.date.year}-${e.date.month}'] = (byMonth['${e.date.year}-${e.date.month}'] ?? 0) + 1;
+      byMonth[monthKeyOf(e.date)] = (byMonth[monthKeyOf(e.date)] ?? 0) + 1;
     }
     return [
-      for (final m in monthsIn(range)) (m, byMonth['${m.year}-${m.month}'] ?? 0),
+      for (final m in monthsIn(range)) (m, byMonth[monthKeyOf(m)] ?? 0),
     ];
   }
 

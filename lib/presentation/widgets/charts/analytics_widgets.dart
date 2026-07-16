@@ -1,10 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/format/money.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Formats cents as a plain amount with a currency suffix and tabular figures.
-String formatAmount(int cents, String currency) => '${(cents / 100).toStringAsFixed(2)} $currency';
+/// Locale-aware money format (C1). Kept as `formatAmount` so the many analytics
+/// call sites stay unchanged; delegates to the single [formatMoney] helper.
+String formatAmount(int cents, String currency) => formatMoney(cents, currency);
 
 /// A single KPI: small uppercase label + large Clash value, optional accent color.
 class KpiTile extends StatelessWidget {

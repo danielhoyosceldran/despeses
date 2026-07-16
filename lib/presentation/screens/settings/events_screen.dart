@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
@@ -72,16 +73,41 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
   Future<bool> _confirmDelete(Event event) async {
     final budgetCount = await ref.read(eventRepositoryProvider).budgetCount(event.id);
     if (!mounted) return false;
+    final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? '"${event.name}" has $budgetCount budget(s) that will also be deleted. Continue?'
-        : 'Delete "${event.name}"?';
-    return showConfirmDialog(context, title: 'Delete event', message: message, destructive: true);
+        ? (translations?.t('common.delete_with_budgets') ??
+                '"{{name}}" has {{count}} budget(s) that will also be deleted. Continue?')
+            .replaceAll('{{name}}', event.name)
+            .replaceAll('{{count}}', '$budgetCount')
+        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', event.name);
+    return showConfirmDialog(
+      context,
+      title: translations?.t('events.delete_title') ?? 'Delete event',
+      message: message,
+      destructive: true,
+    );
   }
 
   Future<void> _delete(Event event) async {
+    final index = _events.indexOf(event);
     setState(() => _events.remove(event));
-    await ref.read(eventRepositoryProvider).delete(event.id);
-    ref.read(referenceDataCacheProvider).invalidate();
+    try {
+      await ref.read(eventRepositoryProvider).delete(event.id);
+      ref.read(referenceDataCacheProvider).invalidate();
+    } catch (_) {
+      // Delete failed — undo the optimistic removal so the row doesn't vanish
+      // from the UI while still living in the DB (X2).
+      if (index >= 0) setState(() => _events.insert(index, event));
+      if (mounted) {
+        final translations = ref.read(translationsProvider).asData?.value;
+        showAppToast(
+          context,
+          (translations?.t('common.error_delete_named') ?? 'Could not delete "{{name}}"')
+              .replaceAll('{{name}}', event.name),
+          variant: ToastVariant.error,
+        );
+      }
+    }
   }
 
   @override

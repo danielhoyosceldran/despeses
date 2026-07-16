@@ -1,4 +1,5 @@
 import '../../../data/database.dart';
+import '../budget_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
 
@@ -26,11 +27,11 @@ class TimeseriesAnalytics {
     final expenses = await expensesInRange(_db, range, currency);
     final byMonth = <String, List<Expense>>{};
     for (final e in expenses) {
-      byMonth.putIfAbsent('${e.date.year}-${e.date.month}', () => []).add(e);
+      byMonth.putIfAbsent(monthKeyOf(e.date), () => []).add(e);
     }
     return [
       for (final m in monthsIn(range))
-        (m, signedSpend(byMonth['${m.year}-${m.month}'] ?? const [])),
+        (m, signedSpend(byMonth[monthKeyOf(m)] ?? const [])),
     ];
   }
 
@@ -76,7 +77,7 @@ class TimeseriesAnalytics {
     for (final e in expenses) {
       if (e.type != 'expense' && e.type != 'refund') continue;
       final wd = e.date.weekday; // 1=Mon..7=Sun
-      final signed = e.type == 'refund' ? -e.amount : e.amount;
+      final signed = signedAmountOf(e);
       sums[wd] = (sums[wd] ?? 0) + signed;
       days.putIfAbsent(wd, () => {}).add('${e.date.year}-${e.date.month}-${e.date.day}');
     }
@@ -92,7 +93,7 @@ class TimeseriesAnalytics {
     final byDay = <int, int>{};
     for (final e in expenses) {
       if (e.type != 'expense' && e.type != 'refund') continue;
-      final signed = e.type == 'refund' ? -e.amount : e.amount;
+      final signed = signedAmountOf(e);
       byDay[e.date.day] = (byDay[e.date.day] ?? 0) + signed;
     }
     return byDay;

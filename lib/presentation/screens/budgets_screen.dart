@@ -2,6 +2,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/format/money.dart';
 import '../../core/navigation/bottom_up_route.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -171,7 +172,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                             ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              '${(spent / 100).toStringAsFixed(2)} / ${(budget.amount / 100).toStringAsFixed(2)} ${budget.currency}',
+                              '${formatMoney(spent, budget.currency)} / ${formatMoney(budget.amount, budget.currency)}',
                               style: Theme.of(context).textTheme.bodySmall!.copyWith(
                                     color: over ? semantic.over : null,
                                     fontFeatures: const [FontFeature.tabularFigures()],

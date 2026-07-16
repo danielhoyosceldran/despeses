@@ -17,6 +17,7 @@ import '../../domain/repositories/event_project_repository.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../../domain/repositories/payment_method_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
+import '../../domain/repositories/recurring_repository.dart';
 import '../../domain/repositories/reference_data_cache.dart';
 import '../../domain/repositories/tag_repository.dart';
 import '../i18n/translations.dart';
@@ -61,6 +62,22 @@ final budgetRepositoryProvider = Provider<BudgetRepository>(
 
 final profileRepositoryProvider = Provider<ProfileRepository>(
   (ref) => ProfileRepository(ref.watch(databaseProvider)),
+);
+
+final recurringRepositoryProvider = Provider<RecurringRepository>(
+  (ref) => RecurringRepository(ref.watch(databaseProvider)),
+);
+
+/// Live count of pending recurring occurrences — drives the Dashboard banner
+/// and the Recurring screen badge, and refreshes as they're confirmed/skipped.
+final pendingRecurringCountProvider = StreamProvider<int>(
+  (ref) => ref.watch(recurringRepositoryProvider).watchPendingCount(),
+);
+
+/// Live list of pending recurring occurrences (the inbox on the Recurring
+/// screen), ordered by due date.
+final pendingRecurringProvider = StreamProvider<List<RecurringOccurrence>>(
+  (ref) => ref.watch(recurringRepositoryProvider).watchPending(),
 );
 
 final backupServiceProvider = Provider<BackupService>((ref) => BackupService());
