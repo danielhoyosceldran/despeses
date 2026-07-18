@@ -19,6 +19,7 @@ import '../../domain/repositories/payment_method_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../domain/repositories/recurring_repository.dart';
 import '../../domain/repositories/reference_data_cache.dart';
+import '../../domain/repositories/savings_goal_repository.dart';
 import '../../domain/repositories/tag_repository.dart';
 import '../i18n/translations.dart';
 
@@ -66,6 +67,13 @@ final profileRepositoryProvider = Provider<ProfileRepository>(
 
 final recurringRepositoryProvider = Provider<RecurringRepository>(
   (ref) => RecurringRepository(ref.watch(databaseProvider)),
+);
+
+final savingsGoalRepositoryProvider = Provider<SavingsGoalRepository>(
+  (ref) => SavingsGoalRepository(
+    ref.watch(databaseProvider),
+    ref.watch(categoryRepositoryProvider),
+  ),
 );
 
 /// Live count of pending recurring occurrences — drives the Dashboard banner

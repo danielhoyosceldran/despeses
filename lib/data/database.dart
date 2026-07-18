@@ -63,6 +63,7 @@ Future<void> _insertCategoryNode(
   Recurrings,
   RecurringTags,
   RecurringOccurrences,
+  SavingsGoals,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor, BackupService? backupService])
@@ -76,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -120,6 +121,8 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(recurringOccurrences);
             await _createRecurringIndexes(this);
           }
+          // v9 adds the savings-goals table (feature 3.14). Additive only.
+          if (from < 9) await m.createTable(savingsGoals);
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

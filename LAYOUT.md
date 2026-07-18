@@ -56,11 +56,16 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 - **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body**: paginated `ListView` of expense card tiles (optional Checkbox, title, date subtitle, signed amount). Trailing "Load more" TextButton when more pages. Empty/loading centered. Tap = edit/toggle; long-press = select.
 
-### Budgets (`budgets_screen.dart`)
-- **Header**: `AppTopBar` title "Budgets" + settings gear. Selection mode: "N selected", X, trash.
-- **Search row** (hidden in selection mode): search pill (filter by name) + trailing archive toggle (active vs expired budgets).
-- **FAB**: "+" → BudgetEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
-- **Body**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit). Empty/loading centered. Tap = edit/toggle; long-press = select.
+### Budgets & Goals (`budgets_screen.dart`)
+Two collections behind a `SegmentedButton` toggle (Budgets | Goals).
+- **Header**: `AppTopBar` title "Budgets" + settings gear. Selection mode: "N selected", X, trash (deletes from whichever tab is active).
+- **Tab toggle** (hidden in selection mode): full-width `SegmentedButton` — Budgets / Goals. Kept in sync with the body `PageView` (tapping animates the page; swiping updates the segment). Switching clears selection.
+- **Search row** (fixed, both tabs, hidden in selection mode): search pill (filter the active tab's list by name) + trailing archive toggle. The toggle's meaning follows the tab: active↔expired budgets, or in-progress↔completed goals.
+- **FAB**: "+" → BudgetEntryScreen (Budgets tab) or GoalEntryScreen (Goals tab), new. Tap, or drag up to interactively pull the entry screen up from the bottom.
+- **Body**: horizontal `PageView` (swipe budgets ↔ goals, mirroring the Dashboard month swipe; disabled in selection mode), two pages:
+  - **Budgets**: `ListView` of `AppCard` tiles (optional Checkbox, name, subtitle = `ThinProgressBar` + spent/limit).
+  - **Goals**: `ListView` of `AppCard` tiles (optional Checkbox, name + reached check icon, subtitle = `ThinProgressBar` (fills toward target, savings colour when reached) + saved/target + optional "save X/month" pace line when a deadline is set).
+  - Both: empty/loading centered; tap = edit/toggle; long-press = select.
 
 ### Analytics (`analytics_screen.dart` + `analytics/analytics_sections.dart`)
 Sectioned screen navigated by a section FAB.
@@ -117,6 +122,20 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
   3. `BottomActionPanel`: `NumericKeypad`, `MonthPickerContent`, `CategoryPickerContent`, or `SimplePickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
 - New budget: keypad opens first; "Next" auto-advances amount → name, then stops (dimension, value, period chosen manually). Pops `true` on save.
+
+### Goal entry (`goal_entry/goal_entry_screen.dart`)
+Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. Creates/edits a savings goal.
+- **AppBar**: leading down-chevron (dismiss); title ("New goal" / "Edit goal").
+- **Body** Column:
+  1. Expanded ListView:
+     - **Target hero**: centered uppercase "TARGET" header + centered `AmountText` (tap → keypad).
+     - **Name** field.
+     - **Savings category** section (uppercase header) — `AppCard` value row → `ahorro`-scoped category picker (locked in edit).
+     - **Deadline** section (uppercase header) — `AppCard` row → calendar panel; shows "No deadline" placeholder with a trailing clear button when set.
+  2. Inline "Save" above panel when open.
+  3. `BottomActionPanel`: `NumericKeypad`, `CategoryPickerContent` (ahorro tree), or `CalendarPanel` (deadline).
+  4. No panel: bottom SafeArea full-width "Save" button.
+- New goal: keypad opens first; "Next" moves amount → name. Category + currency lock after creation; only name/target/deadline stay editable. Pops `true` on save.
 
 ### Recurring entry (`recurring/recurring_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. Creates/edits a recurring-transaction template. Every field editable in both new and edit modes.
@@ -176,6 +195,6 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 
 ## Cross-screen patterns
 - Tab screens (Dashboard, Expenses, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
-- Selection mode (multi-delete) on Dashboard, Expenses, Budgets, Recurring swaps `AppTopBar` contents (count + clear + delete).
-- Entry screens (expense/budget/recurring) use the in-screen `BottomActionPanel` + `NumericKeypad` + embedded pickers, not modal sheets. The Expenses list uses a true modal filter sheet.
+- Selection mode (multi-delete) on Dashboard, Expenses, Budgets (both tabs), Recurring swaps `AppTopBar` contents (count + clear + delete).
+- Entry screens (expense/budget/goal/recurring) use the in-screen `BottomActionPanel` + `NumericKeypad` + embedded pickers, not modal sheets. The Expenses list uses a true modal filter sheet.
 - Recurring (reached from the Settings hub, but not a `settings/*` list screen) renders an `AppTopBar` + FAB like a tab screen, rather than the `PageTitleHeader` used by the catalog list screens.
