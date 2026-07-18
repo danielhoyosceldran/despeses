@@ -51,7 +51,15 @@ class AppCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         border: border ? Border.all(color: colors.borderSoft, width: 1) : null,
       ),
-      child: child,
+      // Transparent Material so ink splashes / ListTile backgrounds from tappable
+      // children paint *above* this card's decoration instead of being hidden by
+      // it. Clipped to the card radius so ink stays within the rounded corners.
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(radius),
+        clipBehavior: Clip.antiAlias,
+        child: child,
+      ),
     );
   }
 }

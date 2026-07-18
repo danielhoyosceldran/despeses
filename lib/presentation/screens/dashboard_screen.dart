@@ -15,7 +15,6 @@ import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/amount_text.dart';
-import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/drag_up_fab.dart';
@@ -495,14 +494,7 @@ class _MonthPage extends ConsumerWidget {
                 style: appHeaderStyle(colors),
               ),
             ),
-            AppCard(
-              child: Column(
-                children: [
-                  for (final budget in active)
-                    _BudgetProgressTile(budget: budget, spent: budgetProgress[budget.id] ?? 0),
-                ],
-              ),
-            ),
+            _BudgetGrid(budgets: active.take(4).toList(), progress: budgetProgress),
             const SizedBox(height: AppSpacing.lg),
           ],
           if (expenses.isEmpty)
@@ -553,7 +545,7 @@ class _MonthPage extends ConsumerWidget {
               delegate: _HeroHeaderDelegate(totals: totals, currency: currency, translations: translations),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xxxl),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxxl),
               sliver: SliverList.list(children: content),
             ),
           ],
@@ -642,6 +634,66 @@ List<_DayGroup> _groupByDay(List<Expense> expenses, String currency, Translation
   return groups;
 }
 
+/// The dashboard's active-budgets preview: a fixed 2-column grid, capped at 4
+/// budgets. 1–2 budgets fill a single row; 3–4 fill a 2×2 grid, padding the
+/// trailing gap with an empty slot so cells stay aligned. Every cell taps
+/// through to the Budgets tab.
+class _BudgetGrid extends StatelessWidget {
+  const _BudgetGrid({required this.budgets, required this.progress});
+
+  final List<Budget> budgets;
+  final Map<String, int> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = budgets.length <= 2 ? 1 : 2;
+    final cells = <Widget?>[
+      for (final b in budgets) _BudgetProgressTile(budget: b, spent: progress[b.id] ?? 0),
+    ];
+    while (cells.length < rows * 2) {
+      cells.add(null);
+    }
+
+    Widget cell(Widget? w) => Expanded(child: w ?? const _BudgetPlaceholder());
+
+    return Column(
+      children: [
+        for (var r = 0; r < rows; r++) ...[
+          if (r > 0) const SizedBox(height: AppSpacing.sm),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                cell(cells[r * 2]),
+                const SizedBox(width: AppSpacing.sm),
+                cell(cells[r * 2 + 1]),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Empty slot filling a trailing gap in the budget grid: a plain rounded grey
+/// patch (theme-aware, no content) that reads as "something missing here" while
+/// keeping the row aligned. Stretched to a tile's height by the row.
+class _BudgetPlaceholder extends StatelessWidget {
+  const _BudgetPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+        color: colors.surfaceAlt.withValues(alpha: 0.4),
+      ),
+    );
+  }
+}
+
 class _BudgetProgressTile extends ConsumerWidget {
   const _BudgetProgressTile({required this.budget, required this.spent});
 
@@ -653,24 +705,50 @@ class _BudgetProgressTile extends ConsumerWidget {
     final ratio = budget.amount == 0 ? 0.0 : (spent / budget.amount).clamp(0.0, 1.0);
     final over = spent > budget.amount;
     final semantic = context.semanticColors;
+    final colors = context.appColors;
+    final theme = Theme.of(context);
     final categoryColor = chartPalette[(budget.categoryId ?? budget.id).hashCode % chartPalette.length];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(budget.name, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: AppSpacing.sm),
-          ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '${formatMoney(spent, budget.currency)} / ${formatMoney(budget.amount, budget.currency)}',
-            style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: over ? semantic.over : null,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+      child: InkWell(
+        onTap: () => context.go('/budgets'),
+        borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+            border: Border.all(color: colors.borderSoft, width: 1),
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      budget.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    '${budget.amount == 0 ? 0 : (spent / budget.amount * 100).round()}%',
+                    style: theme.textTheme.bodySmall!.copyWith(
+                          color: over ? semantic.over : colors.textMuted,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ThinProgressBar(value: ratio, fillColor: over ? semantic.over : categoryColor),
+            ],
+          ),
+        ),
       ),
     );
   }

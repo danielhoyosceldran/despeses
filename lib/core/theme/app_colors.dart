@@ -61,17 +61,17 @@ class AppColors extends ThemeExtension<AppColors> {
   );
 
   static const dark = AppColors(
-    bg: Color(0xFF252525), // oklch(0.145)
-    surface: Color(0xFF252525),
-    surfaceAlt: Color(0xFF404040), // --muted oklch(0.269)
-    border: Color(0xFF404040), // oklch(0.269)
-    divider: Color(0x80404040), // border at 50%
+    bg: Color(0xFF0D0D0D), // near-black base
+    surface: Color(0xFF161616), // raised surface reads above bg
+    surfaceAlt: Color(0xFF262626), // --muted
+    border: Color(0xFF2E2E2E),
+    divider: Color(0x802E2E2E), // border at 50%
     text: Color(0xFFFAFAFA), // --foreground oklch(0.985)
     textMuted: Color(0xFFB5B5B5), // --muted-foreground oklch(0.708)
     textDisabled: Color(0xFF7F7F7F), // oklch(0.5)
     accent: Color(0xFFFAFAFA), // --primary inverts to near-white
-    onAccent: Color(0xFF343434), // --primary-foreground oklch(0.205)
-    shadow: Color(0x66000000), // 40% black
+    onAccent: Color(0xFF161616), // sits on near-white accent
+    shadow: Color(0x99000000), // 60% black — deeper on darker bg
   );
 
   @override

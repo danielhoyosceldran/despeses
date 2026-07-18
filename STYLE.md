@@ -27,17 +27,17 @@ branching on brightness at the call site.
 
 | Field | Role | Light | Dark |
 |---|---|---|---|
-| `bg` | scaffold background | `#FFFFFF` | `#252525` |
-| `surface` | cards, sheets, nav, dialogs | `#FFFFFF` | `#252525` |
-| `surfaceAlt` | muted fill base | `#ECECF0` | `#404040` |
-| `border` | full hairline (nav/sheet frame) | `0x1A000000` (black 10%) | `#404040` |
-| `divider` | border at 50% | `0x0D000000` (black 5%) | `0x80404040` |
+| `bg` | scaffold background | `#FFFFFF` | `#0D0D0D` |
+| `surface` | cards, sheets, nav, dialogs | `#FFFFFF` | `#161616` |
+| `surfaceAlt` | muted fill base | `#ECECF0` | `#262626` |
+| `border` | full hairline (nav/sheet frame) | `0x1A000000` (black 10%) | `#2E2E2E` |
+| `divider` | border at 50% | `0x0D000000` (black 5%) | `0x802E2E2E` |
 | `text` | foreground | `#252525` | `#FAFAFA` |
 | `textMuted` | secondary text | `#717182` | `#B5B5B5` |
 | `textDisabled` | disabled / drag handle | `#B0B1BC` | `#7F7F7F` |
 | `accent` | primary (ink) | `#030213` | `#FAFAFA` |
-| `onAccent` | content on accent | `#FFFFFF` | `#343434` |
-| `shadow` | frame/FAB/sheet shadow | `0x1F000000` (12%) | `0x66000000` (40%) |
+| `onAccent` | content on accent | `#FFFFFF` | `#161616` |
+| `shadow` | frame/FAB/sheet shadow | `0x1F000000` (12%) | `0x99000000` (60%) |
 
 - **`accent` inverts**: near-black ink in light, near-white in dark. It drives
   the FAB, primary button, active nav tab, and input focus ring. `onAccent` is

@@ -15,34 +15,37 @@ class ThinProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
-          duration: AppDimens.animNormal,
-          curve: AppDimens.animCurve,
-          builder: (context, animatedValue, _) => Stack(
-            children: [
-              Container(
-                height: height,
-                width: constraints.maxWidth,
-                decoration: BoxDecoration(
-                  color: colors.surfaceAlt,
-                  borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                ),
-              ),
-              Container(
-                height: height,
-                width: constraints.maxWidth * animatedValue,
+    // No LayoutBuilder: the fill uses FractionallySizedBox so the bar can still
+    // report intrinsic dimensions (needed when a parent IntrinsicHeight measures
+    // it, e.g. the dashboard budget grid).
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
+      duration: AppDimens.animNormal,
+      curve: AppDimens.animCurve,
+      builder: (context, animatedValue, _) => Stack(
+        children: [
+          Container(
+            height: height,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: colors.surfaceAlt,
+              borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+            ),
+          ),
+          Positioned.fill(
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: animatedValue,
+              child: Container(
                 decoration: BoxDecoration(
                   color: fillColor,
                   borderRadius: BorderRadius.circular(AppDimens.radiusPill),
                 ),
               ),
-            ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

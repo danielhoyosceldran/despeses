@@ -47,7 +47,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
   1b. **Recurring banner** (`_RecurringBanner`, shown only when recurring occurrences are pending and not in selection mode): repeat icon + pending-count text + "Review" affordance + chevron. Tap → `/settings/recurring`.
   2. **Balance hero** (`_BalanceHeader`, shared, sits *outside* the PageView): "Total Balance" label + large balance amount, then a Row of 2 collapsing stat tiles (Income · Spent; each = icon chip in a row beside a label + amount column). **Collapses on inner scroll**: balance shrinks, stat tiles fold away, a hairline bottom border fades in.
   3. Expanded horizontal `PageView` of month pages (swipe = month ±1, kept in sync with `MonthHeaderBar`). Each month page is a scrolling `ListView` driving the hero collapse, top→bottom:
-     - If active budgets: "Active budgets" header + budget tiles (name, `ThinProgressBar`, spent/limit).
+     - If active budgets: "Active budgets" header + a fixed 2-column budget grid (`_BudgetGrid`, capped at 4). 1–2 budgets = one row; 3–4 = 2×2, trailing gap filled with an empty slot. Each tile: row 1 = name + percent spent, row 2 = `ThinProgressBar`; tapping any tile switches to the Budgets tab.
      - Transactions **grouped by day**: per-day header (uppercase day label + signed day total) followed by transaction rows (optional selection Checkbox, uppercase category line, title, method subtitle, signed amount). "No transactions" text when empty. Tap = edit / toggle; long-press = select.
      - On load failure the page body shows `ErrorRetry` instead of the transaction list.
 
