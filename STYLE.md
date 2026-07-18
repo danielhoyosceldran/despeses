@@ -218,6 +218,14 @@ All use `colors.shadow` (pre-baked opacity per theme).
   Income = emerald `arrowDownRight`, Spent = rose `arrowUpRight`.
 - **Budget tile** — name `labelLarge`, `ThinProgressBar`, `spent / limit` in
   `bodySmall` tabular (`over` color when exceeded).
+- **Recurring-due tile** (`_RecurringDueTile`) — hairline card radius 16 on
+  `surface`, `minHeight 60`. Default face: name (`labelLarge`) left, signed
+  amount in Clash 16 via `amountColorForType` right (no category line). Armed face (160ms
+  `AnimatedSwitcher` cross-fade): two full-height halves split by a `borderSoft`
+  hairline — reject ✕ (`semantic.expense`) left, accept ✓ (`semantic.income`)
+  right, each on a `pillBackground` tint of its color. Empty grid slot reuses the
+  budget placeholder (`surfaceAlt` @ 0.4). Section tail link = `accent` "Review"
+  label + chevron.
 - **`PressableScale`** (`pressable_scale.dart`) — scale-on-press wrapper (0.95,
   120ms, easeOutCubic); wraps the FAB.
 - **Day-group header** (dashboard) — `appHeaderStyle` uppercase label +

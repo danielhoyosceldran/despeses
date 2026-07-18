@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show lerpDouble;
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -7,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/format/money.dart';
+import '../../core/haptics/haptics.dart';
 import '../../core/i18n/display_name.dart';
 import '../../core/navigation/bottom_up_route.dart';
 import '../../core/i18n/translations.dart';
@@ -162,7 +164,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profileAsync = ref.watch(profileStreamProvider);
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
     final colors = context.appColors;
-    final pendingRecurring = ref.watch(pendingRecurringCountProvider).asData?.value ?? 0;
 
     return Scaffold(
       floatingActionButton: DragUpAction(
@@ -199,8 +200,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: _deleteSelected,
           ),
-          if (pendingRecurring > 0 && !_selectionMode)
-            _RecurringBanner(count: pendingRecurring, translations: translations),
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -229,45 +228,297 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-/// Tappable banner surfacing recurring transactions awaiting confirmation
-/// (feature 3.13). Routes to the Recurring screen's pending inbox.
-class _RecurringBanner extends StatelessWidget {
-  const _RecurringBanner({required this.count, required this.translations});
+/// Dashboard mini-section (feature 3.13) surfacing recurring occurrences that
+/// are due and awaiting the user's confirm/reject, as a 2-column grid capped at
+/// 4 tiles. Header carries the section title (head) and a tail link that opens
+/// the full Recurring screen. Tapping a tile arms it: the title/amount are
+/// swapped for a reject (✕) / accept (✓) pair for 3s, then it auto-reverts.
+/// Arming a different tile reverts the previous one. Accepting confirms the
+/// occurrence into a real transaction; the stream then drops it and the next
+/// pending item (5th onward) takes its place.
+class _RecurringDueSection extends ConsumerStatefulWidget {
+  const _RecurringDueSection({required this.translations});
 
-  final int count;
   final Translations? translations;
+
+  @override
+  ConsumerState<_RecurringDueSection> createState() => _RecurringDueSectionState();
+}
+
+class _RecurringDueSectionState extends ConsumerState<_RecurringDueSection> {
+  /// Occurrence id currently showing its accept/reject controls, or null.
+  String? _armedId;
+  Timer? _revertTimer;
+
+  @override
+  void dispose() {
+    _revertTimer?.cancel();
+    super.dispose();
+  }
+
+  void _arm(String id) {
+    ref.read(hapticsProvider).selection();
+    _revertTimer?.cancel();
+    // Tapping the armed tile again folds it back.
+    if (_armedId == id) {
+      setState(() => _armedId = null);
+      return;
+    }
+    setState(() => _armedId = id);
+    _revertTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _armedId = null);
+    });
+  }
+
+  Future<void> _accept(RecurringOccurrence occ) async {
+    _revertTimer?.cancel();
+    ref.read(hapticsProvider).medium();
+    _armedId = null; // stream will rebuild without this tile
+    await ref.read(recurringRepositoryProvider).confirm(occ);
+  }
+
+  Future<void> _reject(RecurringOccurrence occ) async {
+    _revertTimer?.cancel();
+    ref.read(hapticsProvider).light();
+    _armedId = null;
+    await ref.read(recurringRepositoryProvider).skip(occ.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = ref.watch(pendingRecurringProvider).asData?.value ?? const <RecurringOccurrence>[];
+    if (pending.isEmpty) return const SizedBox.shrink();
+    final colors = context.appColors;
+    final t = widget.translations;
+    final visible = pending.take(4).toList();
+    // Drop a stale armed id once its tile is gone (accepted/rejected).
+    if (_armedId != null && !visible.any((o) => o.id == _armedId)) {
+      _armedId = null;
+    }
+
+    // Rendered inside the month page's already-padded content list, directly
+    // below the active-budgets block, so no outer horizontal padding here.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
+          child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    (t?.t('dashboard.recurring_due') ?? 'Recurring due').toUpperCase(),
+                    style: appHeaderStyle(colors),
+                  ),
+                ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+                  onTap: () => context.push('/settings/recurring'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          t?.t('recurring.review') ?? 'Review',
+                          style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600, fontSize: 12),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(LucideIcons.chevronRight300, size: 14, color: colors.accent),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        _RecurringDueGrid(
+          occurrences: visible,
+          armedId: _armedId,
+          onArm: _arm,
+          onAccept: _accept,
+          onReject: _reject,
+        ),
+      ],
+    );
+  }
+}
+
+/// 2-column grid mirroring the budget grid rules: 1 row for ≤2 items, 2 rows
+/// for 3–4, with a placeholder filling any trailing gap to keep alignment.
+class _RecurringDueGrid extends StatelessWidget {
+  const _RecurringDueGrid({
+    required this.occurrences,
+    required this.armedId,
+    required this.onArm,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  final List<RecurringOccurrence> occurrences;
+  final String? armedId;
+  final void Function(String id) onArm;
+  final void Function(RecurringOccurrence occ) onAccept;
+  final void Function(RecurringOccurrence occ) onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = occurrences.length <= 2 ? 1 : 2;
+    final cells = <RecurringOccurrence?>[...occurrences];
+    while (cells.length < rows * 2) {
+      cells.add(null);
+    }
+
+    Widget cell(RecurringOccurrence? occ) => Expanded(
+          child: occ == null
+              ? const _RecurringDuePlaceholder()
+              : _RecurringDueTile(
+                  occ: occ,
+                  armed: occ.id == armedId,
+                  onArm: () => onArm(occ.id),
+                  onAccept: () => onAccept(occ),
+                  onReject: () => onReject(occ),
+                ),
+        );
+
+    return Column(
+      children: [
+        for (var r = 0; r < rows; r++) ...[
+          if (r > 0) const SizedBox(height: AppSpacing.sm),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                cell(cells[r * 2]),
+                const SizedBox(width: AppSpacing.sm),
+                cell(cells[r * 2 + 1]),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Empty trailing slot keeping the grid aligned (mirrors `_BudgetPlaceholder`).
+class _RecurringDuePlaceholder extends StatelessWidget {
+  const _RecurringDuePlaceholder();
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final key = count == 1 ? 'recurring.banner_one' : 'recurring.banner_many';
-    final text = (translations?.t(key) ?? '$count pending').replaceAll('{{count}}', '$count');
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-      child: Material(
-        color: pillBackground(colors.accent),
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppDimens.radiusCard),
-        child: InkWell(
+        color: colors.surfaceAlt.withValues(alpha: 0.4),
+      ),
+    );
+  }
+}
+
+/// A single due-occurrence tile. Default face: one row with the name on the
+/// left and the signed amount on the right. Armed face: a split reject (✕) /
+/// accept (✓) control. Cross-fades between the two.
+class _RecurringDueTile extends StatelessWidget {
+  const _RecurringDueTile({
+    required this.occ,
+    required this.armed,
+    required this.onArm,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  final RecurringOccurrence occ;
+  final bool armed;
+  final VoidCallback onArm;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 60),
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppDimens.radiusCard),
-          onTap: () => context.push('/settings/recurring'),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.smMd),
-            child: Row(
-              children: [
-                Icon(LucideIcons.repeat300, size: 18, color: colors.accent),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyMedium)),
-                Text(
-                  translations?.t('recurring.review') ?? 'Review',
-                  style: TextStyle(color: colors.accent, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Icon(LucideIcons.chevronRight300, size: 16, color: colors.accent),
-              ],
-            ),
-          ),
+          border: Border.all(color: colors.borderSoft, width: 1),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: armed ? _buildArmed(context) : _buildFace(context),
         ),
       ),
+    );
+  }
+
+  Widget _buildFace(BuildContext context) {
+    final colors = context.appColors;
+    final sign = switch (occ.type) {
+      'income' => '+',
+      'refund' => '±',
+      _ => '-',
+    };
+    final amountColor = context.amountColorForType(occ.type);
+    final title = occ.description?.isNotEmpty == true ? occ.description! : occ.type;
+    return InkWell(
+      key: const ValueKey('face'),
+      onTap: onArm,
+      borderRadius: BorderRadius.circular(AppDimens.radiusCard),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.smMd),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              '$sign${formatMoney(occ.amount, occ.currency)}',
+              style: appDisplay(colors, fontSize: 16, color: amountColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArmed(BuildContext context) {
+    final colors = context.appColors;
+    final semantic = context.semanticColors;
+    Widget action({
+      required IconData icon,
+      required Color color,
+      required VoidCallback onTap,
+    }) =>
+        Expanded(
+          child: InkWell(
+            onTap: onTap,
+            child: Container(
+              color: pillBackground(color),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color, size: 22),
+            ),
+          ),
+        );
+    return Row(
+      key: const ValueKey('armed'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        action(icon: LucideIcons.x300, color: semantic.expense, onTap: onReject),
+        Container(width: 1, color: colors.borderSoft),
+        action(icon: LucideIcons.check300, color: semantic.income, onTap: onAccept),
+      ],
     );
   }
 }
@@ -495,6 +746,10 @@ class _MonthPage extends ConsumerWidget {
               ),
             ),
             _BudgetGrid(budgets: active.take(4).toList(), progress: budgetProgress),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          if (!selectionMode) ...[
+            _RecurringDueSection(translations: translations),
             const SizedBox(height: AppSpacing.lg),
           ],
           if (expenses.isEmpty)

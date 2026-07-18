@@ -55,8 +55,13 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
   static const Duration _kSettle = Duration(milliseconds: 220);
   static const Duration _kOpen = Duration(milliseconds: 300);
 
-  late final AnimationController _sheet =
-      AnimationController(vsync: this, duration: _kOpen);
+  // Created lazily on first sheet interaction (not in a field initializer or
+  // build): its ticker's TickerMode ancestor lookup is only valid while mounted.
+  // A `late final` here would let dispose() force its creation — which crashes
+  // if the sheet was never opened. So it's nullable and disposed only if built.
+  AnimationController? _sheetController;
+  AnimationController get _sheet =>
+      _sheetController ??= AnimationController(vsync: this, duration: _kOpen);
   late final Animation<Offset> _slide = Tween<Offset>(
     begin: const Offset(0, 1),
     end: Offset.zero,
@@ -75,7 +80,7 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
   @override
   void dispose() {
     _entry?.remove();
-    _sheet.dispose();
+    _sheetController?.dispose();
     super.dispose();
   }
 
