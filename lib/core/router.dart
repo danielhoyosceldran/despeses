@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 
 import 'config/feature_flags.dart';
+import 'navigation/slide_from_right_route.dart';
+import 'navigation/top_down_route.dart';
 import '../presentation/screens/account_screen.dart';
 import '../presentation/screens/analytics_screen.dart';
 import '../presentation/screens/app_shell.dart';
@@ -67,31 +69,52 @@ final appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'categories',
-                  builder: (context, state) => const CategoriesScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const CategoriesScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'tags',
-                  builder: (context, state) => const TagsScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const TagsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'tag-groups',
-                  builder: (context, state) => const TagGroupsScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const TagGroupsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'payment-methods',
-                  builder: (context, state) => const PaymentMethodsScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const PaymentMethodsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'events',
-                  builder: (context, state) => const EventsScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const EventsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'projects',
-                  builder: (context, state) => const ProjectsScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const ProjectsScreen(),
+                  ),
                 ),
                 GoRoute(
                   path: 'recurring',
-                  builder: (context, state) => const RecurringScreen(),
+                  pageBuilder: (context, state) => slideFromRightPage(
+                    state: state,
+                    child: const RecurringScreen(),
+                  ),
                 ),
               ],
             ),
@@ -103,19 +126,31 @@ final appRouter = GoRouter(
     // shell (root navigator), so it is full-screen with a back button.
     GoRoute(
       path: '/account',
-      builder: (context, state) => const AccountScreen(),
+      pageBuilder: (context, state) => topDownPage(
+        state: state,
+        child: const AccountScreen(),
+      ),
       routes: [
         GoRoute(
           path: 'profile',
-          builder: (context, state) => const ProfileScreen(),
+          pageBuilder: (context, state) => slideFromRightPage(
+            state: state,
+            child: const ProfileScreen(),
+          ),
         ),
         GoRoute(
           path: 'export',
-          builder: (context, state) => const ExportScreen(),
+          pageBuilder: (context, state) => slideFromRightPage(
+            state: state,
+            child: const ExportScreen(),
+          ),
         ),
         GoRoute(
           path: 'backup',
-          builder: (context, state) => const BackupScreen(),
+          pageBuilder: (context, state) => slideFromRightPage(
+            state: state,
+            child: const BackupScreen(),
+          ),
         ),
       ],
     ),

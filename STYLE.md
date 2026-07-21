@@ -272,8 +272,21 @@ Header gear `settings`.
 
 ## 7. Motion
 
-- **Route transition** (`_SlideFadeTransitionsBuilder`) — fade + horizontal
-  slide (x 0.05→0), `easeOutCubic`.
+- **Route transition** (`_SlideFadeTransitionsBuilder`) — default theme
+  transition, fade + horizontal slide (x 0.05→0), `easeOutCubic`. Overridden
+  per-route by `go_router`'s `pageBuilder` for the cases below.
+- **Settings/Account push** (`slideFromRightPage`, `core/navigation`) — full
+  horizontal slide (x 1→0) in 280ms `easeOutCubic` / out 240ms `easeInCubic`,
+  slides back out to the right on pop. Used for every `/settings/*` and
+  `/account/*` child route (Categories, Tags, Tag groups, Payment methods,
+  Events, Projects, Recurring, Profile, Export, Backup).
+- **Account hub push** (`topDownPage`, `core/navigation`) — full vertical
+  slide (y −1→0) in 320ms `easeOutCubic` / out 260ms `easeInCubic`, slides back
+  out upward on pop. Used for `/account` (opened from the header gear).
+  Dragging the header gear down past a 48px threshold (or a downward fling
+  ≥600px/s) triggers the same push (`medium` haptic on drag start); the gear
+  icon itself trails the finger slightly (`Transform.translate`, ×0.3, capped
+  64px) for a light preview of the pull.
 - **Edit entry route** (`bottomUpRoute`) — full vertical slide (y 1→0), in
   320ms `easeOutCubic` / out 260ms `easeInCubic`; dismisses back down. Used when
   editing an existing expense/budget (tapping a list row).

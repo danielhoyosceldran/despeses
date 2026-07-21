@@ -1,8 +1,10 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/haptics/haptics.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Shared top header (mock: `px-6` row, `justify-between`). Left side is either
@@ -79,12 +81,7 @@ class AppTopBar extends StatelessWidget {
           action,
           const SizedBox(width: AppSpacing.xs),
         ],
-        if (showSettings)
-          TopBarCircleButton(
-            icon: LucideIcons.settings300,
-            filled: true,
-            onTap: () => context.push('/account'),
-          ),
+        if (showSettings) const _SettingsGearButton(),
       ],
     );
   }
@@ -209,6 +206,67 @@ class _SlidingMonthLabel extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// Header settings gear: tap opens `/account` (top-down slide, see
+/// `topDownPage`); a downward drag past the threshold (or a downward fling)
+/// opens it too, mirroring the add-transaction/budget FABs' drag-open gesture.
+class _SettingsGearButton extends ConsumerStatefulWidget {
+  const _SettingsGearButton();
+
+  @override
+  ConsumerState<_SettingsGearButton> createState() => _SettingsGearButtonState();
+}
+
+class _SettingsGearButtonState extends ConsumerState<_SettingsGearButton> {
+  static const double _kThresholdPx = 48;
+  static const double _kFlingVelocity = 600;
+
+  double _dragPx = 0;
+  bool _armed = false;
+  bool _opened = false;
+
+  void _open() {
+    if (_opened) return;
+    _opened = true;
+    context.push('/account');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragStart: (_) {
+        _opened = false;
+        ref.read(hapticsProvider).medium();
+      },
+      onVerticalDragUpdate: (d) {
+        setState(() {
+          _dragPx = (_dragPx + d.delta.dy).clamp(0.0, 64.0);
+          _armed = _dragPx >= _kThresholdPx;
+        });
+        if (_armed) _open();
+      },
+      onVerticalDragEnd: (d) {
+        if (!_opened && (d.primaryVelocity ?? 0) >= _kFlingVelocity) _open();
+        setState(() {
+          _dragPx = 0;
+          _armed = false;
+        });
+      },
+      onVerticalDragCancel: () => setState(() {
+        _dragPx = 0;
+        _armed = false;
+      }),
+      child: Transform.translate(
+        offset: Offset(0, _dragPx * 0.3),
+        child: TopBarCircleButton(
+          icon: LucideIcons.settings300,
+          filled: true,
+          onTap: _open,
+        ),
+      ),
     );
   }
 }
