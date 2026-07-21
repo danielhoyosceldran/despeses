@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/format/money.dart';
 import '../../../core/theme/app_theme.dart';
@@ -8,13 +9,70 @@ import '../../../core/theme/app_theme.dart';
 /// call sites stay unchanged; delegates to the single [formatMoney] helper.
 String formatAmount(int cents, String currency) => formatMoney(cents, currency);
 
+/// Small "i" icon button that opens [showStatInfoSheet] with a beginner-friendly
+/// explanation of the chart/stat it's attached to.
+class StatInfoButton extends StatelessWidget {
+  const StatInfoButton({super.key, required this.title, required this.body, this.example});
+
+  final String title;
+  final String body;
+  final Widget? example;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(LucideIcons.info300, size: 18, color: context.appColors.textMuted),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      tooltip: title,
+      onPressed: () => showStatInfoSheet(context, title: title, body: body, example: example),
+    );
+  }
+}
+
+/// Bottom sheet explaining a single statistic in plain language, with an
+/// optional [example] widget (e.g. a sample chart) illustrating it.
+void showStatInfoSheet(BuildContext context, {required String title, required String body, Widget? example}) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) {
+      final colors = ctx.appColors;
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(ctx).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: AppSpacing.smMd),
+              Text(body, style: Theme.of(ctx).textTheme.bodyMedium!.copyWith(color: colors.text)),
+              if (example != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                example,
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 /// A single KPI: small uppercase label + large Clash value, optional accent color.
 class KpiTile extends StatelessWidget {
-  const KpiTile({super.key, required this.label, required this.value, this.color});
+  const KpiTile({super.key, required this.label, required this.value, this.color, this.infoBody});
 
   final String label;
   final String value;
   final Color? color;
+
+  /// Beginner-friendly explanation shown in a bottom sheet via the info button.
+  final String? infoBody;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +87,14 @@ class KpiTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: appHeaderStyle(colors)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(label.toUpperCase(), style: appHeaderStyle(colors), overflow: TextOverflow.ellipsis),
+              ),
+              if (infoBody != null) StatInfoButton(title: label, body: infoBody!),
+            ],
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             value,

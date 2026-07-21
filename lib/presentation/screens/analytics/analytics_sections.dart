@@ -28,11 +28,18 @@ ErrorRetry _sectionError(WidgetRef ref, VoidCallback onRetry) {
 
 /// A titled card wrapper for a single statistic (ref id + title + body).
 class StatCard extends StatelessWidget {
-  const StatCard({super.key, required this.title, required this.child, this.subtitle});
+  const StatCard({super.key, required this.title, required this.child, this.subtitle, this.infoBody, this.infoExample});
 
   final String title;
   final String? subtitle;
   final Widget child;
+
+  /// Beginner-friendly explanation shown in a bottom sheet via an info button
+  /// next to the title. Omit to hide the button (e.g. per-budget cards).
+  final String? infoBody;
+
+  /// Optional sample widget (e.g. a mini chart) shown below [infoBody] in the sheet.
+  final Widget? infoExample;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +50,12 @@ class StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.labelLarge),
+          Row(
+            children: [
+              Expanded(child: Text(title, style: Theme.of(context).textTheme.labelLarge)),
+              if (infoBody != null) StatInfoButton(title: title, body: infoBody!, example: infoExample),
+            ],
+          ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(subtitle!, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: colors.textMuted)),
@@ -106,20 +118,43 @@ class HealthSection extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
                 KpiTileGrid(tiles: [
-                  KpiTile(label: t?.t('analytics.kpi_savings_rate') ?? 'Savings rate', value: _pct(h.savingsRate), color: colors.text),
-                  KpiTile(label: t?.t('analytics.kpi_vs_3m_avg') ?? 'vs 3M avg', value: _signedPct(h.spendVsAverage)),
-                  KpiTile(label: t?.t('analytics.kpi_top_category') ?? 'Top category', value: topLabel ?? '—'),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_savings_rate') ?? 'Savings rate',
+                    value: _pct(h.savingsRate),
+                    color: colors.text,
+                    infoBody: t?.t('analytics_info.savings_rate'),
+                  ),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_vs_3m_avg') ?? 'vs 3M avg',
+                    value: _signedPct(h.spendVsAverage),
+                    infoBody: t?.t('analytics_info.vs_3m_avg'),
+                  ),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_top_category') ?? 'Top category',
+                    value: topLabel ?? '—',
+                    infoBody: t?.t('analytics_info.top_category'),
+                  ),
                   KpiTile(
                     label: t?.t('analytics.kpi_budgets_at_risk') ?? 'Budgets at risk',
                     value: '${h.budgetsAtRisk}',
                     color: h.budgetsAtRisk > 0 ? context.semanticColors.over : null,
+                    infoBody: t?.t('analytics_info.budgets_at_risk'),
                   ),
-                  KpiTile(label: t?.t('analytics.kpi_projection') ?? 'Projection', value: formatAmount(h.projectedSpend, currency)),
-                  KpiTile(label: t?.t('analytics.kpi_no_spend_streak') ?? 'No-spend streak', value: '${h.noSpendStreak}d'),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_projection') ?? 'Projection',
+                    value: formatAmount(h.projectedSpend, currency),
+                    infoBody: t?.t('analytics_info.projection'),
+                  ),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_no_spend_streak') ?? 'No-spend streak',
+                    value: '${h.noSpendStreak}d',
+                    infoBody: t?.t('analytics_info.no_spend_streak'),
+                  ),
                 ]),
                 const SizedBox(height: AppSpacing.md),
                 StatCard(
                   title: t?.t('analytics.stat_burnup') ?? 'This month vs last (burn-up)',
+                  infoBody: t?.t('analytics_info.burnup'),
                   child: _BurnUp(month: month, currency: currency),
                 ),
               ],
@@ -185,14 +220,25 @@ class TrendSection extends ConsumerWidget {
                     padding: const EdgeInsets.all(AppSpacing.md),
                     children: [
                       Row(children: [
-                        Expanded(child: KpiTile(label: t?.t('analytics.kpi_mom') ?? 'MoM', value: _signedPct(d.mom))),
+                        Expanded(
+                            child: KpiTile(
+                          label: t?.t('analytics.kpi_mom') ?? 'MoM',
+                          value: _signedPct(d.mom),
+                          infoBody: t?.t('analytics_info.mom'),
+                        )),
                         const SizedBox(width: AppSpacing.smMd),
-                        Expanded(child: KpiTile(label: t?.t('analytics.kpi_yoy') ?? 'YoY', value: _signedPct(d.yoy))),
+                        Expanded(
+                            child: KpiTile(
+                          label: t?.t('analytics.kpi_yoy') ?? 'YoY',
+                          value: _signedPct(d.yoy),
+                          infoBody: t?.t('analytics_info.yoy'),
+                        )),
                       ]),
                       const SizedBox(height: AppSpacing.md),
                       StatCard(
                         title: t?.t('analytics.stat_monthly_spend') ?? 'Monthly spend',
                         subtitle: t?.t('analytics.stat_3month_avg') ?? '3-month average',
+                        infoBody: t?.t('analytics_info.monthly_spend'),
                         child: Column(children: [
                           MonthlyBars(
                             values: [for (final t in d.totals) t.$2],
@@ -207,6 +253,7 @@ class TrendSection extends ConsumerWidget {
                       ),
                       StatCard(
                         title: t?.t('analytics.stat_avg_weekday') ?? 'Average by weekday',
+                        infoBody: t?.t('analytics_info.avg_weekday'),
                         child: MonthlyBars(
                           values: [for (var w = 1; w <= 7; w++) (d.weekday[w] ?? 0).round()],
                           labels: const ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
@@ -215,6 +262,7 @@ class TrendSection extends ConsumerWidget {
                       ),
                       StatCard(
                         title: t?.t('analytics.stat_calendar_heatmap') ?? 'Calendar heatmap',
+                        infoBody: t?.t('analytics_info.calendar_heatmap'),
                         child: _HeatmapView(month: month, heat: d.heat),
                       ),
                     ],
@@ -277,6 +325,7 @@ class CashflowSection extends ConsumerWidget {
                       StatCard(
                         title: t?.t('analytics.stat_net_cashflow') ?? 'Net cash-flow',
                         subtitle: t?.t('analytics.stat_net_cashflow_sub') ?? 'income − spend − savings',
+                        infoBody: t?.t('analytics_info.net_cashflow'),
                         child: MonthlyBars(
                           values: [for (final m in d.months) m.net],
                           labels: [for (final m in d.months) _monthLabel(m.month)],
@@ -286,6 +335,8 @@ class CashflowSection extends ConsumerWidget {
                       StatCard(
                         title: t?.t('analytics.stat_savings_rate') ?? 'Savings rate',
                         subtitle: t?.t('analytics.stat_savings_rate_sub') ?? 'savings / income, this month',
+                        infoBody: t?.t('analytics_info.savings_rate'),
+                        infoExample: RingGauge(fraction: 0.35, label: t?.t('analytics.ring_savings_kept') ?? 'Of income kept as savings this month'),
                         child: RingGauge(
                           fraction: d.months.isEmpty ? 0 : d.months.last.savingsRate,
                           label: t?.t('analytics.ring_savings_kept') ?? 'Of income kept as savings this month',
@@ -294,6 +345,7 @@ class CashflowSection extends ConsumerWidget {
                       ),
                       StatCard(
                         title: t?.t('analytics.stat_cumulative_balance') ?? 'Cumulative balance',
+                        infoBody: t?.t('analytics_info.cumulative_balance'),
                         child: TrendLines(series: [
                           (color: colors.accent, values: [for (final b in d.balance) b.$2 / 100])
                         ]),
@@ -301,6 +353,7 @@ class CashflowSection extends ConsumerWidget {
                       StatCard(
                         title: t?.t('analytics.stat_savings_cumulative') ?? 'Savings — cumulative',
                         subtitle: t?.t('analytics.stat_savings_cumulative_sub') ?? 'Running total',
+                        infoBody: t?.t('analytics_info.savings_cumulative'),
                         child: TrendLines(series: [
                           (color: context.semanticColors.savings, values: [for (final s in d.savings) s.$2 / 100])
                         ]),
@@ -338,6 +391,7 @@ class PaymentSection extends ConsumerWidget {
               children: [
                 StatCard(
                   title: t?.t('analytics.stat_spend_by_payment') ?? 'Spend by payment method',
+                  infoBody: t?.t('analytics_info.spend_by_payment'),
                   child: RankedList(entries: [
                     for (var i = 0; i < entries.length; i++)
                       RankedEntry(
@@ -376,14 +430,31 @@ class BehaviorSection extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [
                 KpiTileGrid(tiles: [
-                  KpiTile(label: t?.t('analytics.kpi_transactions') ?? 'Transactions', value: '${d.stats.count}'),
-                  KpiTile(label: t?.t('analytics.kpi_mean_ticket') ?? 'Mean ticket', value: formatAmount(d.stats.mean.round(), currency)),
-                  KpiTile(label: t?.t('analytics.kpi_median_ticket') ?? 'Median ticket', value: formatAmount(d.stats.median.round(), currency)),
-                  KpiTile(label: t?.t('analytics.kpi_max_ticket') ?? 'Max ticket', value: formatAmount(d.stats.max, currency)),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_transactions') ?? 'Transactions',
+                    value: '${d.stats.count}',
+                    infoBody: t?.t('analytics_info.transactions'),
+                  ),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_mean_ticket') ?? 'Mean ticket',
+                    value: formatAmount(d.stats.mean.round(), currency),
+                    infoBody: t?.t('analytics_info.mean_ticket'),
+                  ),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_median_ticket') ?? 'Median ticket',
+                    value: formatAmount(d.stats.median.round(), currency),
+                    infoBody: t?.t('analytics_info.median_ticket'),
+                  ),
+                  KpiTile(
+                    label: t?.t('analytics.kpi_max_ticket') ?? 'Max ticket',
+                    value: formatAmount(d.stats.max, currency),
+                    infoBody: t?.t('analytics_info.max_ticket'),
+                  ),
                 ]),
                 const SizedBox(height: AppSpacing.md),
                 StatCard(
                   title: t?.t('analytics.stat_amount_distribution') ?? 'Amount distribution',
+                  infoBody: t?.t('analytics_info.amount_distribution'),
                   child: MonthlyBars(
                     values: d.histogram,
                     labels: const ['<5', '<10', '<25', '<50', '<100', '100+'],
@@ -394,6 +465,7 @@ class BehaviorSection extends ConsumerWidget {
                   title: t?.t('analytics.stat_ant_spend') ?? 'Ant spend',
                   subtitle: (t?.t('analytics.stat_ant_spend_sub') ?? 'micro-transactions < 5 {{currency}}')
                       .replaceAll('{{currency}}', currency),
+                  infoBody: t?.t('analytics_info.ant_spend'),
                   child: Text(
                     '${formatAmount(d.ant.total, currency)}  ·  ${d.ant.count} txns',
                     style: appDisplay(colors, fontSize: 20),
@@ -401,6 +473,7 @@ class BehaviorSection extends ConsumerWidget {
                 ),
                 StatCard(
                   title: t?.t('analytics.stat_refunds') ?? 'Refunds',
+                  infoBody: t?.t('analytics_info.refunds'),
                   child: RingGauge(
                     fraction: d.refundRatio,
                     label: t?.t('analytics.ring_refunded') ?? 'Refunded vs gross spend',
@@ -435,6 +508,7 @@ class QualitySection extends ConsumerWidget {
               children: [
                 StatCard(
                   title: t?.t('analytics.stat_tag_coverage_gap') ?? 'Tag coverage gap',
+                  infoBody: t?.t('analytics_info.tag_coverage_gap'),
                   child: RingGauge(
                     fraction: gap,
                     label: t?.t('analytics.ring_no_tag') ?? 'Of transactions have no tag',
@@ -471,6 +545,7 @@ class BudgetsSection extends ConsumerWidget {
                 for (final r in rows)
                   StatCard(
                     title: r.name,
+                    infoBody: t?.t('analytics_info.budgets_progress'),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -585,18 +660,25 @@ class _EventBody extends ConsumerWidget {
             return Column(
               children: [
                 Row(children: [
-                  Expanded(child: KpiTile(label: t?.t('analytics.kpi_total_cost') ?? 'Total cost', value: formatAmount(d.total, currency))),
+                  Expanded(
+                      child: KpiTile(
+                    label: t?.t('analytics.kpi_total_cost') ?? 'Total cost',
+                    value: formatAmount(d.total, currency),
+                    infoBody: t?.t('analytics_info.total_cost'),
+                  )),
                   const SizedBox(width: AppSpacing.smMd),
                   Expanded(
                     child: KpiTile(
                       label: t?.t('analytics.kpi_cost_per_day') ?? 'Cost / day',
                       value: d.perDay == null ? '—' : formatAmount(d.perDay!.round(), currency),
+                      infoBody: t?.t('analytics_info.cost_per_day'),
                     ),
                   ),
                 ]),
                 const SizedBox(height: AppSpacing.md),
                 StatCard(
                   title: t?.t('analytics.stat_spend_timeline') ?? 'Spend timeline',
+                  infoBody: t?.t('analytics_info.spend_timeline'),
                   child: TrendLines(series: [
                     (color: colors.accent, values: [for (final p in d.timeline) p.$2 / 100])
                   ]),

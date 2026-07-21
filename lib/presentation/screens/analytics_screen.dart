@@ -575,7 +575,9 @@ class _CategorySection extends ConsumerWidget {
           children: [
             AppCard.large(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
+              child: Stack(
+                children: [
+                  Column(
                 children: [
                   if (breadcrumb.isNotEmpty) ...[
                     _BreadcrumbRow(breadcrumb: breadcrumb, translations: data.translations, onPop: onPop),
@@ -602,6 +604,16 @@ class _CategorySection extends ConsumerWidget {
                       final c = data.categoryById[data.slices[i].categoryId];
                       if (c != null) onDrillInto(c);
                     },
+                  ),
+                ],
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: StatInfoButton(
+                      title: data.translations.t(AnalyticsSection.category.labelKey()),
+                      body: data.translations.t('analytics_info.category_donut'),
+                    ),
                   ),
                 ],
               ),
@@ -685,22 +697,34 @@ class _TagsSection extends ConsumerWidget {
           children: [
             AppCard.large(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: DonutChart(
-                slices: [
-                  for (var i = 0; i < data.slices.length; i++)
-                    DonutSlice(
-                      color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-                      value: data.slices[i].amountCents.toDouble(),
+              child: Stack(
+                children: [
+                  DonutChart(
+                    slices: [
+                      for (var i = 0; i < data.slices.length; i++)
+                        DonutSlice(
+                          color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                          value: data.slices[i].amountCents.toDouble(),
+                        ),
+                    ],
+                    center: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('TAGS', style: appHeaderStyle(colors)),
+                        const SizedBox(height: 2),
+                        AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 22)),
+                      ],
                     ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: StatInfoButton(
+                      title: data.translations.t(AnalyticsSection.tags.labelKey()),
+                      body: data.translations.t('analytics_info.tags_donut'),
+                    ),
+                  ),
                 ],
-                center: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('TAGS', style: appHeaderStyle(colors)),
-                    const SizedBox(height: 2),
-                    AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 22)),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),

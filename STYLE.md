@@ -255,6 +255,10 @@ stay ink/neutral.
   `0.15 + 0.85·intensity` alpha; `radius 4` cells.
 - **`RankedList` / `LegendRow`** — proportional `LinearProgressIndicator` /
   color-dot rows; amounts in tabular figures.
+- **`StatInfoButton`** — compact `IconButton` (`info300`, 18px, `textMuted`,
+  32×32 tap target) placed beside a stat's title. Opens `showStatInfoSheet`: a
+  `showDragHandle`/`isScrollControlled` bottom sheet with `titleMedium` (bold)
+  title, `bodyMedium` explanation, and an optional example widget below.
 
 ## 6. Iconography — lucide
 

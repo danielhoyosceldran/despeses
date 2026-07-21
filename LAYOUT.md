@@ -82,7 +82,8 @@ Sectioned screen navigated by a section FAB.
   - **Quality**: tag-coverage `RingGauge`.
   - **Budgets**: per active budget, progress bar + pace/projection line.
   - **Events**: event dropdown selector + total/€-per-day tiles + spend timeline + out-of-range notice.
-- **Shared chart widgets** live in `widgets/charts/` (`DonutChart`, `LegendRow`, `analytics_widgets.dart`: `KpiTile`/`KpiTileGrid`, `RankedList`, `MonthlyBars`, `TrendLines`, `RingGauge`, `CalendarHeatmap`, `StatCard`).
+- **Shared chart widgets** live in `widgets/charts/` (`DonutChart`, `LegendRow`, `analytics_widgets.dart`: `KpiTile`/`KpiTileGrid`, `RankedList`, `MonthlyBars`, `TrendLines`, `RingGauge`, `CalendarHeatmap`, `StatCard`, `StatInfoButton`).
+- **Info button**: most `StatCard`s, `KpiTile`s and the Category/Tags donut cards carry a small "i" (`StatInfoButton`) beside their title. Tap opens a bottom sheet (`showStatInfoSheet`, drag handle, `isScrollControlled`) with a plain-language explanation of the stat and, for the savings-rate ring, a sample `RingGauge` illustrating it.
 
 ### Settings (`settings_screen.dart`)
 Data catalog tab.
