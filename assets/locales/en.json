@@ -160,7 +160,10 @@
     "error_generic": "Could not load this.",
     "delete_named": "Delete \"{{name}}\"?",
     "delete_with_budgets": "\"{{name}}\" has {{count}} budget(s) that will also be deleted. Continue?",
-    "error_delete_named": "Could not delete \"{{name}}\""
+    "delete_with_budgets_multi": "Selected items have {{count}} budget(s) that will also be deleted. Continue?",
+    "delete_selected": "Delete {{count}} selected item(s)?",
+    "error_delete_named": "Could not delete \"{{name}}\"",
+    "done": "Done"
   },
   "categories": {
     "add": "Add category",
@@ -173,7 +176,8 @@
     "delete_warning_budgets": "This category has {{count}} linked budget(s) that will be deleted. Subcategories and expenses will also be affected.",
     "new": "New category",
     "delete_title": "Delete category",
-    "delete_with_budgets": "\"{{name}}\" (and its subcategories) has {{count}} budget(s) that will also be deleted. Continue?"
+    "delete_with_budgets": "\"{{name}}\" (and its subcategories) has {{count}} budget(s) that will also be deleted. Continue?",
+    "delete_with_budgets_multi": "Selected categories (and their subcategories) have {{count}} budget(s) that will also be deleted. Continue?"
   },
   "tags": {
     "add": "Add tag",

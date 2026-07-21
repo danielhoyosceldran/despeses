@@ -20,6 +20,8 @@ class EventsScreen extends ConsumerStatefulWidget {
 class _EventsScreenState extends ConsumerState<EventsScreen> {
   List<Event> _events = [];
   bool _loading = true;
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
 
   @override
   void initState() {
@@ -70,22 +72,59 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
     _load();
   }
 
-  Future<bool> _confirmDelete(Event event) async {
-    final budgetCount = await ref.read(eventRepositoryProvider).budgetCount(event.id);
+  Future<bool> _confirmDeleteSelected(List<Event> events) async {
+    final repo = ref.read(eventRepositoryProvider);
+    var budgetCount = 0;
+    for (final event in events) {
+      budgetCount += await repo.budgetCount(event.id);
+    }
     if (!mounted) return false;
     final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? (translations?.t('common.delete_with_budgets') ??
-                '"{{name}}" has {{count}} budget(s) that will also be deleted. Continue?')
-            .replaceAll('{{name}}', event.name)
+        ? (translations?.t('common.delete_with_budgets_multi') ??
+                'Selected events have {{count}} budget(s) that will also be deleted. Continue?')
             .replaceAll('{{count}}', '$budgetCount')
-        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', event.name);
+        : (translations?.t('common.delete_selected') ?? 'Delete {{count}} selected item(s)?')
+            .replaceAll('{{count}}', '${events.length}');
     return showConfirmDialog(
       context,
       title: translations?.t('events.delete_title') ?? 'Delete event',
       message: message,
       destructive: true,
     );
+  }
+
+  void _enterSelection(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _setSelected(String id, bool value) {
+    setState(() {
+      if (value) {
+        _selected.add(id);
+      } else {
+        _selected.remove(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final toDelete = _events.where((e) => _selected.contains(e.id)).toList();
+    if (!await _confirmDeleteSelected(toDelete)) return;
+    for (final event in toDelete) {
+      await _delete(event);
+    }
+    _exitSelection();
   }
 
   Future<void> _delete(Event event) async {
@@ -114,7 +153,20 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
   Widget build(BuildContext context) {
     final translations = ref.watch(translationsProvider).asData?.value;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _selected.isEmpty ? null : _deleteSelected,
+                ),
+                TextButton(
+                  onPressed: _exitSelection,
+                  child: Text(translations?.t('common.done') ?? 'Done'),
+                ),
+              ]
+            : null,
+      ),
       body: Column(
         children: [
           PageTitleHeader(translations?.t('settings_nav.events') ?? 'Events'),
@@ -127,12 +179,15 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                     itemBuilder: (context, index) {
                       final event = _events[index];
                       return EntityListTile(
+                        key: ValueKey(event.id),
                         id: event.id,
                         title: event.name,
                         subtitle: event.description,
                         onEdit: () => _edit(event),
-                        confirmDelete: () => _confirmDelete(event),
-                        onDeleted: () => _delete(event),
+                        onLongPress: () => _enterSelection(event.id),
+                        selectionMode: _selectionMode,
+                        selected: _selected.contains(event.id),
+                        onSelectedChanged: (v) => _setSelected(event.id, v),
                       );
                     },
                   ),

@@ -160,7 +160,10 @@
     "error_generic": "No se pudo cargar.",
     "delete_named": "¿Eliminar \"{{name}}\"?",
     "delete_with_budgets": "\"{{name}}\" tiene {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?",
-    "error_delete_named": "No se pudo eliminar \"{{name}}\""
+    "delete_with_budgets_multi": "Los elementos seleccionados tienen {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?",
+    "delete_selected": "¿Eliminar {{count}} elemento(s) seleccionado(s)?",
+    "error_delete_named": "No se pudo eliminar \"{{name}}\"",
+    "done": "Hecho"
   },
   "categories": {
     "add": "Añadir categoría",
@@ -173,7 +176,8 @@
     "delete_warning_budgets": "Esta categoría tiene {{count}} presupuesto(s) vinculado(s) que se eliminarán.",
     "new": "Nueva categoría",
     "delete_title": "Eliminar categoría",
-    "delete_with_budgets": "\"{{name}}\" (y sus subcategorías) tiene {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?"
+    "delete_with_budgets": "\"{{name}}\" (y sus subcategorías) tiene {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?",
+    "delete_with_budgets_multi": "Las categorías seleccionadas (y sus subcategorías) tienen {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?"
   },
   "tags": {
     "add": "Añadir etiqueta",

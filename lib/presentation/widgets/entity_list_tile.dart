@@ -8,8 +8,12 @@ import '../../core/theme/app_theme.dart';
 ///
 /// Leading is a rounded-square avatar tinted with the entity color: it shows
 /// the entity's [icon] (a free-text emoji) when set, otherwise the title's
-/// initial. Gestures: long-press drags to reorder (on reorderable lists),
-/// swipe right edits, swipe left deletes after confirmation.
+/// initial. Two modes:
+/// - normal: tap opens/drills into the row ([onTap]); long-press enters
+///   selection mode ([onLongPress]).
+/// - selection ([selectionMode]): leading swaps to a checkbox, trailing shows
+///   an edit pencil and (when [reorderIndex] is set) a drag handle; tap
+///   toggles the checkbox instead of firing [onTap].
 class EntityListTile extends StatelessWidget {
   const EntityListTile({
     super.key,
@@ -19,13 +23,16 @@ class EntityListTile extends StatelessWidget {
     this.leadingColor,
     this.icon,
     this.onEdit,
-    this.confirmDelete,
-    this.onDeleted,
     this.onTap,
+    this.onLongPress,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onSelectedChanged,
+    this.reorderIndex,
     this.showDivider = true,
   });
 
-  /// Stable entity id, used to key the swipe gesture state.
+  /// Stable entity id.
   final String id;
   final String title;
   final String? subtitle;
@@ -37,18 +44,23 @@ class EntityListTile extends StatelessWidget {
   /// Free-text emoji stored on the entity; rendered inside the avatar when set.
   final String? icon;
 
-  /// Swipe right to edit; null disables the gesture.
+  /// Opens the edit dialog for this row; shown as a trailing pencil in
+  /// selection mode. Null hides the pencil.
   final VoidCallback? onEdit;
 
-  /// Swipe left to delete: asks the user to confirm and returns whether the
-  /// row should be removed. Null disables the gesture (defaults, "Ungrouped").
-  final Future<bool> Function()? confirmDelete;
-
-  /// Called once the delete swipe is confirmed and the row is dismissed. Must
-  /// synchronously remove the entity from the list backing this tile.
-  final VoidCallback? onDeleted;
-
   final VoidCallback? onTap;
+
+  /// Enters selection mode for the whole list, selecting this row. Ignored
+  /// while [selectionMode] is already true.
+  final VoidCallback? onLongPress;
+
+  final bool selectionMode;
+  final bool selected;
+  final ValueChanged<bool>? onSelectedChanged;
+
+  /// Index in the enclosing `ReorderableListView`; when set, a drag handle is
+  /// shown in selection mode. Null hides the handle (non-reorderable lists).
+  final int? reorderIndex;
 
   /// Show a hairline divider below the row, inset to align under the text.
   final bool showDivider;
@@ -60,51 +72,27 @@ class EntityListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final tint = leadingColor ?? colors.accent;
-    final direction = onEdit != null && confirmDelete != null
-        ? DismissDirection.horizontal
-        : onEdit != null
-            ? DismissDirection.startToEnd
-            : confirmDelete != null
-                ? DismissDirection.endToStart
-                : DismissDirection.none;
-
     final hasIcon = icon != null && icon!.trim().isNotEmpty;
     final initial = title.trim().isEmpty ? '?' : title.trim().characters.first.toUpperCase();
 
-    return Dismissible(
-      key: ValueKey('entity-tile-$id'),
-      direction: direction,
-      confirmDismiss: (dir) async {
-        if (dir == DismissDirection.startToEnd) {
-          onEdit!();
-          return false;
-        }
-        return confirmDelete!();
-      },
-      onDismissed: (_) => onDeleted?.call(),
-      background: Container(
-        color: colors.accent,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: Icon(LucideIcons.pencil300, color: colors.onAccent),
-      ),
-      secondaryBackground: Container(
-        color: Theme.of(context).colorScheme.error,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: Icon(LucideIcons.trash2300, color: colors.onAccent),
-      ),
-      child: Material(
-        color: colors.surface,
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.smMd),
-                child: Row(
-                  children: [
+    return Material(
+      color: colors.surface,
+      child: InkWell(
+        onTap: selectionMode ? () => onSelectedChanged?.call(!selected) : onTap,
+        onLongPress: selectionMode ? null : onLongPress,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.smMd),
+              child: Row(
+                children: [
+                  if (selectionMode)
+                    Checkbox(
+                      value: selected,
+                      onChanged: onSelectedChanged == null ? null : (v) => onSelectedChanged!(v ?? false),
+                    )
+                  else
                     Container(
                       width: _avatarSize,
                       height: _avatarSize,
@@ -120,47 +108,60 @@ class EntityListTile extends StatelessWidget {
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: tint),
                             ),
                     ),
-                    const SizedBox(width: _gap),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          if (subtitle != null && subtitle!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                subtitle!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
+                  const SizedBox(width: _gap),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (subtitle != null && subtitle!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
-                    if (onTap != null) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      Icon(LucideIcons.chevronRight300, size: 20, color: colors.textMuted),
-                    ],
+                  ),
+                  if (selectionMode) ...[
+                    if (onEdit != null)
+                      IconButton(
+                        icon: const Icon(LucideIcons.pencil300, size: 20),
+                        onPressed: onEdit,
+                      ),
+                    if (reorderIndex != null)
+                      ReorderableDragStartListener(
+                        index: reorderIndex!,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                          child: Icon(LucideIcons.gripVertical300, size: 20, color: colors.textMuted),
+                        ),
+                      ),
+                  ] else if (onTap != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Icon(LucideIcons.chevronRight300, size: 20, color: colors.textMuted),
                   ],
-                ),
+                ],
               ),
-              if (showDivider)
-                Divider(
-                  color: colors.divider,
-                  height: 1,
-                  indent: AppSpacing.md + _avatarSize + _gap,
-                  endIndent: AppSpacing.md,
-                ),
-            ],
-          ),
+            ),
+            if (showDivider)
+              Divider(
+                color: colors.divider,
+                height: 1,
+                indent: AppSpacing.md + _avatarSize + _gap,
+                endIndent: AppSpacing.md,
+              ),
+          ],
         ),
       ),
     );

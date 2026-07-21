@@ -23,6 +23,8 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   List<TagGroup> _groups = [];
   Map<String, List<Tag>> _tagsByGroup = {};
   bool _loading = true;
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
 
   @override
   void initState() {
@@ -75,16 +77,20 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     _load();
   }
 
-  Future<bool> _confirmDelete(Tag tag, String label) async {
-    final budgetCount = await ref.read(tagRepositoryProvider).budgetCount(tag.id);
+  Future<bool> _confirmDeleteSelected(List<Tag> tags) async {
+    final repo = ref.read(tagRepositoryProvider);
+    var budgetCount = 0;
+    for (final tag in tags) {
+      budgetCount += await repo.budgetCount(tag.id);
+    }
     if (!mounted) return false;
     final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? (translations?.t('common.delete_with_budgets') ??
-                '"{{name}}" has {{count}} budget(s) that will also be deleted. Continue?')
-            .replaceAll('{{name}}', label)
+        ? (translations?.t('common.delete_with_budgets_multi') ??
+                'Selected tags have {{count}} budget(s) that will also be deleted. Continue?')
             .replaceAll('{{count}}', '$budgetCount')
-        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', label);
+        : (translations?.t('common.delete_selected') ?? 'Delete {{count}} selected item(s)?')
+            .replaceAll('{{count}}', '${tags.length}');
     return showConfirmDialog(
       context,
       title: translations?.t('tags.delete_title') ?? 'Delete tag',
@@ -124,13 +130,59 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     ref.read(referenceDataCacheProvider).invalidate();
   }
 
+  void _enterSelection(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _setSelected(String id, bool value) {
+    setState(() {
+      if (value) {
+        _selected.add(id);
+      } else {
+        _selected.remove(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final toDelete = _tagsByGroup.values.expand((tags) => tags).where((t) => _selected.contains(t.id)).toList();
+    if (!await _confirmDeleteSelected(toDelete)) return;
+    for (final tag in toDelete) {
+      await _delete(tag);
+    }
+    _exitSelection();
+  }
+
   @override
   Widget build(BuildContext context) {
     final translationsAsync = ref.watch(translationsProvider);
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _selected.isEmpty ? null : _deleteSelected,
+                ),
+                TextButton(
+                  onPressed: _exitSelection,
+                  child: Text(translations?.t('common.done') ?? 'Done'),
+                ),
+              ]
+            : null,
+      ),
       body: Column(
         children: [
           PageTitleHeader(translations?.t('settings_nav.tags') ?? 'Tags'),
@@ -176,18 +228,18 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                             final label = translations == null
                                 ? tag.name
                                 : displayNameFor(translations, name: tag.name, isDefault: tag.isDefault);
-                            return ReorderableDelayedDragStartListener(
+                            return EntityListTile(
                               key: ValueKey(tag.id),
-                              index: index,
-                              child: EntityListTile(
-                                id: tag.id,
-                                title: label,
-                                leadingColor: tag.color == null ? null : hexToColor(tag.color),
-                                icon: tag.icon,
-                                onEdit: () => _edit(tag, label),
-                                confirmDelete: () => _confirmDelete(tag, label),
-                                onDeleted: () => _delete(tag),
-                              ),
+                              id: tag.id,
+                              title: label,
+                              leadingColor: tag.color == null ? null : hexToColor(tag.color),
+                              icon: tag.icon,
+                              onEdit: () => _edit(tag, label),
+                              onLongPress: () => _enterSelection(tag.id),
+                              selectionMode: _selectionMode,
+                              selected: _selected.contains(tag.id),
+                              onSelectedChanged: (v) => _setSelected(tag.id, v),
+                              reorderIndex: index,
                             );
                           },
                         ),

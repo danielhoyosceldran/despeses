@@ -22,6 +22,8 @@ class TagGroupsScreen extends ConsumerStatefulWidget {
 class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
   List<TagGroup> _groups = [];
   bool _loading = true;
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
 
   @override
   void initState() {
@@ -65,18 +67,6 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
     _load();
   }
 
-  Future<bool> _confirmDelete(String label) {
-    final translations = ref.read(translationsProvider).asData?.value;
-    return showConfirmDialog(
-      context,
-      title: translations?.t('tag_groups.delete_title') ?? 'Delete tag group',
-      message: (translations?.t('tag_groups.delete_message') ??
-              'Its tags will be moved to "Ungrouped" first, then "{{name}}" is deleted.')
-          .replaceAll('{{name}}', label),
-      destructive: true,
-    );
-  }
-
   Future<void> _delete(TagGroup group) async {
     final index = _groups.indexOf(group);
     setState(() => _groups.remove(group));
@@ -109,13 +99,67 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
     ref.read(referenceDataCacheProvider).invalidate();
   }
 
+  void _enterSelection(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _setSelected(String id, bool value) {
+    setState(() {
+      if (value) {
+        _selected.add(id);
+      } else {
+        _selected.remove(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final toDelete = _groups.where((g) => _selected.contains(g.id)).toList();
+    final translations = ref.read(translationsProvider).asData?.value;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: translations?.t('tag_groups.delete_title') ?? 'Delete tag group',
+      message: (translations?.t('common.delete_selected') ?? 'Delete {{count}} selected item(s)?')
+          .replaceAll('{{count}}', '${toDelete.length}'),
+      destructive: true,
+    );
+    if (!confirmed) return;
+    for (final group in toDelete) {
+      await _delete(group);
+    }
+    _exitSelection();
+  }
+
   @override
   Widget build(BuildContext context) {
     final translationsAsync = ref.watch(translationsProvider);
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _selected.isEmpty ? null : _deleteSelected,
+                ),
+                TextButton(
+                  onPressed: _exitSelection,
+                  child: Text(translations?.t('common.done') ?? 'Done'),
+                ),
+              ]
+            : null,
+      ),
       body: Column(
         children: [
           PageTitleHeader(translations?.t('settings_nav.tag_groups') ?? 'Tag groups'),
@@ -133,16 +177,16 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
                 final label = translations == null
                     ? group.name
                     : tagGroupDisplayName(translations, group.name);
-                return ReorderableDelayedDragStartListener(
+                return EntityListTile(
                   key: ValueKey(group.id),
-                  index: index,
-                  child: EntityListTile(
-                    id: group.id,
-                    title: label,
-                    onEdit: isUngrouped ? null : () => _rename(group, label),
-                    confirmDelete: isUngrouped ? null : () => _confirmDelete(label),
-                    onDeleted: () => _delete(group),
-                  ),
+                  id: group.id,
+                  title: label,
+                  onEdit: isUngrouped ? null : () => _rename(group, label),
+                  onLongPress: isUngrouped ? null : () => _enterSelection(group.id),
+                  selectionMode: _selectionMode,
+                  selected: _selected.contains(group.id),
+                  onSelectedChanged: isUngrouped ? null : (v) => _setSelected(group.id, v),
+                  reorderIndex: index,
                 );
               },
                   ),

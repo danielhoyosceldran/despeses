@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+## Language
+
+Respond to prompts in castellano (Spanish). Code and comments always in English.
+
 ## Layout & style documentation
 
 Two living reference docs, kept split by concern:

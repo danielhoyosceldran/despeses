@@ -20,6 +20,8 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   List<Project> _projects = [];
   bool _loading = true;
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
 
   @override
   void initState() {
@@ -70,22 +72,59 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     _load();
   }
 
-  Future<bool> _confirmDelete(Project project) async {
-    final budgetCount = await ref.read(projectRepositoryProvider).budgetCount(project.id);
+  Future<bool> _confirmDeleteSelected(List<Project> projects) async {
+    final repo = ref.read(projectRepositoryProvider);
+    var budgetCount = 0;
+    for (final project in projects) {
+      budgetCount += await repo.budgetCount(project.id);
+    }
     if (!mounted) return false;
     final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? (translations?.t('common.delete_with_budgets') ??
-                '"{{name}}" has {{count}} budget(s) that will also be deleted. Continue?')
-            .replaceAll('{{name}}', project.name)
+        ? (translations?.t('common.delete_with_budgets_multi') ??
+                'Selected projects have {{count}} budget(s) that will also be deleted. Continue?')
             .replaceAll('{{count}}', '$budgetCount')
-        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', project.name);
+        : (translations?.t('common.delete_selected') ?? 'Delete {{count}} selected item(s)?')
+            .replaceAll('{{count}}', '${projects.length}');
     return showConfirmDialog(
       context,
       title: translations?.t('projects.delete_title') ?? 'Delete project',
       message: message,
       destructive: true,
     );
+  }
+
+  void _enterSelection(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _setSelected(String id, bool value) {
+    setState(() {
+      if (value) {
+        _selected.add(id);
+      } else {
+        _selected.remove(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final toDelete = _projects.where((p) => _selected.contains(p.id)).toList();
+    if (!await _confirmDeleteSelected(toDelete)) return;
+    for (final project in toDelete) {
+      await _delete(project);
+    }
+    _exitSelection();
   }
 
   Future<void> _delete(Project project) async {
@@ -112,7 +151,20 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   Widget build(BuildContext context) {
     final translations = ref.watch(translationsProvider).asData?.value;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _selected.isEmpty ? null : _deleteSelected,
+                ),
+                TextButton(
+                  onPressed: _exitSelection,
+                  child: Text(translations?.t('common.done') ?? 'Done'),
+                ),
+              ]
+            : null,
+      ),
       body: Column(
         children: [
           PageTitleHeader(translations?.t('settings_nav.projects') ?? 'Projects'),
@@ -125,12 +177,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     itemBuilder: (context, index) {
                       final project = _projects[index];
                       return EntityListTile(
+                        key: ValueKey(project.id),
                         id: project.id,
                         title: project.name,
                         subtitle: project.description,
                         onEdit: () => _edit(project),
-                        confirmDelete: () => _confirmDelete(project),
-                        onDeleted: () => _delete(project),
+                        onLongPress: () => _enterSelection(project.id),
+                        selectionMode: _selectionMode,
+                        selected: _selected.contains(project.id),
+                        onSelectedChanged: (v) => _setSelected(project.id, v),
                       );
                     },
                   ),

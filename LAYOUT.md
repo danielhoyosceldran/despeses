@@ -167,30 +167,42 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. 
 - **AppBar**: empty.
 - **Body** ListView: `PageTitleHeader` "Profile", then three labeled sections, each a section label above an `AppCard`: **Language** — one option row per locale (native name + trailing check on the selected one); **Theme** — three option rows (Light / Dark / System, trailing check on the selected one); **Currency** — single read-only `HairlineListTile` (coins icon) with the currency code as trailing text; **Feedback** — a single toggle row (label + trailing `Switch`) for Haptics.
 
+### Settings CRUD lists — shared `EntityListTile` selection mode
+Applies to Events, Projects, Categories, Tag groups, Payment methods, Tags.
+Two row modes:
+- **Normal**: leading avatar (icon/initial); tap = act (open/descend, or nothing
+  for leaf lists); long-press = enter selection mode with this row checked.
+- **Selection mode** (entered via any row's long-press): leading swaps to a
+  `Checkbox`; trailing shows an edit pencil icon (`onEdit`) and, on
+  reorderable lists, a drag-handle icon (`ReorderableDragStartListener`,
+  replaces the old whole-row long-press-to-drag); tap toggles the checkbox.
+  AppBar shows a trailing trash icon (bulk delete selected, confirms once)
+  and a "Done" text button (exits selection mode, clears selection).
+
 ### Settings › Events (`settings/events_screen.dart`)
-- **AppBar**: empty.
+- **AppBar**: empty normally; selection-mode actions (trash, Done) per above.
 - **Body** Column: `PageTitleHeader` "Events" + Expanded `ListView` of `EntityListTile` (title = name, subtitle = description).
-- **FAB**: "+" → `showEventProjectFormDialog` (new). Swipe edit/delete (delete confirm warns of dependent budgets).
+- **FAB**: "+" → `showEventProjectFormDialog` (new).
 
 ### Settings › Projects (`settings/projects_screen.dart`)
 Identical to Events with "Projects" title.
 
 ### Settings › Categories (`settings/categories_screen.dart`)
-- **AppBar**: empty.
-- **Body** Column: at root, `PageTitleHeader` "Categories" + a full-width `SegmentedButton` (Expense / Income / Refund / Savings) that switches which per-type category tree is shown; when drilled, a breadcrumb Row (circular back + path) replaces both · Expanded `ReorderableListView` of `EntityListTile` (long-press drag reorder; tap descends into children; swipe edit/delete).
+- **AppBar**: empty normally; selection-mode actions (trash, Done) per above.
+- **Body** Column: at root, `PageTitleHeader` "Categories" + a full-width `SegmentedButton` (Expense / Income / Refund / Savings) that switches which per-type category tree is shown; when drilled, a breadcrumb Row (circular back + path) replaces both · Expanded `ReorderableListView` of `EntityListTile` (tap descends into children outside selection mode; drag handle reorders inside selection mode).
 - **FAB**: "+" → `showEntityFormDialog`, hidden at depth ≥ 3 (max 3 levels). New categories are created in the currently selected type's tree.
 
 ### Settings › Tag groups (`settings/tag_groups_screen.dart`)
-- **AppBar**: empty.
-- **Body** Column: `PageTitleHeader` "Tag groups" + Expanded `ReorderableListView` of `EntityListTile`. "Ungrouped" group has edit/delete disabled.
+- **AppBar**: empty normally; selection-mode actions (trash, Done) per above.
+- **Body** Column: `PageTitleHeader` "Tag groups" + Expanded `ReorderableListView` of `EntityListTile`. "Ungrouped" group can't enter selection (no long-press/checkbox) and has edit disabled.
 - **FAB**: "+" → `showEntityFormDialog` (name only). Delete moves tags to Ungrouped.
 
 ### Settings › Payment methods (`settings/payment_methods_screen.dart`)
 Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityListTile` list (icon, no color). FAB "+" → `showEntityFormDialog` (with icon).
 
 ### Settings › Tags (`settings/tags_screen.dart`)
-- **AppBar**: empty.
-- **Body** Column: `PageTitleHeader` "Tags" + Expanded outer `ListView`, one section per tag group. Each section: group header Row (name + trailing "+" to add tag to group) above a nested non-scrolling `ReorderableListView` of `EntityListTile` (reorder within group; swipe edit/delete). No FAB.
+- **AppBar**: empty normally; selection-mode actions (trash, Done) per above.
+- **Body** Column: `PageTitleHeader` "Tags" + Expanded outer `ListView`, one section per tag group. Each section: group header Row (name + trailing "+" to add tag to group) above a nested non-scrolling `ReorderableListView` of `EntityListTile` (reorder handle in selection mode). Selection spans across groups. No FAB.
 
 ---
 

@@ -25,6 +25,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final List<Category> _breadcrumb = [];
   List<Category> _children = [];
   bool _loading = true;
+  bool _selectionMode = false;
+  final Set<String> _selected = {};
 
   /// Which transaction-type category forest is being managed. Only switchable
   /// at the root level.
@@ -90,16 +92,20 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     _load();
   }
 
-  Future<bool> _confirmDelete(Category category, String label) async {
-    final budgetCount = await ref.read(categoryRepositoryProvider).budgetCount(category.id);
+  Future<bool> _confirmDeleteSelected(List<Category> categories) async {
+    final repo = ref.read(categoryRepositoryProvider);
+    var budgetCount = 0;
+    for (final category in categories) {
+      budgetCount += await repo.budgetCount(category.id);
+    }
     if (!mounted) return false;
     final translations = ref.read(translationsProvider).asData?.value;
     final message = budgetCount > 0
-        ? (translations?.t('categories.delete_with_budgets') ??
-                '"{{name}}" (and its subcategories) has {{count}} budget(s) that will also be deleted. Continue?')
-            .replaceAll('{{name}}', label)
+        ? (translations?.t('categories.delete_with_budgets_multi') ??
+                'Selected categories (and their subcategories) have {{count}} budget(s) that will also be deleted. Continue?')
             .replaceAll('{{count}}', '$budgetCount')
-        : (translations?.t('common.delete_named') ?? 'Delete "{{name}}"?').replaceAll('{{name}}', label);
+        : (translations?.t('common.delete_selected') ?? 'Delete {{count}} selected item(s)?')
+            .replaceAll('{{count}}', '${categories.length}');
     return showConfirmDialog(
       context,
       title: translations?.t('categories.delete_title') ?? 'Delete category',
@@ -140,13 +146,59 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     ref.read(referenceDataCacheProvider).invalidate();
   }
 
+  void _enterSelection(String id) {
+    setState(() {
+      _selectionMode = true;
+      _selected.add(id);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _setSelected(String id, bool value) {
+    setState(() {
+      if (value) {
+        _selected.add(id);
+      } else {
+        _selected.remove(id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final toDelete = _children.where((c) => _selected.contains(c.id)).toList();
+    if (!await _confirmDeleteSelected(toDelete)) return;
+    for (final category in toDelete) {
+      await _delete(category);
+    }
+    _exitSelection();
+  }
+
   @override
   Widget build(BuildContext context) {
     final translationsAsync = ref.watch(translationsProvider);
     final translations = translationsAsync.asData?.value;
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2300),
+                  onPressed: _selected.isEmpty ? null : _deleteSelected,
+                ),
+                TextButton(
+                  onPressed: _exitSelection,
+                  child: Text(translations?.t('common.done') ?? 'Done'),
+                ),
+              ]
+            : null,
+      ),
       body: Column(
         children: [
           if (_breadcrumb.isEmpty) ...[
@@ -213,22 +265,22 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       final label = translations == null
                           ? category.name
                           : displayNameFor(translations, name: category.name, isDefault: category.isDefault);
-                      return ReorderableDelayedDragStartListener(
+                      return EntityListTile(
                         key: ValueKey(category.id),
-                        index: index,
-                        child: EntityListTile(
                         id: category.id,
                         title: label,
                         leadingColor: category.color == null ? null : hexToColor(category.color),
                         icon: category.icon,
                         onEdit: () => _edit(category),
-                        confirmDelete: () => _confirmDelete(category, label),
-                        onDeleted: () => _delete(category),
                         onTap: () {
                           setState(() => _breadcrumb.add(category));
                           _load();
                         },
-                        ),
+                        onLongPress: () => _enterSelection(category.id),
+                        selectionMode: _selectionMode,
+                        selected: _selected.contains(category.id),
+                        onSelectedChanged: (v) => _setSelected(category.id, v),
+                        reorderIndex: index,
                       );
                     },
                   ),
