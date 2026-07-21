@@ -287,10 +287,8 @@ Future<void> _seedDefaults(AppDatabase db) async {
   }
 
   const paymentMethods = [
+    'payment.card',
     'payment.cash',
-    'payment.credit_card',
-    'payment.debit_card',
-    'payment.transfer',
   ];
   for (var i = 0; i < paymentMethods.length; i++) {
     await db.into(db.paymentMethods).insert(

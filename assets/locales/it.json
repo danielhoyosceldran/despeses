@@ -508,6 +508,7 @@
   },
   "payment": {
     "cash": "Contanti",
+    "card": "Carta",
     "credit_card": "Carta di credito",
     "debit_card": "Carta di debito",
     "transfer": "Bonifico"

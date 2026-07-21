@@ -21,7 +21,7 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
   /// Window in which a second back press confirms exit ("press back again").
   static const _exitWindow = Duration(seconds: 2);
   DateTime? _lastBackAt;
@@ -29,9 +29,30 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void initState() {
     super.initState();
-    // Materialize any due recurring transactions once per launch (feature
-    // 3.13). Fire-and-forget after the first frame; failures are non-fatal —
-    // the pending inbox just won't gain new entries this run.
+    WidgetsBinding.instance.addObserver(this);
+    _materializeDue();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The shell (and its tabs, kept in an internal IndexedStack) is built
+    // once for the app's lifetime, so a launch-time-only materialize misses
+    // recurrences that become due while the app stays open/backgrounded —
+    // re-check on resume as well as on returning to the Dashboard tab (feature
+    // 3.13).
+    if (state == AppLifecycleState.resumed) _materializeDue();
+  }
+
+  /// Fire-and-forget: failures are non-fatal, the pending inbox just won't
+  /// gain new entries this pass. `watchPending`/`watchPendingCount` streams
+  /// pick up any newly-materialized occurrences automatically.
+  void _materializeDue() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(recurringRepositoryProvider).materializeDue();
     });
@@ -114,7 +135,9 @@ class _AppShellState extends ConsumerState<AppShell> {
           final currentPos = _visibleIndices.indexOf(navigationShell.currentIndex);
           final targetPos = currentPos + delta;
           if (targetPos < 0 || targetPos >= _visibleIndices.length) return;
-          navigationShell.goBranch(_visibleIndices[targetPos]);
+          final targetIndex = _visibleIndices[targetPos];
+          if (targetIndex == 0) _materializeDue();
+          navigationShell.goBranch(targetIndex);
         },
         child: _NavBar(
           activePos: _visibleIndices.indexOf(navigationShell.currentIndex),
@@ -122,6 +145,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           labels: [for (final i in _visibleIndices) t?.t(_keys[i]) ?? _labels[i]],
           onSelect: (pos) {
             final index = _visibleIndices[pos];
+            if (index == 0) _materializeDue();
             navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
           },
         ),

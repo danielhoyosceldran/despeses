@@ -24,6 +24,15 @@ Two living reference docs, kept split by concern:
 If a change touches both (e.g. a new styled component on a screen), update both
 files.
 
+## App philosophy
+
+App tracks monthly expenses/savings and gives some global overview — **not**
+a mirror of bank account or user's real net worth/patrimony. Don't design
+features assuming real account balance reconciliation.
+
+Sign convention: gastos (expenses) and ahorros (savings) subtract; ingresos
+(income) and reembolsos (refunds) add.
+
 ## Haptics
 
 The user's **Haptics** setting (`profile.hapticsEnabled`, editable on Account ›

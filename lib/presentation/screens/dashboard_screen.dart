@@ -46,7 +46,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   late final PageController _pageController;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
 
-  final Map<String, List<Expense>> _expenseCache = {};
   List<Budget> _allBudgets = [];
   Map<String, int> _budgetProgress = {};
   final Set<String> _selectedIds = {};
@@ -64,7 +63,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   String _monthKeyOf(DateTime month) => '${month.year}-${month.month.toString().padLeft(2, '0')}';
-  String get _monthKey => _monthKeyOf(_month);
 
   @override
   void initState() {
@@ -72,7 +70,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _baseMonth = DateTime(_month.year, _month.month);
     _pageController = PageController(initialPage: _kInitialPage);
     _loadBudgets();
-    _prefetchAdjacent();
   }
 
   @override
@@ -85,20 +82,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   DateTime _monthBounds(DateTime month) => DateTime(month.year, month.month + 1, 0);
 
-  Future<List<Expense>> _fetchMonth(DateTime month) async {
-    final key = _monthKeyOf(month);
-    if (_expenseCache.containsKey(key)) return _expenseCache[key]!;
+  Stream<List<Expense>> _watchMonth(DateTime month) {
     final repo = ref.read(expenseRepositoryProvider);
-    final expenses = await repo.listAll(
+    return repo.watchAll(
       filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
     );
-    _expenseCache[key] = expenses;
-    return expenses;
-  }
-
-  Future<void> _prefetchAdjacent() async {
-    await _fetchMonth(DateTime(_month.year, _month.month - 1));
-    await _fetchMonth(DateTime(_month.year, _month.month + 1));
   }
 
   Future<void> _loadBudgets() async {
@@ -122,7 +110,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   void _onPageChanged(int page) {
     setState(() => _month = _monthForPage(page));
-    _prefetchAdjacent();
   }
 
   Future<void> _openEntry({String? expenseId}) async {
@@ -130,7 +117,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       bottomUpRoute(ExpenseEntryScreen(expenseId: expenseId)),
     );
     if (saved == true) {
-      setState(() => _expenseCache.remove(_monthKey));
       _loadBudgets();
     }
   }
@@ -152,7 +138,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
     setState(() {
       _selectedIds.clear();
-      _expenseCache.clear();
     });
     _loadBudgets();
   }
@@ -170,7 +155,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         pageBuilder: (_, close) => ExpenseEntryScreen(onClose: close),
         onResult: (saved) {
           if (saved == true) {
-            setState(() => _expenseCache.remove(_monthKey));
             _loadBudgets();
           }
         },
@@ -209,7 +193,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 return _MonthPage(
                   key: ValueKey(_monthKeyOf(month)),
                   month: month,
-                  fetchExpenses: _fetchMonth,
+                  watchExpenses: _watchMonth,
                   allBudgets: _allBudgets,
                   budgetProgress: _budgetProgress,
                   currency: currency,
@@ -524,7 +508,7 @@ class _RecurringDueTile extends StatelessWidget {
 }
 
 /// Signed monthly totals in the profile currency (accounting rule: expense
-/// subtracts, refund adds back, income is tracked separately).
+/// and ahorro subtract, refund adds back, income is tracked separately).
 class _Totals {
   const _Totals({required this.spent, required this.income});
   final int spent;
@@ -538,6 +522,7 @@ class _Totals {
       if (e.currency != currency) continue;
       switch (e.type) {
         case 'expense':
+        case 'ahorro':
           spent += e.amount;
         case 'refund':
           spent -= e.amount;
@@ -691,7 +676,7 @@ class _MonthPage extends ConsumerWidget {
   const _MonthPage({
     required super.key,
     required this.month,
-    required this.fetchExpenses,
+    required this.watchExpenses,
     required this.allBudgets,
     required this.budgetProgress,
     required this.currency,
@@ -703,7 +688,7 @@ class _MonthPage extends ConsumerWidget {
   });
 
   final DateTime month;
-  final Future<List<Expense>> Function(DateTime month) fetchExpenses;
+  final Stream<List<Expense>> Function(DateTime month) watchExpenses;
   final List<Budget> allBudgets;
   final Map<String, int> budgetProgress;
   final String currency;
@@ -715,15 +700,12 @@ class _MonthPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // StatefulBuilder gives the error state a local rebuild for Retry: the
-    // month fetch isn't cached on failure, so re-running build re-issues it.
-    return StatefulBuilder(
-      builder: (context, setLocalState) => FutureBuilder<List<Expense>>(
-      future: fetchExpenses(month),
+    return StreamBuilder<List<Expense>>(
+      stream: watchExpenses(month),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return ErrorRetry(
-            onRetry: () => setLocalState(() {}),
+            onRetry: () {},
             message: translations?.t('dashboard.error_load_month') ?? 'Could not load this month.',
           );
         }
@@ -806,7 +788,6 @@ class _MonthPage extends ConsumerWidget {
           ],
         );
       },
-      ),
     );
   }
 }

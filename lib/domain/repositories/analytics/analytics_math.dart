@@ -35,17 +35,18 @@ List<DateTime> monthsIn(DateRange range) {
   return months;
 }
 
-/// The signed **spend** total: `expense` adds, `refund` subtracts, `income` and
-/// `ahorro` are excluded (savings is money set aside, not spent).
+/// The signed **spend** total: `expense` and `ahorro` add, `refund`
+/// subtracts, `income` is excluded.
 int signedSpend(Iterable<Expense> expenses) {
   var total = 0;
   for (final e in expenses) {
     switch (e.type) {
       case 'expense':
+      case 'ahorro':
         total += e.amount;
       case 'refund':
         total -= e.amount;
-      // income + ahorro excluded.
+      // income excluded.
     }
   }
   return total;

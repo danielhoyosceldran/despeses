@@ -508,6 +508,7 @@
   },
   "payment": {
     "cash": "Efectiu",
+    "card": "Targeta",
     "credit_card": "Targeta de crèdit",
     "debit_card": "Targeta de dèbit",
     "transfer": "Transferència"

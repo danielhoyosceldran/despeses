@@ -508,6 +508,7 @@
   },
   "payment": {
     "cash": "Espèces",
+    "card": "Carte",
     "credit_card": "Carte de crédit",
     "debit_card": "Carte de débit",
     "transfer": "Virement"

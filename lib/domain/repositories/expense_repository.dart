@@ -86,6 +86,15 @@ class ExpenseRepository {
     return query.map((row) => row.readTable(_db.expenses)).get();
   }
 
+  /// Live variant of [listAll] — emits again on any write to `expenses` (or
+  /// `expenseTags` when [ExpenseFilters.tagId] is set), so callers never need
+  /// to manually cache/invalidate (e.g. after confirming a recurring
+  /// occurrence, which inserts directly into `expenses`).
+  Stream<List<Expense>> watchAll({ExpenseFilters filters = const ExpenseFilters()}) {
+    final query = _filteredQuery(filters)..orderBy([OrderingTerm.desc(_db.expenses.date)]);
+    return query.map((row) => row.readTable(_db.expenses)).watch();
+  }
+
   Future<Expense?> byId(String id) {
     return (_db.select(_db.expenses)..where((e) => e.id.equals(id))).getSingleOrNull();
   }
