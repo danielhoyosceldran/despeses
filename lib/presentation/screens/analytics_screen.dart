@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -104,9 +105,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   late final DateTime _baseMonth;
   late final PageController _pageController;
 
-  /// Drill path for the Category section (empty = roots).
-  final List<Category> _breadcrumb = [];
-
   /// Rolling window (months) for time-series sections.
   int _window = 12;
 
@@ -138,18 +136,22 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   void _onPageChanged(int page) {
-    setState(() {
-      _month = _monthForPage(page);
-      _breadcrumb.clear();
-    });
+    setState(() => _month = _monthForPage(page));
   }
 
   void _selectSection(AnalyticsSection s) {
     if (s == _section) return;
-    setState(() {
-      _section = s;
-      _breadcrumb.clear();
-    });
+    setState(() => _section = s);
+  }
+
+  /// Pushes a real navigation-stack route for one level of category drill-down,
+  /// so the OS back gesture/button steps back up the tree (R2 — was setState).
+  void _pushCategoryDrill(DateTime month, String currency, List<Category> breadcrumb) {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => _CategoryDrillScreen(month: month, currency: currency, breadcrumb: breadcrumb),
+      ),
+    );
   }
 
   void _onPreview(AnalyticsSection? s) => _preview.value = s;
@@ -256,9 +258,9 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         return _CategorySection(
           month: month,
           currency: currency,
-          breadcrumb: _breadcrumb,
-          onDrillInto: (c) => setState(() => _breadcrumb.add(c)),
-          onPop: () => setState(() => _breadcrumb.removeLast()),
+          breadcrumb: const [],
+          onDrillInto: (c) => _pushCategoryDrill(month, currency, [c]),
+          onPop: () {}, // unreachable at root: breadcrumb is empty, no back row shown
         );
       case AnalyticsSection.tags:
         return _TagsSection(month: month, currency: currency);
@@ -642,6 +644,47 @@ class _CategorySection extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// One level of the Category drill-down, pushed as a real route (see
+/// [_AnalyticsScreenState._pushCategoryDrill]) so the OS back gesture/button
+/// pops it. Drilling further pushes another instance of this same screen.
+class _CategoryDrillScreen extends ConsumerWidget {
+  const _CategoryDrillScreen({required this.month, required this.currency, required this.breadcrumb});
+
+  final DateTime month;
+  final String currency;
+  final List<Category> breadcrumb;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final translations = ref.watch(translationsProvider).asData?.value;
+    final last = breadcrumb.last;
+    final title = translations != null ? displayNameFor(translations, name: last.name, isDefault: last.isDefault) : last.name;
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            AppTopBar(title: title),
+            Expanded(
+              child: _CategorySection(
+                month: month,
+                currency: currency,
+                breadcrumb: breadcrumb,
+                onDrillInto: (c) => Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => _CategoryDrillScreen(month: month, currency: currency, breadcrumb: [...breadcrumb, c]),
+                  ),
+                ),
+                onPop: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
