@@ -84,12 +84,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Stream<List<Expense>> _watchMonth(DateTime month) {
     final repo = ref.read(expenseRepositoryProvider);
-    return repo.watchAll(
-      filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
-    );
+    return repo
+        .watchAll(
+          filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
+        )
+        .map((expenses) {
+          debugPrint('[Dashboard] expenses stream emitted ${expenses.length} rows for $month');
+          return expenses;
+        });
   }
 
   Future<void> _loadBudgets() async {
+    debugPrint('[Dashboard] loading budgets for $_month');
     final budgetRepo = ref.read(budgetRepositoryProvider);
     final allBudgets = await budgetRepo.listAll();
     final progress = <String, int>{};
@@ -101,6 +107,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _allBudgets = allBudgets;
       _budgetProgress = progress;
     });
+    debugPrint('[Dashboard] loaded ${allBudgets.length} budgets');
+  }
+
+  Future<void> _onRefresh() async {
+    ref.read(hapticsProvider).light();
+    await ref.read(recurringRepositoryProvider).materializeDue();
+    await _loadBudgets();
   }
 
   void _changeMonth(int delta) {
@@ -183,6 +196,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: _deleteSelected,
+            actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh)],
           ),
           Expanded(
             child: PageView.builder(

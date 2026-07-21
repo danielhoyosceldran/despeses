@@ -100,6 +100,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   /// Loads both collections (budgets + goals) so either page renders instantly
   /// when swiped. Cheap for a personal app's data volume.
   Future<void> _load() async {
+    debugPrint('[Budgets] load started');
     setState(() => _loading = true);
     final budgetRepo = ref.read(budgetRepositoryProvider);
     final budgets = await budgetRepo.listAll();
@@ -121,6 +122,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       _goalProgress = goalProgress;
       _loading = false;
     });
+    debugPrint('[Budgets] load finished: ${budgets.length} budgets, ${goals.length} goals');
   }
 
   Future<void> _openBudgetEntry({Budget? budget}) async {
@@ -192,6 +194,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: () => _deleteSelected(tr),
+            actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _load)],
           ),
           if (!_selectionMode)
             Padding(

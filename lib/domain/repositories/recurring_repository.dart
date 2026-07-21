@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -217,15 +219,18 @@ class RecurringRepository {
   /// tests. Returns the number of occurrences created.
   Future<int> materializeDue({DateTime? now}) async {
     final today = _dateOnly(now ?? DateTime.now());
+    developer.log('materializeDue: checking templates due by $today', name: 'RecurringRepository');
     final due = await (_db.select(_db.recurrings)
           ..where((r) => r.active.equals(true))
           ..where((r) => r.nextDate.isSmallerOrEqualValue(_endOfDay(today))))
         .get();
+    developer.log('materializeDue: ${due.length} template(s) due', name: 'RecurringRepository');
 
     var created = 0;
     for (final t in due) {
       created += await _materializeTemplate(t, today);
     }
+    developer.log('materializeDue: created $created occurrence(s)', name: 'RecurringRepository');
     return created;
   }
 

@@ -54,6 +54,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   /// pick up any newly-materialized occurrences automatically.
   void _materializeDue() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[AppShell] materializeDue triggered');
       ref.read(recurringRepositoryProvider).materializeDue();
     });
   }

@@ -198,9 +198,13 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   pageController: _pageController,
                   monthForPage: _monthForPage,
                   fallbackPage: _kInitialPage,
+                  actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh)],
                 )
               else
-                AppTopBar(title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel()),
+                AppTopBar(
+                  title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel(),
+                  actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh)],
+                ),
               Expanded(
                 // Month-scoped sections live in a swipeable [PageView] (swipe
                 // left/right = prev/next month, tracked by the header label).
@@ -278,6 +282,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   }
 
   void _setWindow(int w) => setState(() => _window = w);
+
+  Future<void> _onRefresh() async {
+    ref.read(hapticsProvider).light();
+    invalidateAnalyticsSections(ref);
+  }
 }
 
 /// Section-navigation FAB with two drag gestures:

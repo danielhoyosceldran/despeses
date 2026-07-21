@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
@@ -32,6 +34,7 @@ typedef EventArgs = ({String eventId, DateTime? startsAt, DateTime? endsAt, Stri
 /// Every section family provider, so the screen can drop cached results in one
 /// call when the tab regains focus (data may have changed elsewhere).
 void invalidateAnalyticsSections(WidgetRef ref) {
+  developer.log('invalidating all analytics section providers', name: 'Analytics');
   ref.invalidate(categorySectionProvider);
   ref.invalidate(tagSectionProvider);
   ref.invalidate(healthSectionProvider);
