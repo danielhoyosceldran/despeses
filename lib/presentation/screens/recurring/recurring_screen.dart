@@ -9,6 +9,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_switch.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/drag_up_fab.dart';
@@ -391,8 +392,8 @@ class _TemplateCard extends StatelessWidget {
                   ),
             ),
             if (!selectionMode) ...[
-              const SizedBox(width: AppSpacing.xs),
-              Switch(value: recurring.active, onChanged: onToggleActive),
+              const SizedBox(width: AppSpacing.md),
+              AppSwitch(value: recurring.active, onChanged: onToggleActive),
             ],
           ],
         ),

@@ -53,11 +53,13 @@ class AppCard extends StatelessWidget {
       ),
       // Transparent Material so ink splashes / ListTile backgrounds from tappable
       // children paint *above* this card's decoration instead of being hidden by
-      // it. Clipped to the card radius so ink stays within the rounded corners.
+      // it. Only clip to the rounded corners when [clip] is set (children that
+      // draw to the edge, e.g. list dividers/ink); otherwise the corner radius
+      // would clip inset content such as a value sitting near a bottom corner.
       child: Material(
         type: MaterialType.transparency,
         borderRadius: BorderRadius.circular(radius),
-        clipBehavior: Clip.antiAlias,
+        clipBehavior: clip ? Clip.antiAlias : Clip.none,
         child: child,
       ),
     );

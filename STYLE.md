@@ -180,8 +180,12 @@ All use `colors.shadow` (pre-baked opacity per theme).
   Selection transition `animFast`/`animCurve`.
 - **Chip**: `surfaceAlt` bg, selected `pillBackground(accent)`, pill radius, no
   border.
-- **Switch**: default Material 3 track; `activeThumbColor = accent` (set at call
-  sites, e.g. the Profile Feedback/Haptics toggle — not yet globally themed).
+- **Switch** (`AppSwitch`): custom pill toggle (not Material `Switch`). Track
+  46×28 `radiusPill`; fills `accent` on / `mutedFill(0.5)` off (low-contrast
+  translucent muted). Thumb 22 circle
+  (`onAccent` on / `surface` off) with a soft `shadow` drop, slides via
+  `AnimatedAlign`+`AnimatedContainer` (`animFast` / `animCurve`). Disabled →
+  50% opacity. Tick routed through `HapticsService`.
 - **SnackBar**: `surfaceAlt`, radius 16, elevation 0.
 - **ProgressIndicator**: `accent` on `surfaceAlt` track.
 - **FAB**: `accent` / `onAccent`, elevation 0, `CircleBorder` (shadow +
@@ -193,7 +197,9 @@ All use `colors.shadow` (pre-baked opacity per theme).
 
 - **`AppCard`** (`app_card.dart`) — `surface`, hairline `borderSoft`, radius 16.
   `AppCard.large` = radius 24 (analytics panel, settings card). No shadow by
-  default (hairline carries it).
+  default (hairline carries it). Children are only clipped to the rounded corners
+  when `clip: true` (edge-drawing lists/ink); otherwise no clip, so inset content
+  near a corner is never sliced.
 - **`AppTopBar`** (`app_top_bar.dart`) — in-body header, `SafeArea` top,
   `px = lg`, content height 44. Month label: Inter 14 w500 uppercase `textMuted`.
   Title: `headlineSmall` (Clash 22).
@@ -246,11 +252,17 @@ stay ink/neutral.
 - **`StatCard`** — `AppCard` (hairline, `radiusCard`) with a `labelLarge` title,
   optional muted `bodySmall` subtitle (the stat's Excel ref), then the chart.
 - **`KpiTile`** — `mutedFill(0.30)` fill, hairline, `radiusCard`; `appHeaderStyle`
-  label + `appDisplay` 22 value (accent color for at-risk/emphasis).
+  label + `appDisplay` 22 value (accent color for at-risk/emphasis). Laid out by
+  `KpiTileGrid` as paired `IntrinsicHeight` rows (content-driven height, both
+  tiles in a row matched), not a fixed-aspect grid.
 - **`MonthlyBars` / `TrendLines`** — bars use `accent` (or a semantic/data color);
   lines 2.5px, curved, no dots; moving-average line uses `savings` blue.
+  `TrendLines` keeps ~12% vertical headroom and a small horizontal margin and sets
+  `preventCurveOverShooting`, so the curve/stroke never clip at the box edges.
 - **`RingGauge`** — `CircularProgressIndicator` 10px on `surfaceAlt` track,
-  fill `accent` or a semantic color; percent centered in `appDisplay`.
+  fill `accent` or a semantic color; percent centered in `appDisplay`. Stroke uses
+  `strokeAlignInside` (drawn inside the 96px box) so it isn't clipped/flattened at
+  the edges; the wrapping `Stack` is `Clip.none`.
 - **`CalendarHeatmap`** — 7-col grid; empty day = `surfaceAlt`, else base color at
   `0.15 + 0.85·intensity` alpha; `radius 4` cells.
 - **`RankedList` / `LegendRow`** — proportional `LinearProgressIndicator` /

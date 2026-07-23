@@ -468,7 +468,9 @@ class BehaviorSection extends ConsumerWidget {
                   infoBody: t?.t('analytics_info.ant_spend'),
                   child: Text(
                     '${formatAmount(d.ant.total, currency)}  ·  ${d.ant.count} txns',
-                    style: appDisplay(colors, fontSize: 20),
+                    // appDisplay uses height:1.0, which clips the tall Clash
+                    // glyph tops on a standalone line; give the line box room.
+                    style: appDisplay(colors, fontSize: 20).copyWith(height: 1.2),
                   ),
                 ),
                 StatCard(

@@ -6,6 +6,7 @@ import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_switch.dart';
 import '../../widgets/hairline_list_tile.dart';
 import '../../widgets/page_title_header.dart';
 
@@ -148,7 +149,6 @@ class _ToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       child: Row(
@@ -162,11 +162,7 @@ class _ToggleRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: colors.accent,
-          ),
+          AppSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

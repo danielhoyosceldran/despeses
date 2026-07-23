@@ -109,6 +109,12 @@ class KpiTile extends StatelessWidget {
 }
 
 /// Responsive 2-column grid of [KpiTile]s.
+///
+/// Built from paired [Row]s wrapped in [IntrinsicHeight] (not a `GridView` with
+/// a fixed `childAspectRatio`) so each row's height follows its content. A fixed
+/// aspect ratio produced cells shorter than the tile content at phone widths and
+/// clipped the value with a bottom overflow; this adapts to any width and text
+/// scale, and keeps both tiles in a row the same height.
 class KpiTileGrid extends StatelessWidget {
   const KpiTileGrid({super.key, required this.tiles});
 
@@ -116,15 +122,26 @@ class KpiTileGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: AppSpacing.smMd,
-      crossAxisSpacing: AppSpacing.smMd,
-      childAspectRatio: 2.4,
-      children: tiles,
-    );
+    const spacing = AppSpacing.smMd;
+    final rows = <Widget>[];
+    for (var i = 0; i < tiles.length; i += 2) {
+      final right = i + 1 < tiles.length ? tiles[i + 1] : null;
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: spacing));
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: tiles[i]),
+              const SizedBox(width: spacing),
+              // Keep a half-width gap so a lone trailing tile stays column-aligned.
+              Expanded(child: right ?? const SizedBox.shrink()),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(children: rows);
   }
 }
 
@@ -251,23 +268,38 @@ class TrendLines extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final all = series.expand((s) => s.values);
-    final maxY = all.isEmpty ? 1.0 : all.reduce((a, b) => a > b ? a : b);
-    final minY = all.isEmpty ? 0.0 : all.reduce((a, b) => a < b ? a : b);
+    final all = series.expand((s) => s.values).toList();
+    final pointCount = series.fold<int>(0, (m, s) => s.values.length > m ? s.values.length : m);
+    final dataMax = all.isEmpty ? 1.0 : all.reduce((a, b) => a > b ? a : b);
+    final dataMin = all.isEmpty ? 0.0 : all.reduce((a, b) => a < b ? a : b);
+    final lo = dataMin < 0 ? dataMin : 0.0;
+    final hi = dataMax <= 0 ? 1.0 : dataMax;
+    // Vertical headroom so the curve (which can bow past its points) and the
+    // 2.5px stroke stay inside the box instead of being clipped at top/bottom.
+    final headroom = (hi - lo) == 0 ? 1.0 : (hi - lo) * 0.12;
+    // Horizontal margin so the first/last points and their stroke width are not
+    // sliced at the left/right edges.
+    final lastX = pointCount <= 1 ? 1.0 : (pointCount - 1).toDouble();
     return SizedBox(
       height: height,
       child: LineChart(
         LineChartData(
-          minY: minY < 0 ? minY : 0,
-          maxY: maxY <= 0 ? 1 : maxY,
+          minX: -0.3,
+          maxX: lastX + 0.3,
+          minY: lo - headroom,
+          maxY: hi + headroom,
           borderData: FlBorderData(show: false),
           gridData: const FlGridData(show: false),
           titlesData: const FlTitlesData(show: false),
+          lineTouchData: const LineTouchData(enabled: false),
           lineBarsData: [
             for (final s in series)
               LineChartBarData(
                 spots: [for (var i = 0; i < s.values.length; i++) FlSpot(i.toDouble(), s.values[i])],
                 isCurved: true,
+                // Stop the spline from bowing past data extremes, which pushed
+                // steep segments outside the box and got clipped.
+                preventCurveOverShooting: true,
                 color: s.color,
                 barWidth: 2.5,
                 dotData: const FlDotData(show: false),
@@ -296,7 +328,10 @@ class RingGauge extends StatelessWidget {
         SizedBox(
           width: 96,
           height: 96,
+          // No clip: the indicator stroke is kept inside via strokeAlign, but
+          // guard against the Stack's default hardEdge clip flattening the ring.
           child: Stack(
+            clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
               SizedBox(
@@ -305,6 +340,10 @@ class RingGauge extends StatelessWidget {
                 child: CircularProgressIndicator(
                   value: fraction.clamp(0.0, 1.0),
                   strokeWidth: 10,
+                  // Draw the 10px stroke *inside* the 96px box. With the default
+                  // (center) align the stroke bleeds 5px past the box on every
+                  // side and gets clipped, flattening the ring's edges.
+                  strokeAlign: BorderSide.strokeAlignInside,
                   backgroundColor: colors.surfaceAlt,
                   valueColor: AlwaysStoppedAnimation(ringColor),
                 ),

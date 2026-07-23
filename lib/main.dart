@@ -28,6 +28,7 @@ class DespesesApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'canut finances',
+      debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
       themeMode: themeMode,
       theme: AppTheme.light(),
