@@ -30,7 +30,10 @@ class AppSwitch extends ConsumerWidget {
       onChanged!(!value);
     }
 
-    final trackColor = value ? colors.accent : colors.mutedFill(0.5);
+    // On-track uses a softened accent (opposite-theme ink at reduced opacity)
+    // so the toggle reads as active without the full high-contrast fill.
+    final trackColor =
+        value ? colors.accent.withValues(alpha: 0.55) : colors.mutedFill(0.5);
     final thumbColor = value ? colors.onAccent : colors.surface;
 
     return Opacity(

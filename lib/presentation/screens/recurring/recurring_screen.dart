@@ -43,7 +43,9 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    // Only flash the spinner on the initial load; refreshes after a toggle,
+    // delete, or entry save keep the current list on screen to avoid a flicker.
+    if (_templates.isEmpty) setState(() => _loading = true);
     final templates = await ref.read(recurringRepositoryProvider).listTemplates();
     if (!mounted) return;
     setState(() {
@@ -215,6 +217,7 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                       else
                         for (final r in _templates)
                           _TemplateCard(
+                            key: ValueKey(r.id),
                             recurring: r,
                             currency: r.currency,
                             amountColor: _typeColor(r.type, semantic),
@@ -228,8 +231,14 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                                 : _openEntry(recurring: r),
                             onLongPress: () => _toggleSelection(r),
                             onToggleActive: (v) async {
+                              // Reflect the toggle immediately so the switch
+                              // animates on tap instead of waiting for the DB
+                              // write + reload round-trip.
+                              setState(() {
+                                final i = _templates.indexWhere((t) => t.id == r.id);
+                                if (i != -1) _templates[i] = _templates[i].copyWith(active: v);
+                              });
                               await ref.read(recurringRepositoryProvider).setActive(r.id, v);
-                              _load();
                             },
                             onCheckbox: () => _toggleSelection(r),
                           ),
@@ -331,6 +340,7 @@ class _PendingCard extends StatelessWidget {
 /// A recurring template row: name + schedule summary, amount, active switch.
 class _TemplateCard extends StatelessWidget {
   const _TemplateCard({
+    super.key,
     required this.recurring,
     required this.currency,
     required this.amountColor,

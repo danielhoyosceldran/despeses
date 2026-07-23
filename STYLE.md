@@ -181,8 +181,8 @@ All use `colors.shadow` (pre-baked opacity per theme).
 - **Chip**: `surfaceAlt` bg, selected `pillBackground(accent)`, pill radius, no
   border.
 - **Switch** (`AppSwitch`): custom pill toggle (not Material `Switch`). Track
-  46×28 `radiusPill`; fills `accent` on / `mutedFill(0.5)` off (low-contrast
-  translucent muted). Thumb 22 circle
+  46×28 `radiusPill`; fills softened `accent` (`alpha 0.55`) on / `mutedFill(0.5)`
+  off (low-contrast translucent muted). Thumb 22 circle
   (`onAccent` on / `surface` off) with a soft `shadow` drop, slides via
   `AnimatedAlign`+`AnimatedContainer` (`animFast` / `animCurve`). Disabled →
   50% opacity. Tick routed through `HapticsService`.
