@@ -175,10 +175,23 @@ class RecurringRepository {
   /// Confirms a pending occurrence into a real [Expense] (copying the template's
   /// current tags) and removes it from the inbox — all in one transaction.
   /// Returns the new expense id.
+  ///
+  /// [RecurringOccurrence] stores its FK-shaped fields (category/payment
+  /// method/event/project) as plain text without an actual FK constraint,
+  /// unlike [Expense]. If the referenced row was deleted after this occurrence
+  /// was materialized, the id here still points at nothing — inserting it
+  /// as-is into `expenses` (which DOES have a real FK) would violate the
+  /// constraint and roll back the whole confirmation, permanently. So each
+  /// dangling id is nulled out here, right before the insert.
   Future<String> confirm(RecurringOccurrence occ) async {
     final expenseId = _uuid.v4();
     await _db.transaction(() async {
       final tagIds = await tagIdsOf(occ.recurringId);
+      final categoryId = await _existingOrNull(_db.categories, _db.categories.id, occ.categoryId);
+      final paymentMethodId =
+          await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id, occ.paymentMethodId);
+      final eventId = await _existingOrNull(_db.events, _db.events.id, occ.eventId);
+      final projectId = await _existingOrNull(_db.projects, _db.projects.id, occ.projectId);
       await _db.into(_db.expenses).insert(
             ExpensesCompanion.insert(
               id: expenseId,
@@ -188,10 +201,10 @@ class RecurringRepository {
               date: occ.dueDate,
               description: Value(occ.description),
               notes: Value(occ.notes),
-              categoryId: Value(occ.categoryId),
-              paymentMethodId: Value(occ.paymentMethodId),
-              eventId: Value(occ.eventId),
-              projectId: Value(occ.projectId),
+              categoryId: Value(categoryId),
+              paymentMethodId: Value(paymentMethodId),
+              eventId: Value(eventId),
+              projectId: Value(projectId),
             ),
           );
       for (final tagId in tagIds) {
@@ -202,6 +215,18 @@ class RecurringRepository {
       await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
     });
     return expenseId;
+  }
+
+  /// Returns [id] if a row with that primary key still exists in [table],
+  /// else null. Used to drop dangling ids before they hit a real FK.
+  Future<String?> _existingOrNull<T extends Table, D>(
+    TableInfo<T, D> table,
+    GeneratedColumn<String> idColumn,
+    String? id,
+  ) async {
+    if (id == null) return null;
+    final row = await (_db.select(table)..where((_) => idColumn.equals(id))).getSingleOrNull();
+    return row == null ? null : id;
   }
 
   /// Discards a pending occurrence without creating an expense.
