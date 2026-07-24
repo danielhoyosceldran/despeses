@@ -9,15 +9,19 @@ import '../../core/theme/app_theme.dart';
 /// Animates on the shared [AppDimens.animFast]/[AppDimens.animCurve] tokens and
 /// routes its tick through [HapticsService].
 class AppSwitch extends ConsumerWidget {
-  const AppSwitch({super.key, required this.value, required this.onChanged});
+  const AppSwitch({super.key, required this.value, required this.onChanged, this.semanticLabel});
 
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  /// Localized accessible name announced along with the on/off state.
+  final String? semanticLabel;
 
   static const double _width = 46;
   static const double _height = 28;
   static const double _thumb = 22;
   static const double _pad = 3;
+  static const double _tapTarget = 48;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,38 +40,49 @@ class AppSwitch extends ConsumerWidget {
         value ? colors.accent.withValues(alpha: 0.55) : colors.mutedFill(0.5);
     final thumbColor = value ? colors.onAccent : colors.surface;
 
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
-      child: GestureDetector(
-        onTap: toggle,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AppDimens.animFast,
-          curve: AppDimens.animCurve,
-          width: _width,
-          height: _height,
-          padding: const EdgeInsets.all(_pad),
-          decoration: BoxDecoration(
-            color: trackColor,
-            borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-          ),
-          child: AnimatedAlign(
-            duration: AppDimens.animFast,
-            curve: AppDimens.animCurve,
-            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              width: _thumb,
-              height: _thumb,
-              decoration: BoxDecoration(
-                color: thumbColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                    color: colors.shadow,
+    return Semantics(
+      toggled: value,
+      enabled: enabled,
+      label: semanticLabel,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.5,
+        child: GestureDetector(
+          onTap: toggle,
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: _tapTarget,
+            height: _tapTarget,
+            child: Center(
+              child: AnimatedContainer(
+                duration: AppDimens.animFast,
+                curve: AppDimens.animCurve,
+                width: _width,
+                height: _height,
+                padding: const EdgeInsets.all(_pad),
+                decoration: BoxDecoration(
+                  color: trackColor,
+                  borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                ),
+                child: AnimatedAlign(
+                  duration: AppDimens.animFast,
+                  curve: AppDimens.animCurve,
+                  alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    width: _thumb,
+                    height: _thumb,
+                    decoration: BoxDecoration(
+                      color: thumbColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                          color: colors.shadow,
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

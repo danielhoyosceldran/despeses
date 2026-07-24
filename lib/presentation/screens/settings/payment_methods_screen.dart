@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/page_title_header.dart';
@@ -40,24 +42,44 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   }
 
   Future<void> _create() async {
-    final result = await showEntityFormDialog(context, title: 'New payment method', withColor: false);
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
+    final result = await showEntityFormDialog(
+      context,
+      title: translations.t('payment_methods.new'),
+      translations: translations,
+      withColor: false,
+    );
     if (result == null) return;
-    await ref.read(paymentMethodRepositoryProvider).create(name: result.name, icon: result.icon);
+    try {
+      await ref.read(paymentMethodRepositoryProvider).create(name: result.name, icon: result.icon);
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
 
   Future<void> _edit(PaymentMethod method, String currentName) async {
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
     final result = await showEntityFormDialog(
       context,
-      title: 'Edit payment method',
+      title: translations.t('payment_methods.edit'),
+      translations: translations,
       initialName: currentName,
       initialIcon: method.icon,
       withColor: false,
     );
     if (result == null) return;
     final repo = ref.read(paymentMethodRepositoryProvider);
-    if (result.name != currentName) await repo.rename(method.id, result.name);
+    try {
+      if (result.name != currentName) await repo.rename(method.id, result.name);
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     await repo.updateIcon(method.id, result.icon);
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
@@ -160,7 +182,9 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ReorderableListView.builder(
+                : _methods.isEmpty
+                    ? EmptyState(translations?.t('payment_methods.empty') ?? 'No payment methods yet.')
+                    : ReorderableListView.builder(
                     padding: const EdgeInsets.only(bottom: 96),
                     buildDefaultDragHandles: false,
                     itemCount: _methods.length,

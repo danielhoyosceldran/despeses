@@ -200,12 +200,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   pageController: _pageController,
                   monthForPage: _monthForPage,
                   fallbackPage: _kInitialPage,
-                  actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh)],
+                  actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh, semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh')],
                 )
               else
                 AppTopBar(
                   title: translations?.t(_section.labelKey()) ?? _section.fallbackLabel(),
-                  actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh)],
+                  actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh, semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh')],
                 ),
               Expanded(
                 // Month-scoped sections live in a swipeable [PageView] (swipe
@@ -572,7 +572,10 @@ class _CategorySection extends ConsumerWidget {
     final args = (month: month, currency: currency, parentId: parentId);
     return ref.watch(categorySectionProvider(args)).when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, _) => ErrorRetry(onRetry: () => ref.invalidate(categorySectionProvider(args)), message: 'Could not load this section.'),
+      error: (_, _) => ErrorRetry(
+        onRetry: () => ref.invalidate(categorySectionProvider(args)),
+        message: ref.read(translationsProvider).asData?.value.t('analytics.error_section') ?? 'Could not load this section.',
+      ),
       data: (data) {
         final colors = context.appColors;
         final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents);
@@ -606,7 +609,7 @@ class _CategorySection extends ConsumerWidget {
                     center: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('TOTAL', style: appHeaderStyle(colors)),
+                        Text(data.translations.t('analytics.total_label'), style: appHeaderStyle(colors)),
                         const SizedBox(height: 2),
                         AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 24)),
                       ],
@@ -737,7 +740,10 @@ class _TagsSection extends ConsumerWidget {
     final args = (month: month, currency: currency);
     return ref.watch(tagSectionProvider(args)).when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, _) => ErrorRetry(onRetry: () => ref.invalidate(tagSectionProvider(args)), message: 'Could not load this section.'),
+      error: (_, _) => ErrorRetry(
+        onRetry: () => ref.invalidate(tagSectionProvider(args)),
+        message: ref.read(translationsProvider).asData?.value.t('analytics.error_section') ?? 'Could not load this section.',
+      ),
       data: (data) {
         final colors = context.appColors;
         if (data.slices.isEmpty) {
@@ -762,7 +768,7 @@ class _TagsSection extends ConsumerWidget {
                     center: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('TAGS', style: appHeaderStyle(colors)),
+                        Text(data.translations.t('analytics.tags_label'), style: appHeaderStyle(colors)),
                         const SizedBox(height: 2),
                         AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 22)),
                       ],

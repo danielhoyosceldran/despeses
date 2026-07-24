@@ -194,7 +194,13 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: () => _deleteSelected(tr),
-            actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _load)],
+            actions: [
+              TopBarCircleButton(
+                icon: LucideIcons.refreshCw300,
+                onTap: _load,
+                semanticLabel: tr('a11y.refresh'),
+              ),
+            ],
           ),
           if (!_selectionMode)
             Padding(
@@ -231,6 +237,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     icon: LucideIcons.archive300,
                     color: _showActiveOnly ? null : context.appColors.accent,
                     onTap: () => setState(() => _showActiveOnly = !_showActiveOnly),
+                    semanticLabel: tr('a11y.archive_toggle'),
                   ),
                 ],
               ),

@@ -50,6 +50,16 @@ void main() {
       expect(totals.map((e) => e.$2).toList(), [0, 1000, 200]); // Jan, Feb, Mar
     });
 
+    test('monthlyTotals excludes ahorro and income (pure expense outflow)', () async {
+      await add(5000, 'income', DateTime(2026, 3, 1));
+      await add(1000, 'expense', DateTime(2026, 3, 5));
+      await add(200, 'refund', DateTime(2026, 3, 6));
+      await add(800, 'ahorro', DateTime(2026, 3, 7));
+      final ts = TimeseriesAnalytics(db);
+      final totals = await ts.monthlyTotals(DateRange.month(DateTime(2026, 3)), 'EUR');
+      expect(totals.single.$2, 800); // 1000 expense - 200 refund; ahorro/income excluded
+    });
+
     test('momYoY compares current vs previous month and same month last year', () async {
       await add(500, 'expense', DateTime(2025, 3, 1)); // last year
       await add(200, 'expense', DateTime(2026, 2, 1)); // prev month

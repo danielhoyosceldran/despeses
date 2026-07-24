@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import 'errors.dart';
 
 const _uuid = Uuid();
 
@@ -21,7 +22,7 @@ class EventRepository {
     DateTime? endsAt,
   }) async {
     final id = _uuid.v4();
-    await _db.into(_db.events).insert(
+    await guardUniqueName(name, () => _db.into(_db.events).insert(
           EventsCompanion.insert(
             id: id,
             name: name,
@@ -29,7 +30,7 @@ class EventRepository {
             startsAt: Value(startsAt),
             endsAt: Value(endsAt),
           ),
-        );
+        ));
     return id;
   }
 
@@ -40,7 +41,7 @@ class EventRepository {
     DateTime? startsAt,
     DateTime? endsAt,
   }) async {
-    await (_db.update(_db.events)..where((e) => e.id.equals(id))).write(
+    await guardUniqueName(name ?? '', () => (_db.update(_db.events)..where((e) => e.id.equals(id))).write(
       EventsCompanion(
         name: name == null ? const Value.absent() : Value(name),
         description: Value(description),
@@ -48,7 +49,7 @@ class EventRepository {
         endsAt: Value(endsAt),
         updatedAt: Value(DateTime.now()),
       ),
-    );
+    ));
   }
 
   Future<int> budgetCount(String id) async {
@@ -81,7 +82,7 @@ class ProjectRepository {
     DateTime? endsAt,
   }) async {
     final id = _uuid.v4();
-    await _db.into(_db.projects).insert(
+    await guardUniqueName(name, () => _db.into(_db.projects).insert(
           ProjectsCompanion.insert(
             id: id,
             name: name,
@@ -89,7 +90,7 @@ class ProjectRepository {
             startsAt: Value(startsAt),
             endsAt: Value(endsAt),
           ),
-        );
+        ));
     return id;
   }
 
@@ -100,7 +101,7 @@ class ProjectRepository {
     DateTime? startsAt,
     DateTime? endsAt,
   }) async {
-    await (_db.update(_db.projects)..where((p) => p.id.equals(id))).write(
+    await guardUniqueName(name ?? '', () => (_db.update(_db.projects)..where((p) => p.id.equals(id))).write(
       ProjectsCompanion(
         name: name == null ? const Value.absent() : Value(name),
         description: Value(description),
@@ -108,7 +109,7 @@ class ProjectRepository {
         endsAt: Value(endsAt),
         updatedAt: Value(DateTime.now()),
       ),
-    );
+    ));
   }
 
   Future<int> budgetCount(String id) async {

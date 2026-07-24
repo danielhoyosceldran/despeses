@@ -576,8 +576,9 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
       ('refund', translations?.t('expenses.type_refund') ?? 'Refund', semantic.refund),
       ('ahorro', translations?.t('expenses.type_ahorro') ?? 'Savings', semantic.savings),
     ];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (var i = 0; i < entries.length; i++) ...[
           if (i > 0)
@@ -590,9 +591,10 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
             onTap: () => _selectType(entries[i].$1),
             child: Text(
               entries[i].$2,
+              // Always bold so selecting an entry doesn't shift layout/wrap.
               style: TextStyle(
                 color: _type == entries[i].$1 ? entries[i].$3 : colors.textMuted,
-                fontWeight: _type == entries[i].$1 ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

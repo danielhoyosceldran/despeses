@@ -1,6 +1,7 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/i18n/translations.dart';
 import '../../core/theme/app_theme.dart';
 
 enum ToastVariant { info, success, error, warning }
@@ -36,4 +37,16 @@ void showAppToast(BuildContext context, String message, {ToastVariant variant = 
         ),
       ),
     );
+}
+
+/// Shared toast for `DuplicateNameException` — every entity repo (categories,
+/// tags, tag groups, payment methods, events, projects) throws it on a
+/// UNIQUE-constraint violation instead of leaking the raw SqliteException.
+void showDuplicateNameToast(BuildContext context, Translations? translations, String name) {
+  showAppToast(
+    context,
+    (translations?.t('common.error_duplicate_name') ?? '"{{name}}" already exists.')
+        .replaceAll('{{name}}', name),
+    variant: ToastVariant.error,
+  );
 }

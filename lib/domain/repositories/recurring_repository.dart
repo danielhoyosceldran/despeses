@@ -92,9 +92,12 @@ class RecurringRepository {
     return id;
   }
 
-  /// Edits a template. Schedule (frequency/startDate) is editable here; changing
-  /// [startDate] also resets [nextDate] so the new anchor takes effect from the
-  /// next materialization. Already-materialized occurrences keep their snapshot.
+  /// Edits a template. Schedule (frequency/startDate) is editable here; moving
+  /// [startDate] forward re-anchors [nextDate] to it. Moving it backward does
+  /// NOT rewind [nextDate]: [nextDate] is the template's high-water mark for
+  /// materialization, and `confirm` deletes occurrences (losing the unique-key
+  /// protection), so rewinding it would let `materializeDue` regenerate
+  /// already-confirmed dates as fresh, re-confirmable duplicates.
   Future<void> update(
     String id, {
     int? amountCents,
@@ -112,14 +115,24 @@ class RecurringRepository {
     List<String>? tagIds,
   }) async {
     await _db.transaction(() async {
+      Value<DateTime> nextDateValue = const Value.absent();
+      if (startDate != null) {
+        final current = await templateById(id);
+        final currentNextDate = current == null ? null : _dateOnly(current.nextDate);
+        final newStartDate = _dateOnly(startDate);
+        nextDateValue = Value(
+          currentNextDate != null && newStartDate.isBefore(currentNextDate)
+              ? currentNextDate
+              : newStartDate,
+        );
+      }
       await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
         RecurringsCompanion(
           amount: amountCents == null ? const Value.absent() : Value(amountCents),
           type: type == null ? const Value.absent() : Value(type),
           frequency: frequency == null ? const Value.absent() : Value(frequency),
           startDate: startDate == null ? const Value.absent() : Value(startDate),
-          // Re-anchor the schedule when startDate moves.
-          nextDate: startDate == null ? const Value.absent() : Value(startDate),
+          nextDate: nextDateValue,
           endDate: clearEndDate ? const Value(null) : (endDate == null ? const Value.absent() : Value(endDate)),
           description: Value(description),
           notes: Value(notes),
@@ -313,7 +326,7 @@ class RecurringRepository {
   static DateTime _advance(DateTime from, String frequency, DateTime anchor) {
     switch (frequency) {
       case 'weekly':
-        return from.add(const Duration(days: 7));
+        return DateTime(from.year, from.month, from.day + 7);
       case 'yearly':
         final year = from.year + 1;
         return DateTime(year, anchor.month, _clampDay(year, anchor.month, anchor.day));

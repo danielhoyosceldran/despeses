@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import 'errors.dart';
 
 const _uuid = Uuid();
 
@@ -12,7 +15,10 @@ class CategoryRepository {
 
   Future<List<Category>> listAll() {
     return (_db.select(_db.categories)
-          ..orderBy([(c) => OrderingTerm(expression: c.position)]))
+          ..orderBy([
+            (c) => OrderingTerm(expression: c.position),
+            (c) => OrderingTerm(expression: c.id),
+          ]))
         .get();
   }
 
@@ -20,7 +26,10 @@ class CategoryRepository {
   /// the tree to a single transaction-type forest (expense/income/refund/ahorro).
   Future<List<Category>> listChildren(String? parentId, {String? type}) {
     final query = _db.select(_db.categories)
-      ..orderBy([(c) => OrderingTerm(expression: c.position)]);
+      ..orderBy([
+        (c) => OrderingTerm(expression: c.position),
+        (c) => OrderingTerm(expression: c.id),
+      ]);
     if (parentId == null) {
       query.where((c) => c.parentId.isNull());
       if (type != null) query.where((c) => c.type.equals(type));
@@ -57,7 +66,10 @@ class CategoryRepository {
       if (parent != null) resolvedType = parent.type;
     }
     final siblings = await listChildren(parentId);
-    await _db.into(_db.categories).insert(
+    final position = siblings.isEmpty
+        ? 0
+        : siblings.map((s) => s.position).reduce(max) + 1;
+    await guardUniqueName(name, () => _db.into(_db.categories).insert(
           CategoriesCompanion.insert(
             id: id,
             name: name,
@@ -65,21 +77,21 @@ class CategoryRepository {
             parentId: Value(parentId),
             color: Value(color),
             icon: Value(icon),
-            position: Value(siblings.length),
+            position: Value(position),
           ),
-        );
+        ));
     return id;
   }
 
   /// Renaming a default category detaches it from the i18n key (`is_default = false`).
   Future<void> rename(String id, String newName) async {
-    await (_db.update(_db.categories)..where((c) => c.id.equals(id))).write(
+    await guardUniqueName(newName, () => (_db.update(_db.categories)..where((c) => c.id.equals(id))).write(
       CategoriesCompanion(
         name: Value(newName),
         isDefault: const Value(false),
         updatedAt: Value(DateTime.now()),
       ),
-    );
+    ));
   }
 
   Future<void> updateAppearance(String id, {String? color, String? icon}) async {

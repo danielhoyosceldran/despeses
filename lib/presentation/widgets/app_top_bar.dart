@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/haptics/haptics.dart';
+import '../../core/i18n/translations.dart';
+import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Shared top header (mock: `px-6` row, `justify-between`). Left side is either
@@ -15,7 +17,7 @@ import '../../core/theme/app_theme.dart';
 ///
 /// Style-only replacement for the old `MonthHeaderBar` — no Material `AppBar`
 /// on the tab screens anymore; this lives inside the body.
-class AppTopBar extends StatelessWidget {
+class AppTopBar extends ConsumerWidget {
   const AppTopBar({
     super.key,
     this.month,
@@ -59,24 +61,25 @@ class AppTopBar extends StatelessWidget {
   bool get _selection => selectionCount > 0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.appColors;
+    final t = ref.watch(translationsProvider).asData?.value;
     return SafeArea(
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md),
         child: SizedBox(
           height: 44,
-          child: _selection ? _buildSelection(context, colors) : _buildDefault(context, colors),
+          child: _selection ? _buildSelection(context, colors, t) : _buildDefault(context, colors, t),
         ),
       ),
     );
   }
 
-  Widget _buildDefault(BuildContext context, AppColors colors) {
+  Widget _buildDefault(BuildContext context, AppColors colors, Translations? t) {
     return Row(
       children: [
-        Expanded(child: _leftContent(context, colors)),
+        Expanded(child: _leftContent(context, colors, t)),
         for (final action in actions) ...[
           action,
           const SizedBox(width: AppSpacing.xs),
@@ -86,7 +89,7 @@ class AppTopBar extends StatelessWidget {
     );
   }
 
-  Widget _leftContent(BuildContext context, AppColors colors) {
+  Widget _leftContent(BuildContext context, AppColors colors, Translations? t) {
     if (month != null && onChangeMonth != null) {
       final labelStyle = TextStyle(
         fontFamily: 'Inter',
@@ -99,25 +102,40 @@ class AppTopBar extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TopBarCircleButton(icon: LucideIcons.chevronLeft300, onTap: () => onChangeMonth!(-1)),
-          SizedBox(
-            width: 168,
-            height: 20,
-            child: tracking
-                ? _SlidingMonthLabel(
-                    controller: pageController!,
-                    monthForPage: monthForPage!,
-                    fallbackPage: fallbackPage,
-                    style: labelStyle,
-                  )
-                : Center(
-                    child: Text(
-                      toBeginningOfSentenceCase(DateFormat.yMMMM().format(month!)).toUpperCase(),
-                      style: labelStyle,
-                    ),
-                  ),
+          TopBarCircleButton(
+            icon: LucideIcons.chevronLeft300,
+            onTap: () => onChangeMonth!(-1),
+            semanticLabel: t?.t('dashboard.prev_month') ?? 'Previous month',
           ),
-          TopBarCircleButton(icon: LucideIcons.chevronRight300, onTap: () => onChangeMonth!(1)),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 168),
+              child: SizedBox(
+                height: 20,
+                child: tracking
+                    ? _SlidingMonthLabel(
+                        controller: pageController!,
+                        monthForPage: monthForPage!,
+                        fallbackPage: fallbackPage,
+                        style: labelStyle,
+                      )
+                    : Center(
+                        child: Text(
+                          toBeginningOfSentenceCase(DateFormat.yMMMM().format(month!)).toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: labelStyle,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          TopBarCircleButton(
+            icon: LucideIcons.chevronRight300,
+            onTap: () => onChangeMonth!(1),
+            semanticLabel: t?.t('dashboard.next_month') ?? 'Next month',
+          ),
         ],
       );
     }
@@ -132,10 +150,14 @@ class AppTopBar extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  Widget _buildSelection(BuildContext context, AppColors colors) {
+  Widget _buildSelection(BuildContext context, AppColors colors, Translations? t) {
     return Row(
       children: [
-        TopBarCircleButton(icon: LucideIcons.x300, onTap: onClearSelection ?? () {}),
+        TopBarCircleButton(
+          icon: LucideIcons.x300,
+          onTap: onClearSelection ?? () {},
+          semanticLabel: t?.t('a11y.clear_selection') ?? 'Clear selection',
+        ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
@@ -143,7 +165,11 @@ class AppTopBar extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
-        TopBarCircleButton(icon: LucideIcons.trash2300, onTap: onDeleteSelection ?? () {}),
+        TopBarCircleButton(
+          icon: LucideIcons.trash2300,
+          onTap: onDeleteSelection ?? () {},
+          semanticLabel: t?.t('a11y.delete_selection') ?? 'Delete selected',
+        ),
       ],
     );
   }
@@ -265,6 +291,7 @@ class _SettingsGearButtonState extends ConsumerState<_SettingsGearButton> {
           icon: LucideIcons.settings300,
           filled: true,
           onTap: _open,
+          semanticLabel: ref.watch(translationsProvider).asData?.value.t('a11y.settings') ?? 'Settings',
         ),
       ),
     );
@@ -278,6 +305,7 @@ class TopBarCircleButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onTap,
+    required this.semanticLabel,
     this.filled = false,
     this.color,
   });
@@ -289,19 +317,29 @@ class TopBarCircleButton extends StatelessWidget {
   /// Overrides the icon tint (e.g. accent when a filter is active).
   final Color? color;
 
+  /// Localized accessible name — read by screen readers and shown as a tooltip.
+  final String semanticLabel;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final iconColor = color ?? (filled ? colors.text : colors.textMuted);
-    return Material(
-      color: filled ? colors.surfaceAlt : Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Icon(icon, size: 20, color: iconColor),
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Tooltip(
+        message: semanticLabel,
+        child: Material(
+          color: filled ? colors.surfaceAlt : Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Icon(icon, size: 20, color: iconColor),
+            ),
+          ),
         ),
       ),
     );

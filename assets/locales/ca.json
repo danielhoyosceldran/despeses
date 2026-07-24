@@ -80,7 +80,9 @@
     "empty_events": "Encara no hi ha esdeveniments.",
     "event_label": "Esdeveniment",
     "budget_projected_close": "Tancament previst:",
-    "budget_over_pace": "⚠ fora de ritme"
+    "budget_over_pace": "⚠ fora de ritme",
+    "total_label": "TOTAL",
+    "tags_label": "ETIQUETES"
   },
   "analytics_info": {
     "burnup": "Compara quant has gastat aquest mes, dia a dia, amb el que havies gastat el mateix dia el mes passat. Si la línia d'avui és per sobre de la del mes passat, gastes més ràpid que abans.",
@@ -160,7 +162,12 @@
     "error_generic": "No s'ha pogut carregar.",
     "delete_named": "Eliminar \"{{name}}\"?",
     "delete_with_budgets": "\"{{name}}\" té {{count}} pressupost(os) que també s'eliminaran. Continuar?",
-    "error_delete_named": "No s'ha pogut eliminar \"{{name}}\""
+    "error_delete_named": "No s'ha pogut eliminar \"{{name}}\"",
+    "error_duplicate_name": "\"{{name}}\" ja existeix.",
+    "any": "Qualsevol",
+    "icon_optional": "Icona (opcional)",
+    "description_optional": "Descripció (opcional)",
+    "apply": "Aplicar"
   },
   "categories": {
     "add": "Afegir categoria",
@@ -177,6 +184,7 @@
   },
   "tags": {
     "add": "Afegir etiqueta",
+    "empty": "Encara no hi ha etiquetes.",
     "empty_group": "No hi ha etiquetes en aquest grup.",
     "delete_warning": "Eliminar aquesta etiqueta la treurà de totes les despeses.",
     "new": "Nova etiqueta",
@@ -316,6 +324,7 @@
     "all_types": "Tots els tipus",
     "export_csv": "Exportar CSV",
     "export_pdf": "Exportar PDF",
+    "export_failed": "Error en exportar: {{error}}",
     "no_data": "Sense despeses al rang seleccionat.",
     "generating": "Generant…",
     "filename_csv": "despeses",
@@ -393,7 +402,8 @@
     "filter_partial": "Els filtres s'apliquen només a les despeses carregades. Carrega'n més per continuar cercant.",
     "no_results": "Cap despesa coincideix amb els filtres actuals.",
     "showing": "Mostrant {{count}} de {{total}}",
-    "type_ahorro": "Estalvi"
+    "type_ahorro": "Estalvi",
+    "tag": "Etiqueta"
   },
   "auth": {
     "title": "Gastos",
@@ -521,5 +531,14 @@
   },
   "exit": {
     "toast": "Torna a prémer enrere per sortir"
+  },
+  "a11y": {
+    "refresh": "Actualitza",
+    "filter": "Filtre",
+    "settings": "Ajustos",
+    "clear_selection": "Desselecciona",
+    "delete_selection": "Elimina seleccionats",
+    "archive_toggle": "Mostra/amaga arxivats",
+    "color_swatch": "Color {{n}}"
   }
 }

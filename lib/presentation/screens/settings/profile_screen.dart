@@ -162,7 +162,7 @@ class _ToggleRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          AppSwitch(value: value, onChanged: onChanged),
+          AppSwitch(value: value, onChanged: onChanged, semanticLabel: label),
         ],
       ),
     );

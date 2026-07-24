@@ -1,7 +1,10 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import 'errors.dart';
 
 const _uuid = Uuid();
 const ungroupedKey = 'tag_group.ungrouped';
@@ -13,7 +16,10 @@ class TagGroupRepository {
 
   Future<List<TagGroup>> listAll() {
     return (_db.select(_db.tagGroups)
-          ..orderBy([(g) => OrderingTerm(expression: g.position)]))
+          ..orderBy([
+            (g) => OrderingTerm(expression: g.position),
+            (g) => OrderingTerm(expression: g.id),
+          ]))
         .get();
   }
 
@@ -25,16 +31,17 @@ class TagGroupRepository {
   Future<String> create(String name) async {
     final id = _uuid.v4();
     final all = await listAll();
-    await _db.into(_db.tagGroups).insert(
-          TagGroupsCompanion.insert(id: id, name: name, position: Value(all.length)),
-        );
+    final position = all.isEmpty ? 0 : all.map((g) => g.position).reduce(max) + 1;
+    await guardUniqueName(name, () => _db.into(_db.tagGroups).insert(
+          TagGroupsCompanion.insert(id: id, name: name, position: Value(position)),
+        ));
     return id;
   }
 
   Future<void> rename(String id, String newName) async {
-    await (_db.update(_db.tagGroups)..where((g) => g.id.equals(id))).write(
+    await guardUniqueName(newName, () => (_db.update(_db.tagGroups)..where((g) => g.id.equals(id))).write(
       TagGroupsCompanion(name: Value(newName), updatedAt: Value(DateTime.now())),
-    );
+    ));
   }
 
   /// Deleting a group first reassigns its tags to "ungrouped", then deletes it
@@ -70,14 +77,20 @@ class TagRepository {
 
   Future<List<Tag>> listAll() {
     return (_db.select(_db.tags)
-          ..orderBy([(t) => OrderingTerm(expression: t.position)]))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.position),
+            (t) => OrderingTerm(expression: t.id),
+          ]))
         .get();
   }
 
   Future<List<Tag>> listByGroup(String tagGroupId) {
     return (_db.select(_db.tags)
           ..where((t) => t.tagGroupId.equals(tagGroupId))
-          ..orderBy([(t) => OrderingTerm(expression: t.position)]))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.position),
+            (t) => OrderingTerm(expression: t.id),
+          ]))
         .get();
   }
 
@@ -89,27 +102,29 @@ class TagRepository {
   }) async {
     final id = _uuid.v4();
     final siblings = await listByGroup(tagGroupId);
-    await _db.into(_db.tags).insert(
+    final position =
+        siblings.isEmpty ? 0 : siblings.map((s) => s.position).reduce(max) + 1;
+    await guardUniqueName(name, () => _db.into(_db.tags).insert(
           TagsCompanion.insert(
             id: id,
             tagGroupId: tagGroupId,
             name: name,
             color: Value(color),
             icon: Value(icon),
-            position: Value(siblings.length),
+            position: Value(position),
           ),
-        );
+        ));
     return id;
   }
 
   Future<void> rename(String id, String newName) async {
-    await (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(
+    await guardUniqueName(newName, () => (_db.update(_db.tags)..where((t) => t.id.equals(id))).write(
       TagsCompanion(
         name: Value(newName),
         isDefault: const Value(false),
         updatedAt: Value(DateTime.now()),
       ),
-    );
+    ));
   }
 
   Future<void> updateAppearance(String id, {String? color, String? icon}) async {

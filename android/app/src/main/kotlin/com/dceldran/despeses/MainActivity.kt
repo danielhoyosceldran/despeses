@@ -1,4 +1,4 @@
-package com.example.despeses
+package com.dceldran.despeses
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -85,15 +85,23 @@ class BackupService {
   /// reopen (or recreate the provider) after — restoring while the database
   /// is open would corrupt it.
   ///
-  /// Also deletes the live `-wal`/`-shm` sidecars after overwriting: leaving
-  /// stale sidecars behind would let SQLite replay old transactions on top of
-  /// the restored file, corrupting or mixing state.
+  /// Also replaces the live `-wal`/`-shm` sidecars with the backup's own (if
+  /// any) so that transactions not yet checkpointed into a `createAutoBackup`
+  /// snapshot are not lost. Leaving a stale live sidecar behind instead would
+  /// let SQLite replay old transactions on top of the restored file,
+  /// corrupting or mixing state, so any sidecar without a backup counterpart
+  /// is deleted rather than kept.
   Future<void> restoreBackup(File backupFile) async {
     final dbPath = await _dbFilePath();
     await backupFile.copy(dbPath);
     for (final suffix in _sidecarSuffixes) {
       final sidecar = File('$dbPath$suffix');
-      if (await sidecar.exists()) await sidecar.delete();
+      final backupSidecar = File('${backupFile.path}$suffix');
+      if (await backupSidecar.exists()) {
+        await backupSidecar.copy('$dbPath$suffix');
+      } else if (await sidecar.exists()) {
+        await sidecar.delete();
+      }
     }
   }
 

@@ -80,7 +80,9 @@
     "empty_events": "Aún no hay eventos.",
     "event_label": "Evento",
     "budget_projected_close": "Cierre previsto:",
-    "budget_over_pace": "⚠ fuera de ritmo"
+    "budget_over_pace": "⚠ fuera de ritmo",
+    "total_label": "TOTAL",
+    "tags_label": "ETIQUETAS"
   },
   "analytics_info": {
     "burnup": "Compara cuánto has gastado este mes, día a día, con lo que habías gastado el mismo día el mes pasado. Si la línea de hoy está por encima de la del mes pasado, estás gastando más rápido que antes.",
@@ -163,7 +165,12 @@
     "delete_with_budgets_multi": "Los elementos seleccionados tienen {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?",
     "delete_selected": "¿Eliminar {{count}} elemento(s) seleccionado(s)?",
     "error_delete_named": "No se pudo eliminar \"{{name}}\"",
-    "done": "Hecho"
+    "error_duplicate_name": "\"{{name}}\" ya existe.",
+    "done": "Hecho",
+    "any": "Cualquiera",
+    "icon_optional": "Icono (opcional)",
+    "description_optional": "Descripción (opcional)",
+    "apply": "Aplicar"
   },
   "categories": {
     "add": "Añadir categoría",
@@ -181,6 +188,7 @@
   },
   "tags": {
     "add": "Añadir etiqueta",
+    "empty": "Aún no hay etiquetas.",
     "empty_group": "No hay etiquetas en este grupo.",
     "delete_warning": "Eliminar esta etiqueta la quitará de todos los gastos.",
     "new": "Nueva etiqueta",
@@ -320,6 +328,7 @@
     "all_types": "Todos los tipos",
     "export_csv": "Exportar CSV",
     "export_pdf": "Exportar PDF",
+    "export_failed": "Error al exportar: {{error}}",
     "no_data": "Sin gastos en el rango seleccionado.",
     "generating": "Generando…",
     "filename_csv": "gastos",
@@ -397,7 +406,8 @@
     "filter_partial": "Los filtros se aplican solo a los gastos cargados. Carga más para seguir buscando.",
     "no_results": "No hay gastos que coincidan con los filtros.",
     "showing": "Mostrando {{count}} de {{total}}",
-    "type_ahorro": "Ahorro"
+    "type_ahorro": "Ahorro",
+    "tag": "Etiqueta"
   },
   "auth": {
     "title": "Gastos",
@@ -525,5 +535,14 @@
   },
   "exit": {
     "toast": "Pulsa atrás otra vez para salir"
+  },
+  "a11y": {
+    "refresh": "Actualizar",
+    "filter": "Filtro",
+    "settings": "Ajustes",
+    "clear_selection": "Deseleccionar",
+    "delete_selection": "Eliminar seleccionados",
+    "archive_toggle": "Mostrar/ocultar archivados",
+    "color_swatch": "Color {{n}}"
   }
 }

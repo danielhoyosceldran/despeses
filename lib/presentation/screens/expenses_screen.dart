@@ -30,6 +30,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   int _page = 0;
   bool _hasMore = true;
   bool _loading = true;
+  bool _loadingMore = false;
   final Set<String> _selectedIds = {};
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
@@ -56,6 +57,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       _expenses.clear();
       _page = 0;
       _hasMore = true;
+      _loadingMore = false;
     });
     final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: 0);
     setState(() {
@@ -66,12 +68,17 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   }
 
   Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
     final nextPage = _page + 1;
     final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: nextPage);
+    if (!mounted) return;
     setState(() {
       _page = nextPage;
-      _expenses.addAll(page);
+      final existingIds = _expenses.map((e) => e.id).toSet();
+      _expenses.addAll(page.where((e) => !existingIds.contains(e.id)));
       _hasMore = page.length == ExpenseRepository.pageSize;
+      _loadingMore = false;
     });
   }
 
@@ -109,10 +116,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
   Future<void> _deleteSelected() async {
     final count = _selectedIds.length;
+    final t = ref.read(translationsProvider).asData?.value;
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Delete transactions',
-      message: 'Delete $count selected transaction(s)?',
+      title: t?.t('dashboard.delete_title') ?? 'Delete transactions',
+      message: t?.t('dashboard.delete_message').replaceAll('{{count}}', '$count') ?? 'Delete $count selected transaction(s)?',
       destructive: true,
     );
     if (!confirmed) return;
@@ -157,6 +165,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 icon: LucideIcons.filter300,
                 color: hasActiveFilters ? context.appColors.accent : null,
                 onTap: _openFilters,
+                semanticLabel: t?.t('a11y.filter') ?? 'Filter',
               ),
             ],
           ),
@@ -164,7 +173,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _expenses.isEmpty
-                    ? const Center(child: Text('No transactions'))
+                    ? Center(child: Text(t?.t('dashboard.no_transactions') ?? 'No transactions'))
                     : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
                   itemCount: _expenses.length + 1,
@@ -174,7 +183,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       return Padding(
                         padding: const EdgeInsets.all(AppSpacing.md),
                         child: Center(
-                          child: TextButton(onPressed: _loadMore, child: const Text('Load more')),
+                          child: _loadingMore
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                              : TextButton(onPressed: _loadMore, child: Text(t?.t('expenses.load_more') ?? 'Load more')),
                         ),
                       );
                     }

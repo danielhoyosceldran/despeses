@@ -80,7 +80,9 @@
     "empty_events": "No events yet.",
     "event_label": "Event",
     "budget_projected_close": "Projected close:",
-    "budget_over_pace": "⚠ over pace"
+    "budget_over_pace": "⚠ over pace",
+    "total_label": "TOTAL",
+    "tags_label": "TAGS"
   },
   "analytics_info": {
     "burnup": "Compares how much you've spent this month, day by day, to how much you had spent by the same day last month. If today's line is above last month's, you're spending faster than before.",
@@ -163,7 +165,12 @@
     "delete_with_budgets_multi": "Selected items have {{count}} budget(s) that will also be deleted. Continue?",
     "delete_selected": "Delete {{count}} selected item(s)?",
     "error_delete_named": "Could not delete \"{{name}}\"",
-    "done": "Done"
+    "error_duplicate_name": "\"{{name}}\" already exists.",
+    "done": "Done",
+    "any": "Any",
+    "icon_optional": "Icon (optional)",
+    "description_optional": "Description (optional)",
+    "apply": "Apply"
   },
   "categories": {
     "add": "Add category",
@@ -181,6 +188,7 @@
   },
   "tags": {
     "add": "Add tag",
+    "empty": "No tags yet.",
     "empty_group": "No tags in this group.",
     "delete_warning": "Deleting this tag will remove it from all expenses.",
     "new": "New tag",
@@ -320,6 +328,7 @@
     "all_types": "All types",
     "export_csv": "Export CSV",
     "export_pdf": "Export PDF",
+    "export_failed": "Export failed: {{error}}",
     "no_data": "No expenses in selected range.",
     "generating": "Generating…",
     "filename_csv": "expenses",
@@ -397,7 +406,8 @@
     "filter_partial": "Filters apply to loaded expenses only. Load more to search further.",
     "no_results": "No expenses match the current filters.",
     "showing": "Showing {{count}} of {{total}}",
-    "type_ahorro": "Savings"
+    "type_ahorro": "Savings",
+    "tag": "Tag"
   },
   "auth": {
     "title": "Gastos",
@@ -525,5 +535,14 @@
   },
   "exit": {
     "toast": "Press back again to exit"
+  },
+  "a11y": {
+    "refresh": "Refresh",
+    "filter": "Filter",
+    "settings": "Settings",
+    "clear_selection": "Clear selection",
+    "delete_selection": "Delete selected",
+    "archive_toggle": "Toggle archive view",
+    "color_swatch": "Color {{n}}"
   }
 }

@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/errors.dart';
 import '../../../domain/repositories/tag_repository.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/page_title_header.dart';
@@ -41,28 +43,44 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
   }
 
   Future<void> _create() async {
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
     final result = await showEntityFormDialog(
       context,
-      title: 'New tag group',
+      title: translations.t('tag_groups.new'),
+      translations: translations,
       withColor: false,
       withIcon: false,
     );
     if (result == null) return;
-    await ref.read(tagGroupRepositoryProvider).create(result.name);
+    try {
+      await ref.read(tagGroupRepositoryProvider).create(result.name);
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
 
   Future<void> _rename(TagGroup group, String currentName) async {
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
     final result = await showEntityFormDialog(
       context,
-      title: 'Rename tag group',
+      title: translations.t('tag_groups.rename'),
+      translations: translations,
       initialName: currentName,
       withColor: false,
       withIcon: false,
     );
     if (result == null) return;
-    await ref.read(tagGroupRepositoryProvider).rename(group.id, result.name);
+    try {
+      await ref.read(tagGroupRepositoryProvider).rename(group.id, result.name);
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -166,7 +184,9 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ReorderableListView.builder(
+                : _groups.isEmpty
+                    ? EmptyState(translations?.t('tag_groups.empty') ?? 'No tag groups yet.')
+                    : ReorderableListView.builder(
                     padding: const EdgeInsets.only(bottom: 96),
                     buildDefaultDragHandles: false,
                     itemCount: _groups.length,

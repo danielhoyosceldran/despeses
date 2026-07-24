@@ -87,6 +87,7 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
   // --- sheet lifecycle -------------------------------------------------------
 
   void _present() {
+    if (_entry != null) return;
     _closing = false;
     _sheet.value = 0;
     final entry = OverlayEntry(

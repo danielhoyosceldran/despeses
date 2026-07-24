@@ -146,6 +146,15 @@ final referenceDataCacheProvider = Provider<ReferenceDataCache>((ref) {
   );
 });
 
+/// Cached category list, backed by [ReferenceDataCache]. Widgets should watch
+/// this instead of calling `referenceDataCacheProvider.categories()` inline in
+/// `build`, which recreates the future (and re-triggers `FutureBuilder`'s
+/// waiting state) on every rebuild. Invalidate alongside
+/// `referenceDataCache.invalidate()` whenever categories are mutated.
+final categoriesListProvider = FutureProvider<List<Category>>(
+  (ref) => ref.watch(referenceDataCacheProvider).categories(),
+);
+
 /// Live profile row (language/currency/theme) — the single source of truth
 /// for app-wide settings, replacing Zustand's profile store.
 final profileStreamProvider = StreamProvider<ProfileData>((ref) {

@@ -82,7 +82,10 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       await file.writeAsBytes(encodeCsvUtf8(csv));
       await Share.shareXFiles([XFile(file.path)]);
     } catch (e) {
-      if (mounted) showAppToast(context, 'Export failed: $e', variant: ToastVariant.error);
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(context, t?.t('export.export_failed').replaceAll('{{error}}', '$e') ?? 'Export failed: $e', variant: ToastVariant.error);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -98,7 +101,10 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(file.path)]);
     } catch (e) {
-      if (mounted) showAppToast(context, 'Export failed: $e', variant: ToastVariant.error);
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(context, t?.t('export.export_failed').replaceAll('{{error}}', '$e') ?? 'Export failed: $e', variant: ToastVariant.error);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -134,12 +140,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             ),
             DropdownButtonFormField<String?>(
               initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('All types')),
-                DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                DropdownMenuItem(value: 'income', child: Text('Income')),
-                DropdownMenuItem(value: 'refund', child: Text('Refund')),
+              decoration: InputDecoration(labelText: t?.t('export.type_filter') ?? 'Type'),
+              items: [
+                DropdownMenuItem(value: null, child: Text(t?.t('export.all_types') ?? 'All types')),
+                DropdownMenuItem(value: 'expense', child: Text(t?.t('expenses.type_expense') ?? 'Expense')),
+                DropdownMenuItem(value: 'income', child: Text(t?.t('expenses.type_income') ?? 'Income')),
+                DropdownMenuItem(value: 'refund', child: Text(t?.t('expenses.type_refund') ?? 'Refund')),
               ],
               onChanged: (v) => setState(() => _type = v),
             ),
@@ -147,13 +153,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             FilledButton.icon(
               onPressed: _busy ? null : _exportCsv,
               icon: const Icon(LucideIcons.table300),
-              label: const Text('Export CSV'),
+              label: Text(t?.t('export.export_csv') ?? 'Export CSV'),
             ),
             const SizedBox(height: AppSpacing.sm),
             FilledButton.icon(
               onPressed: _busy ? null : _exportPdf,
               icon: const Icon(LucideIcons.fileText300),
-              label: const Text('Export PDF'),
+              label: Text(t?.t('export.export_pdf') ?? 'Export PDF'),
             ),
             if (_busy) const Padding(padding: EdgeInsets.only(top: AppSpacing.md), child: LinearProgressIndicator()),
           ],

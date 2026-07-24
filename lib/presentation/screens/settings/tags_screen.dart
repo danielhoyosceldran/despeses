@@ -6,8 +6,10 @@ import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/page_title_header.dart';
@@ -49,29 +51,48 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   }
 
   Future<void> _create(String groupId) async {
-    final result = await showEntityFormDialog(context, title: 'New tag');
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
+    final result = await showEntityFormDialog(
+      context,
+      title: translations.t('tags.new'),
+      translations: translations,
+    );
     if (result == null) return;
-    await ref.read(tagRepositoryProvider).create(
-          name: result.name,
-          tagGroupId: groupId,
-          color: result.color,
-          icon: result.icon,
-        );
+    try {
+      await ref.read(tagRepositoryProvider).create(
+            name: result.name,
+            tagGroupId: groupId,
+            color: result.color,
+            icon: result.icon,
+          );
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
 
   Future<void> _edit(Tag tag, String currentName) async {
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
     final result = await showEntityFormDialog(
       context,
-      title: 'Edit tag',
+      title: translations.t('tags.edit'),
+      translations: translations,
       initialName: currentName,
       initialColor: tag.color,
       initialIcon: tag.icon,
     );
     if (result == null) return;
     final repo = ref.read(tagRepositoryProvider);
-    if (result.name != currentName) await repo.rename(tag.id, result.name);
+    try {
+      if (result.name != currentName) await repo.rename(tag.id, result.name);
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     await repo.updateAppearance(tag.id, color: result.color, icon: result.icon);
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
@@ -189,7 +210,9 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView(
+                : _groups.isEmpty
+                    ? EmptyState(translations?.t('tags.empty') ?? 'No tags yet.')
+                    : ListView(
                     padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
                     children: [
                       for (final group in _groups)
@@ -217,7 +240,13 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                             ],
                           ),
                         ),
-                        ReorderableListView.builder(
+                        if ((_tagsByGroup[group.id]?.isEmpty ?? true))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                            child: EmptyState(translations?.t('tags.empty_group') ?? 'No tags in this group.'),
+                          )
+                        else
+                          ReorderableListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           buildDefaultDragHandles: false,

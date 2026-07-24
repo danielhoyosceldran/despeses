@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,10 +22,27 @@ import '../../../domain/repositories/budget_repository.dart';
 /// section FAB — is a cache hit, not a fresh query. Only a real input change
 /// (month swipe, drill, window switch) runs a query, exactly once.
 ///
-/// These are *not* autoDispose: the Analytics screen stays mounted across tabs
-/// (IndexedStack), so leaving/returning would not re-run them. Freshness after
-/// a mutation on another tab is handled by [invalidateAnalyticsSections], which
-/// the screen calls when the Analytics tab regains focus.
+/// These are `autoDispose` + [_keepAliveFor] rather than plain `autoDispose`:
+/// the Analytics screen stays mounted across tabs (IndexedStack), and the
+/// month PageView lets the user swipe through unlimited months (R26), so a
+/// bare non-autoDispose family would cache every visited month forever. Each
+/// entry instead survives for [_sectionCacheTtl] after its last watcher drops
+/// (e.g. leaving the Analytics tab or swiping to another month) and is then
+/// evicted, capping memory while still surviving quick tab switches. Freshness
+/// after a mutation on another tab is handled by [invalidateAnalyticsSections],
+/// which the screen calls when the Analytics tab regains focus.
+
+const _sectionCacheTtl = Duration(minutes: 10);
+
+/// Keeps an `autoDispose` provider entry alive for [_sectionCacheTtl] after
+/// its last listener unsubscribes, instead of disposing immediately.
+void _keepAliveFor(Ref ref, [Duration ttl = _sectionCacheTtl]) {
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref.onDispose(() => timer?.cancel());
+  ref.onCancel(() => timer = Timer(ttl, link.close));
+  ref.onResume(() => timer?.cancel());
+}
 
 typedef MonthCurrency = ({DateTime month, String currency});
 typedef CategoryArgs = ({DateTime month, String currency, String? parentId});
@@ -61,7 +79,8 @@ class CategorySectionData {
 }
 
 final categorySectionProvider =
-    FutureProvider.family<CategorySectionData, CategoryArgs>((ref, a) async {
+    FutureProvider.autoDispose.family<CategorySectionData, CategoryArgs>((ref, a) async {
+  _keepAliveFor(ref);
   final analytics = ref.watch(categoryAnalyticsProvider);
   final translations = await ref.watch(translationsProvider.future);
   final allCategories = await ref.watch(referenceDataCacheProvider).categories();
@@ -93,7 +112,8 @@ class TagSectionData {
 }
 
 final tagSectionProvider =
-    FutureProvider.family<TagSectionData, MonthCurrency>((ref, a) async {
+    FutureProvider.autoDispose.family<TagSectionData, MonthCurrency>((ref, a) async {
+  _keepAliveFor(ref);
   final analytics = ref.watch(tagAnalyticsProvider);
   final translations = await ref.watch(translationsProvider.future);
   final allTags = await ref.watch(referenceDataCacheProvider).tags();
@@ -110,7 +130,8 @@ final tagSectionProvider =
 /// Health --------------------------------------------------------------------
 
 final healthSectionProvider =
-    FutureProvider.family<(FinancialHealth, String?), MonthCurrency>((ref, a) async {
+    FutureProvider.autoDispose.family<(FinancialHealth, String?), MonthCurrency>((ref, a) async {
+  _keepAliveFor(ref);
   final health = await ref.watch(dashboardAnalyticsProvider).summary(a.month, a.currency);
   String? topLabel;
   if (health.topCategoryId != null) {
@@ -124,9 +145,11 @@ final healthSectionProvider =
   return (health, topLabel);
 });
 
-final burnUpProvider =
-    FutureProvider.family<({List<(int, int)> current, List<(int, int)> previous}), MonthCurrency>(
-        (ref, a) => ref.watch(timeseriesAnalyticsProvider).burnUp(a.month, a.currency));
+final burnUpProvider = FutureProvider.autoDispose
+    .family<({List<(int, int)> current, List<(int, int)> previous}), MonthCurrency>((ref, a) {
+  _keepAliveFor(ref);
+  return ref.watch(timeseriesAnalyticsProvider).burnUp(a.month, a.currency);
+});
 
 /// Trend ---------------------------------------------------------------------
 
@@ -141,7 +164,8 @@ class TrendSectionData {
 }
 
 final trendSectionProvider =
-    FutureProvider.family<TrendSectionData, WindowArgs>((ref, a) async {
+    FutureProvider.autoDispose.family<TrendSectionData, WindowArgs>((ref, a) async {
+  _keepAliveFor(ref);
   final ts = ref.watch(timeseriesAnalyticsProvider);
   final range = DateRange.trailingMonths(a.month, a.window);
   final totals = await ts.monthlyTotals(range, a.currency);
@@ -162,7 +186,8 @@ class CashflowSectionData {
 }
 
 final cashflowSectionProvider =
-    FutureProvider.family<CashflowSectionData, WindowArgs>((ref, a) async {
+    FutureProvider.autoDispose.family<CashflowSectionData, WindowArgs>((ref, a) async {
+  _keepAliveFor(ref);
   final cf = ref.watch(cashflowAnalyticsProvider);
   final range = DateRange.trailingMonths(a.month, a.window);
   return CashflowSectionData(
@@ -181,7 +206,8 @@ class PaymentSectionData {
 }
 
 final paymentSectionProvider =
-    FutureProvider.family<PaymentSectionData, MonthCurrency>((ref, a) async {
+    FutureProvider.autoDispose.family<PaymentSectionData, MonthCurrency>((ref, a) async {
+  _keepAliveFor(ref);
   final by = await ref.watch(paymentAnalyticsProvider).byMethod(DateRange.month(a.month), a.currency);
   final t = await ref.watch(translationsProvider.future);
   final methods = await ref.watch(referenceDataCacheProvider).paymentMethods();
@@ -200,7 +226,8 @@ class BehaviorSectionData {
 }
 
 final behaviorSectionProvider =
-    FutureProvider.family<BehaviorSectionData, MonthCurrency>((ref, a) async {
+    FutureProvider.autoDispose.family<BehaviorSectionData, MonthCurrency>((ref, a) async {
+  _keepAliveFor(ref);
   final b = ref.watch(behaviorAnalyticsProvider);
   final range = DateRange.month(a.month);
   final stats = await b.ticketStats(range, a.currency);
@@ -212,9 +239,10 @@ final behaviorSectionProvider =
 
 /// Quality -------------------------------------------------------------------
 
-final qualitySectionProvider =
-    FutureProvider.family<double, MonthCurrency>((ref, a) =>
-        ref.watch(tagAnalyticsProvider).coverageGap(DateRange.month(a.month), a.currency));
+final qualitySectionProvider = FutureProvider.autoDispose.family<double, MonthCurrency>((ref, a) {
+  _keepAliveFor(ref);
+  return ref.watch(tagAnalyticsProvider).coverageGap(DateRange.month(a.month), a.currency);
+});
 
 /// Budgets -------------------------------------------------------------------
 
@@ -236,7 +264,8 @@ class BudgetRowData {
 }
 
 final budgetSectionProvider =
-    FutureProvider.family<List<BudgetRowData>, MonthCurrency>((ref, a) async {
+    FutureProvider.autoDispose.family<List<BudgetRowData>, MonthCurrency>((ref, a) async {
+  _keepAliveFor(ref);
   final repo = ref.watch(budgetRepositoryProvider);
   final analytics = ref.watch(budgetAnalyticsProvider);
   final monthKey = monthKeyOf(DateTime(a.month.year, a.month.month));
@@ -270,7 +299,8 @@ class EventSectionData {
 }
 
 final eventSectionProvider =
-    FutureProvider.family<EventSectionData, EventArgs>((ref, a) async {
+    FutureProvider.autoDispose.family<EventSectionData, EventArgs>((ref, a) async {
+  _keepAliveFor(ref);
   final ev = ref.watch(eventAnalyticsProvider);
   final total = await ev.totalCost(eventId: a.eventId);
   final perDay = await ev.costPerDay(startsAt: a.startsAt, endsAt: a.endsAt, eventId: a.eventId);

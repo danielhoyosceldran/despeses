@@ -154,8 +154,17 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     setState(() => _loadingExisting = true);
     final repo = ref.read(expenseRepositoryProvider);
     final expense = await repo.byId(id);
-    if (expense == null) return;
+    if (!mounted) return;
+    if (expense == null) {
+      setState(() => _loadingExisting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Movimiento no encontrado')),
+      );
+      Navigator.of(context).pop();
+      return;
+    }
     final tagIds = await repo.tagIdsOf(id);
+    if (!mounted) return;
     setState(() {
       _type = expense.type;
       _amountCents = expense.amount;
@@ -364,8 +373,19 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _paymentMethodId != null &&
       _descriptionController.text.trim().isNotEmpty;
 
+  bool _saving = false;
+
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (!_canSave || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await _doSave();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _doSave() async {
     final profile = await ref.read(profileRepositoryProvider).get();
     final repo = ref.read(expenseRepositoryProvider);
     if (widget.expenseId == null) {
@@ -397,6 +417,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         tagIds: _tagIds,
       );
     }
+    if (!mounted) return;
     _close(true);
   }
 
@@ -517,7 +538,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: _descriptionController,
       builder: (context, _, _) => FilledButton(
-        onPressed: _canSave ? _save : null,
+        onPressed: (_canSave && !_saving) ? _save : null,
         child: Text(translations?.t('common.save') ?? 'Save'),
       ),
     );
@@ -636,8 +657,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       ('refund', translations?.t('expenses.type_refund') ?? 'Refund', semantic.refund),
       ('ahorro', translations?.t('expenses.type_ahorro') ?? 'Savings', semantic.savings),
     ];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (var i = 0; i < entries.length; i++) ...[
           if (i > 0)
@@ -650,9 +672,10 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             onTap: () => _selectType(entries[i].$1),
             child: Text(
               entries[i].$2,
+              // Always bold so selecting an entry doesn't shift layout/wrap.
               style: TextStyle(
                 color: _type == entries[i].$1 ? entries[i].$3 : colors.textMuted,
-                fontWeight: _type == entries[i].$1 ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

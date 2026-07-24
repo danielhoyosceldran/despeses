@@ -47,7 +47,7 @@ class CashflowAnalytics {
           return MonthlyCashflow(
             month: month,
             income: sumOfType(group, 'income'),
-            spend: signedSpend(group),
+            spend: expenseOutflow(group),
             savings: sumOfType(group, 'ahorro'),
           );
         }(),

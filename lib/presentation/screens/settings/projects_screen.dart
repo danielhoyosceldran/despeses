@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
 import '../../widgets/page_title_header.dart';
@@ -39,35 +41,54 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   }
 
   Future<void> _create() async {
-    final result = await showEventProjectFormDialog(context, title: 'New project');
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
+    final result = await showEventProjectFormDialog(
+      context,
+      title: translations.t('projects.new'),
+      translations: translations,
+    );
     if (result == null) return;
-    await ref.read(projectRepositoryProvider).create(
-          name: result.name,
-          description: result.description,
-          startsAt: result.startsAt,
-          endsAt: result.endsAt,
-        );
+    try {
+      await ref.read(projectRepositoryProvider).create(
+            name: result.name,
+            description: result.description,
+            startsAt: result.startsAt,
+            endsAt: result.endsAt,
+          );
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
 
   Future<void> _edit(Project project) async {
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
     final result = await showEventProjectFormDialog(
       context,
-      title: 'Edit project',
+      title: translations.t('projects.edit'),
+      translations: translations,
       initialName: project.name,
       initialDescription: project.description,
       initialStartsAt: project.startsAt,
       initialEndsAt: project.endsAt,
     );
     if (result == null) return;
-    await ref.read(projectRepositoryProvider).update(
-          project.id,
-          name: result.name,
-          description: result.description,
-          startsAt: result.startsAt,
-          endsAt: result.endsAt,
-        );
+    try {
+      await ref.read(projectRepositoryProvider).update(
+            project.id,
+            name: result.name,
+            description: result.description,
+            startsAt: result.startsAt,
+            endsAt: result.endsAt,
+          );
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -171,7 +192,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+                : _projects.isEmpty
+                    ? EmptyState(translations?.t('projects.empty') ?? 'No projects yet.')
+                    : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 96),
                     itemCount: _projects.length,
                     itemBuilder: (context, index) {

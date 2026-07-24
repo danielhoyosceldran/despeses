@@ -8,10 +8,20 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../main.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/hairline_list_tile.dart';
+
+/// Set by [_BackupScreenState._import] right before the provider tree is torn
+/// down and rebuilt (R18); the first screen back up (dashboard) shows it once
+/// and clears it, since the [BackupScreen] instance that triggered the
+/// restore is gone by the time the rebuild finishes.
+class RestoreNotice {
+  RestoreNotice._();
+  static String? pendingMessage;
+}
 
 /// Backup/restore (plan §5.4, v1 scope): copy the local `.sqlite` file and
 /// share it, or overwrite the live database from a previously shared file.
@@ -72,20 +82,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (!confirmed) return;
 
     setState(() => _busy = true);
+    final backupService = ref.read(backupServiceProvider);
     try {
-      // The live connection must be closed before the file underneath it is
-      // replaced, or the restored file gets corrupted by in-flight writes.
-      await ref.read(databaseProvider).close();
-      await ref.read(backupServiceProvider).restoreBackup(File(path));
-      ref.invalidate(databaseProvider);
-      ref.invalidate(referenceDataCacheProvider);
-      if (mounted) {
-        showAppToast(
-          context,
-          translations?.t('backup.restored') ?? 'Backup restored. Restart the app to see all changes.',
-          variant: ToastVariant.success,
-        );
-      }
+      // Tear down the whole provider tree (closing the db via its onDispose,
+      // with no live watchers left to throw) before touching the file, then
+      // rebuild it fresh — see AppRestartScope in main.dart (R18).
+      await AppRestartScope.restart(context, () => backupService.restoreBackup(File(path)));
+      RestoreNotice.pendingMessage =
+          translations?.t('backup.restored') ?? 'Backup restored.';
     } catch (e) {
       if (mounted) {
         showAppToast(

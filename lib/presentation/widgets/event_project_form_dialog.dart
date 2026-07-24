@@ -1,6 +1,8 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/format/date.dart';
+import '../../core/i18n/translations.dart';
 import '../../core/theme/app_theme.dart';
 
 class EventProjectFormResult {
@@ -20,6 +22,7 @@ class EventProjectFormResult {
 Future<EventProjectFormResult?> showEventProjectFormDialog(
   BuildContext context, {
   required String title,
+  required Translations translations,
   String initialName = '',
   String? initialDescription,
   DateTime? initialStartsAt,
@@ -43,21 +46,21 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
               TextField(
                 controller: nameController,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: translations.t('common.name')),
               ),
               const SizedBox(height: AppSpacing.smMd),
               TextField(
                 controller: descriptionController,
                 maxLength: 500,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Description (optional)'),
+                decoration: InputDecoration(labelText: translations.t('common.description_optional')),
               ),
               const SizedBox(height: AppSpacing.smMd),
               Row(
                 children: [
                   Expanded(
                     child: _DateField(
-                      label: startsAt == null ? 'Start date' : _formatDate(startsAt!),
+                      label: startsAt == null ? translations.t('common.starts_at') : formatDate(startsAt!),
                       isSet: startsAt != null,
                       onTap: () async {
                         final picked = await showDatePicker(
@@ -73,7 +76,7 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _DateField(
-                      label: endsAt == null ? 'End date' : _formatDate(endsAt!),
+                      label: endsAt == null ? translations.t('common.ends_at') : formatDate(endsAt!),
                       isSet: endsAt != null,
                       onTap: () async {
                         final picked = await showDatePicker(
@@ -92,7 +95,7 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(translations.t('common.cancel'))),
           TextButton(
             onPressed: () {
               final name = nameController.text.trim();
@@ -108,16 +111,13 @@ Future<EventProjectFormResult?> showEventProjectFormDialog(
                 ),
               );
             },
-            child: const Text('Save'),
+            child: Text(translations.t('common.save')),
           ),
         ],
       ),
     ),
   );
 }
-
-String _formatDate(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// Filled tappable field matching the input style, used to open a date picker.
 class _DateField extends StatelessWidget {

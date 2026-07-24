@@ -609,8 +609,12 @@ class _EventsSectionState extends ConsumerState<EventsSection> {
           error: (_, _) => _sectionError(ref, () => ref.invalidate(eventListProvider)),
           data: (events) {
             if (events.isEmpty) return EmptyState(t?.t('analytics.empty_events') ?? 'No events yet.');
-            _selectedEventId ??= events.first.id;
-            final selected = events.firstWhere((e) => e.id == _selectedEventId);
+            final selected = events.firstWhere((e) => e.id == _selectedEventId, orElse: () => events.first);
+            if (selected.id != _selectedEventId) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _selectedEventId = selected.id);
+              });
+            }
             return ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
               children: [

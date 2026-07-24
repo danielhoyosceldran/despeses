@@ -16,7 +16,7 @@ class Comparison {
 }
 
 /// Time-series spend analytics (Analytics › Tendencia, section A1). "Spend" here
-/// is the signed total (expense − refund; income and savings excluded).
+/// is pure expense outflow (expense − refund; income and savings excluded).
 class TimeseriesAnalytics {
   TimeseriesAnalytics(this._db);
 
@@ -31,7 +31,7 @@ class TimeseriesAnalytics {
     }
     return [
       for (final m in monthsIn(range))
-        (m, signedSpend(byMonth[monthKeyOf(m)] ?? const [])),
+        (m, expenseOutflow(byMonth[monthKeyOf(m)] ?? const [])),
     ];
   }
 
@@ -56,7 +56,7 @@ class TimeseriesAnalytics {
   Future<({Comparison mom, Comparison yoy})> momYoY(DateTime month, String currency) async {
     Future<int> spendOf(DateTime m) async {
       final list = await expensesInRange(_db, DateRange.month(m), currency);
-      return signedSpend(list);
+      return expenseOutflow(list);
     }
 
     final current = await spendOf(month);
@@ -124,7 +124,7 @@ class TimeseriesAnalytics {
   /// full month. When [asOf] is omitted, today is used.
   Future<int> endOfMonthProjection(DateTime month, String currency, {DateTime? asOf}) async {
     final now = asOf ?? DateTime.now();
-    final spentSoFar = signedSpend(await expensesInRange(_db, DateRange.month(month), currency));
+    final spentSoFar = expenseOutflow(await expensesInRange(_db, DateRange.month(month), currency));
     final lastDay = DateTime(month.year, month.month + 1, 0).day;
     final dayCursor = (now.year == month.year && now.month == month.month) ? now.day : lastDay;
     if (dayCursor <= 0) return spentSoFar;

@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/event_project_form_dialog.dart';
 import '../../widgets/page_title_header.dart';
@@ -39,35 +41,54 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
   }
 
   Future<void> _create() async {
-    final result = await showEventProjectFormDialog(context, title: 'New event');
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
+    final result = await showEventProjectFormDialog(
+      context,
+      title: translations.t('events.new'),
+      translations: translations,
+    );
     if (result == null) return;
-    await ref.read(eventRepositoryProvider).create(
-          name: result.name,
-          description: result.description,
-          startsAt: result.startsAt,
-          endsAt: result.endsAt,
-        );
+    try {
+      await ref.read(eventRepositoryProvider).create(
+            name: result.name,
+            description: result.description,
+            startsAt: result.startsAt,
+            endsAt: result.endsAt,
+          );
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
 
   Future<void> _edit(Event event) async {
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
     final result = await showEventProjectFormDialog(
       context,
-      title: 'Edit event',
+      title: translations.t('events.edit'),
+      translations: translations,
       initialName: event.name,
       initialDescription: event.description,
       initialStartsAt: event.startsAt,
       initialEndsAt: event.endsAt,
     );
     if (result == null) return;
-    await ref.read(eventRepositoryProvider).update(
-          event.id,
-          name: result.name,
-          description: result.description,
-          startsAt: result.startsAt,
-          endsAt: result.endsAt,
-        );
+    try {
+      await ref.read(eventRepositoryProvider).update(
+            event.id,
+            name: result.name,
+            description: result.description,
+            startsAt: result.startsAt,
+            endsAt: result.endsAt,
+          );
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -173,7 +194,9 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+                : _events.isEmpty
+                    ? EmptyState(translations?.t('events.empty') ?? 'No events yet.')
+                    : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 96),
                     itemCount: _events.length,
                     itemBuilder: (context, index) {

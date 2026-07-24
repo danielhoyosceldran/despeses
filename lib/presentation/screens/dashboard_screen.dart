@@ -18,6 +18,7 @@ import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_top_bar.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/drag_up_fab.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
@@ -25,6 +26,7 @@ import '../widgets/error_retry.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/thin_progress_bar.dart';
 import 'expense_entry/expense_entry_screen.dart';
+import 'settings/backup_screen.dart' show RestoreNotice;
 
 /// Month-scoped overview. Hybrid dashboard: a shared collapsing balance hero
 /// (balance + Income/Spent tiles) sits above a swipeable month [PageView] whose
@@ -70,6 +72,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _baseMonth = DateTime(_month.year, _month.month);
     _pageController = PageController(initialPage: _kInitialPage);
     _loadBudgets();
+    // Show the backup-restore result (R18): the screen that triggered it is
+    // gone by the time the provider tree finishes rebuilding, so the message
+    // is picked up here instead.
+    final pendingMessage = RestoreNotice.pendingMessage;
+    if (pendingMessage != null) {
+      RestoreNotice.pendingMessage = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showAppToast(context, pendingMessage, variant: ToastVariant.success);
+      });
+    }
   }
 
   @override
@@ -82,16 +94,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   DateTime _monthBounds(DateTime month) => DateTime(month.year, month.month + 1, 0);
 
+  /// Cached per month key so rebuilds (selection, month change, budgets)
+  /// don't hand `StreamBuilder` a new stream instance and force a
+  /// cancel/re-subscribe (loading flicker + redundant Drift query). Bounded
+  /// to a handful of entries so paging through many months doesn't leak.
+  final Map<String, Stream<List<Expense>>> _monthStreamCache = {};
+  static const int _maxCachedMonthStreams = 12;
+
   Stream<List<Expense>> _watchMonth(DateTime month) {
+    final key = _monthKeyOf(month);
+    final cached = _monthStreamCache[key];
+    if (cached != null) return cached;
+
     final repo = ref.read(expenseRepositoryProvider);
-    return repo
+    final stream = repo
         .watchAll(
           filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
         )
         .map((expenses) {
           debugPrint('[Dashboard] expenses stream emitted ${expenses.length} rows for $month');
           return expenses;
-        });
+        })
+        .asBroadcastStream();
+
+    if (_monthStreamCache.length >= _maxCachedMonthStreams) {
+      _monthStreamCache.remove(_monthStreamCache.keys.first);
+    }
+    _monthStreamCache[key] = stream;
+    return stream;
   }
 
   Future<void> _loadBudgets() async {
@@ -123,6 +153,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   void _onPageChanged(int page) {
     setState(() => _month = _monthForPage(page));
+  }
+
+  /// Drops the cached stream for [month] and rebuilds so `StreamBuilder`
+  /// picks up a fresh subscription instead of replaying the same error.
+  void _retryMonth(DateTime month) {
+    _monthStreamCache.remove(_monthKeyOf(month));
+    setState(() {});
   }
 
   Future<void> _openEntry({String? expenseId}) async {
@@ -171,17 +208,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             _loadBudgets();
           }
         },
-        builder: (context, armed, onTap) => PressableScale(
-          onTap: onTap,
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: colors.accent,
-              shape: BoxShape.circle,
-              boxShadow: AppShadows.fab(colors),
+        builder: (context, armed, onTap) => Semantics(
+          button: true,
+          label: translations?.t('expenses.add') ?? 'Add expense',
+          child: Tooltip(
+            message: translations?.t('expenses.add') ?? 'Add expense',
+            child: PressableScale(
+              onTap: onTap,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: colors.accent,
+                  shape: BoxShape.circle,
+                  boxShadow: AppShadows.fab(colors),
+                ),
+                child: Icon(LucideIcons.plus300, color: colors.onAccent, size: 24),
+              ),
             ),
-            child: Icon(LucideIcons.plus300, color: colors.onAccent, size: 24),
           ),
         ),
       ),
@@ -196,7 +240,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             selectionCount: _selectedIds.length,
             onClearSelection: () => setState(() => _selectedIds.clear()),
             onDeleteSelection: _deleteSelected,
-            actions: [TopBarCircleButton(icon: LucideIcons.refreshCw300, onTap: _onRefresh)],
+            actions: [
+              TopBarCircleButton(
+                icon: LucideIcons.refreshCw300,
+                onTap: _onRefresh,
+                semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh',
+              ),
+            ],
           ),
           Expanded(
             child: PageView.builder(
@@ -208,6 +258,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   key: ValueKey(_monthKeyOf(month)),
                   month: month,
                   watchExpenses: _watchMonth,
+                  onRetry: _retryMonth,
                   allBudgets: _allBudgets,
                   budgetProgress: _budgetProgress,
                   currency: currency,
@@ -691,6 +742,7 @@ class _MonthPage extends ConsumerWidget {
     required super.key,
     required this.month,
     required this.watchExpenses,
+    required this.onRetry,
     required this.allBudgets,
     required this.budgetProgress,
     required this.currency,
@@ -703,6 +755,7 @@ class _MonthPage extends ConsumerWidget {
 
   final DateTime month;
   final Stream<List<Expense>> Function(DateTime month) watchExpenses;
+  final void Function(DateTime month) onRetry;
   final List<Budget> allBudgets;
   final Map<String, int> budgetProgress;
   final String currency;
@@ -719,7 +772,7 @@ class _MonthPage extends ConsumerWidget {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return ErrorRetry(
-            onRetry: () {},
+            onRetry: () => onRetry(month),
             message: translations?.t('dashboard.error_load_month') ?? 'Could not load this month.',
           );
         }
@@ -1034,6 +1087,7 @@ class _ExpenseRow extends ConsumerWidget {
     };
     final color = context.amountColorForType(expense.type);
     final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
+    final categoryLabel = _categoryLabel(ref);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -1061,28 +1115,22 @@ class _ExpenseRow extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      FutureBuilder<String?>(
-                        future: _categoryLabel(ref),
-                        builder: (context, snapshot) {
-                          final label = snapshot.data;
-                          if (label == null || label.isEmpty) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: Text(
-                              label.toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.5,
-                                color: colors.textMuted,
-                              ),
+                      if (categoryLabel != null && categoryLabel.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            categoryLabel.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5,
+                              color: colors.textMuted,
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
                       Text(
                         title,
                         maxLines: 1,
@@ -1105,9 +1153,10 @@ class _ExpenseRow extends ConsumerWidget {
     );
   }
 
-  Future<String?> _categoryLabel(WidgetRef ref) async {
+  String? _categoryLabel(WidgetRef ref) {
     if (expense.categoryId == null || translations == null) return null;
-    final categories = await ref.read(referenceDataCacheProvider).categories();
+    final categories = ref.watch(categoriesListProvider).valueOrNull;
+    if (categories == null) return null;
     final match = categories.where((c) => c.id == expense.categoryId);
     if (match.isEmpty) return null;
     return displayNameFor(translations!, name: match.first.name, isDefault: match.first.isDefault);

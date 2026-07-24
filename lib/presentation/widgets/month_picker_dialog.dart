@@ -1,6 +1,7 @@
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/format/date.dart';
 import '../../core/theme/app_theme.dart';
 
 class YearMonth {
@@ -73,13 +74,16 @@ class _MonthPickerContentState extends State<MonthPickerContent> {
             padding: const EdgeInsets.all(AppSpacing.md),
             child: GridView.count(
               crossAxisCount: 3,
-              childAspectRatio: 2,
+              // Localized month abbreviations (e.g. es "sept.", ca "set.")
+              // run longer than the English 3-letter ones (R16) — lower
+              // aspect ratio buys extra width so labels don't clip.
+              childAspectRatio: 1.6,
               mainAxisSpacing: AppSpacing.sm,
               crossAxisSpacing: AppSpacing.sm,
               children: [
                 for (var m = 1; m <= 12; m++)
                   _MonthCell(
-                    label: _monthAbbrev(m),
+                    label: formatMonthAbbrev(_year, m),
                     selected: widget.initial?.year == _year && widget.initial?.month == m,
                     onTap: () => widget.onSelected(YearMonth(_year, m)),
                     colors: colors,
@@ -136,11 +140,16 @@ class _MonthCell extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDimens.radiusButton),
         onTap: onTap,
         child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? colors.accent : colors.text,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: FittedBox(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? colors.accent : colors.text,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ),
           ),
         ),
@@ -148,18 +157,3 @@ class _MonthCell extends StatelessWidget {
     );
   }
 }
-
-String _monthAbbrev(int month) => const [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ][month - 1];

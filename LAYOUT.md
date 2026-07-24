@@ -20,7 +20,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 | `AppTopBar` | Shared in-body top header (no Material AppBar). Left: month pager (chevron · uppercase month/year · chevron, emits month ±1) **or** a display title. When given the page's `PageController`, the month label tracks the swipe continuously (sliding filmstrip revealing the incoming month) instead of flipping on settle. Trailing: optional actions (`TopBarCircleButton`s) then a settings gear that pushes the Account hub. In selection mode swaps to: leading X (clear) · "N selected" · trailing trash (delete). Settings gear hideable. |
 | `TopBarCircleButton` | Circular header action (ghost or filled chip); used for chevrons, gear, and per-screen actions (filter, active/expired eye). |
 | `BottomActionPanel` | In-screen animated bottom panel (not modal). Height 0→content, rounded top. Hosts keypad/pickers. |
-| `NumericKeypad` | 4×56 money keypad. 3 digit columns (`1/4/7/00`, `2/5/8/0`, `3/6/9/,`) + 4th column: backspace, `-`, large "Next". |
+| `NumericKeypad` | 4×56 money keypad. 3 digit columns (`1/4/7/00`, `2/5/8/0`, `3/6/9/,`) + 4th column: backspace, large "Next". |
 | `ExpenseFilterSheet` | Modal sheet. Column: "Filters" title, 6 dropdowns (Type, Category, Tag, Payment method, Event, Project), From/To date Row, "Clear"/"Apply" Row. |
 | `CategoryPickerSheet` / `...Content` | Drill-down picker (modal 70% or embedded). Optional breadcrumb back-row + ListView of grid rows (64px ancestor cells + wide candidate cell). Leaf selects; branch descends. |
 | `SimplePickerSheet` / `...Content` | Single-select (modal 60% or embedded). Title + ListView of ListTiles; tap selects & closes. |
@@ -169,6 +169,9 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. 
 
 ### Settings CRUD lists — shared `EntityListTile` selection mode
 Applies to Events, Projects, Categories, Tag groups, Payment methods, Tags.
+Each list has three states: loading spinner, `EmptyState` (shared widget) when
+the list is empty, or the item list. Categories/Tags show `EmptyState` at the
+current level/group (not just when the whole catalog is empty).
 Two row modes:
 - **Normal**: leading avatar (icon/initial); tap = act (open/descend, or nothing
   for leaf lists); long-press = enter selection mode with this row checked.
@@ -202,7 +205,7 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 
 ### Settings › Tags (`settings/tags_screen.dart`)
 - **AppBar**: empty normally; selection-mode actions (trash, Done) per above.
-- **Body** Column: `PageTitleHeader` "Tags" + Expanded outer `ListView`, one section per tag group. Each section: group header Row (name + trailing "+" to add tag to group) above a nested non-scrolling `ReorderableListView` of `EntityListTile` (reorder handle in selection mode). Selection spans across groups. No FAB.
+- **Body** Column: `PageTitleHeader` "Tags" + Expanded outer `ListView` (or `EmptyState` if there are no groups at all), one section per tag group. Each section: group header Row (name + trailing "+" to add tag to group) above either an `EmptyState` (group has no tags) or a nested non-scrolling `ReorderableListView` of `EntityListTile` (reorder handle in selection mode). Selection spans across groups. No FAB.
 
 ---
 

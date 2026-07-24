@@ -308,8 +308,11 @@ class _PendingCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
               TextButton.icon(
                 onPressed: onSkip,
@@ -317,13 +320,11 @@ class _PendingCard extends StatelessWidget {
                 label: Text(skipLabel),
                 style: TextButton.styleFrom(foregroundColor: colors.textMuted),
               ),
-              const SizedBox(width: AppSpacing.xs),
               OutlinedButton.icon(
                 onPressed: onEdit,
                 icon: const Icon(LucideIcons.pencil300, size: 16),
                 label: Text(editLabel),
               ),
-              const SizedBox(width: AppSpacing.xs),
               FilledButton.icon(
                 onPressed: onConfirm,
                 icon: const Icon(LucideIcons.check300, size: 16),
@@ -403,7 +404,11 @@ class _TemplateCard extends StatelessWidget {
             ),
             if (!selectionMode) ...[
               const SizedBox(width: AppSpacing.md),
-              AppSwitch(value: recurring.active, onChanged: onToggleActive),
+              AppSwitch(
+                value: recurring.active,
+                onChanged: onToggleActive,
+                semanticLabel: recurring.description ?? '',
+              ),
             ],
           ],
         ),

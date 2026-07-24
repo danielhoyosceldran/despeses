@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n/translations.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Chart palette from `STYLE_FLUTTER.md` §2 — reused here as the color picker
@@ -45,6 +46,7 @@ class EntityFormResult {
 Future<EntityFormResult?> showEntityFormDialog(
   BuildContext context, {
   required String title,
+  required Translations translations,
   String initialName = '',
   String? initialColor,
   String? initialIcon,
@@ -68,14 +70,14 @@ Future<EntityFormResult?> showEntityFormDialog(
               TextField(
                 controller: nameController,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: translations.t('common.name')),
               ),
               if (withIcon) ...[
                 const SizedBox(height: AppSpacing.smMd),
                 TextField(
                   controller: iconController,
                   maxLength: 50,
-                  decoration: const InputDecoration(labelText: 'Icon (optional)'),
+                  decoration: InputDecoration(labelText: translations.t('common.icon_optional')),
                 ),
               ],
               if (withColor) ...[
@@ -84,18 +86,23 @@ Future<EntityFormResult?> showEntityFormDialog(
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
                   children: [
-                    for (final color in chartPalette)
-                      GestureDetector(
-                        onTap: () => setState(() => selectedColor = colorToHex(color)),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              width: selectedColor == colorToHex(color) ? 2.5 : 0,
-                              color: context.appColors.text,
+                    for (final (index, color) in chartPalette.indexed)
+                      Semantics(
+                        button: true,
+                        selected: selectedColor == colorToHex(color),
+                        label: translations.t('a11y.color_swatch').replaceAll('{{n}}', '${index + 1}'),
+                        child: GestureDetector(
+                          onTap: () => setState(() => selectedColor = colorToHex(color)),
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                width: selectedColor == colorToHex(color) ? 2.5 : 0,
+                                color: context.appColors.text,
+                              ),
                             ),
                           ),
                         ),
@@ -109,7 +116,7 @@ Future<EntityFormResult?> showEntityFormDialog(
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(translations.t('common.cancel')),
           ),
           TextButton(
             onPressed: () {
@@ -123,7 +130,7 @@ Future<EntityFormResult?> showEntityFormDialog(
                 ),
               );
             },
-            child: const Text('Save'),
+            child: Text(translations.t('common.save')),
           ),
         ],
       ),

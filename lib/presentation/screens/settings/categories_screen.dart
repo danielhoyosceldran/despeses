@@ -6,8 +6,10 @@ import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/empty_state.dart';
 import '../../widgets/entity_form_dialog.dart';
 import '../../widgets/entity_list_tile.dart';
 import '../../widgets/page_title_header.dart';
@@ -60,16 +62,28 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   Future<void> _create() async {
-    final result = await showEntityFormDialog(context, title: 'New category');
+    final translations = await ref.read(translationsProvider.future);
+    if (!mounted) return;
+    final result = await showEntityFormDialog(
+      context,
+      title: translations.t('categories.new'),
+      translations: translations,
+    );
     if (result == null) return;
-    await ref.read(categoryRepositoryProvider).create(
-          name: result.name,
-          parentId: _currentParentId,
-          type: _type,
-          color: result.color,
-          icon: result.icon,
-        );
+    try {
+      await ref.read(categoryRepositoryProvider).create(
+            name: result.name,
+            parentId: _currentParentId,
+            type: _type,
+            color: result.color,
+            icon: result.icon,
+          );
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     ref.read(referenceDataCacheProvider).invalidate();
+    ref.invalidate(categoriesListProvider);
     _load();
   }
 
@@ -79,16 +93,23 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final currentName = displayNameFor(translations, name: category.name, isDefault: category.isDefault);
     final result = await showEntityFormDialog(
       context,
-      title: 'Edit category',
+      title: translations.t('categories.edit'),
+      translations: translations,
       initialName: currentName,
       initialColor: category.color,
       initialIcon: category.icon,
     );
     if (result == null) return;
     final repo = ref.read(categoryRepositoryProvider);
-    if (result.name != currentName) await repo.rename(category.id, result.name);
+    try {
+      if (result.name != currentName) await repo.rename(category.id, result.name);
+    } on DuplicateNameException catch (e) {
+      if (mounted) showDuplicateNameToast(context, translations, e.name);
+      return;
+    }
     await repo.updateAppearance(category.id, color: result.color, icon: result.icon);
     ref.read(referenceDataCacheProvider).invalidate();
+    ref.invalidate(categoriesListProvider);
     _load();
   }
 
@@ -120,6 +141,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     try {
       await ref.read(categoryRepositoryProvider).delete(category.id);
       ref.read(referenceDataCacheProvider).invalidate();
+      ref.invalidate(categoriesListProvider);
     } catch (_) {
       if (index >= 0) setState(() => _children.insert(index, category));
       if (mounted) {
@@ -144,6 +166,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         .read(categoryRepositoryProvider)
         .reorder(_currentParentId, reordered.map((c) => c.id).toList());
     ref.read(referenceDataCacheProvider).invalidate();
+    ref.invalidate(categoriesListProvider);
   }
 
   void _enterSelection(String id) {
@@ -255,7 +278,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ReorderableListView.builder(
+                : _children.isEmpty
+                    ? EmptyState(translations?.t('categories.empty') ?? 'No categories yet.')
+                    : ReorderableListView.builder(
                     padding: const EdgeInsets.only(bottom: 96),
                     buildDefaultDragHandles: false,
                     itemCount: _children.length,

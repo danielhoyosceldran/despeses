@@ -80,7 +80,9 @@
     "empty_events": "Aucun événement pour le moment.",
     "event_label": "Événement",
     "budget_projected_close": "Clôture prévue :",
-    "budget_over_pace": "⚠ hors rythme"
+    "budget_over_pace": "⚠ hors rythme",
+    "total_label": "TOTAL",
+    "tags_label": "ÉTIQUETTES"
   },
   "analytics_info": {
     "burnup": "Compare combien tu as dépensé ce mois-ci, jour après jour, à ce que tu avais dépensé le même jour le mois dernier. Si la ligne d'aujourd'hui est au-dessus de celle du mois dernier, tu dépenses plus vite qu'avant.",
@@ -160,7 +162,12 @@
     "error_generic": "Impossible de charger.",
     "delete_named": "Supprimer « {{name}} » ?",
     "delete_with_budgets": "« {{name}} » a {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
-    "error_delete_named": "Impossible de supprimer « {{name}} »"
+    "error_delete_named": "Impossible de supprimer « {{name}} »",
+    "error_duplicate_name": "« {{name}} » existe déjà.",
+    "any": "N'importe lequel",
+    "icon_optional": "Icône (optionnel)",
+    "description_optional": "Description (optionnel)",
+    "apply": "Appliquer"
   },
   "categories": {
     "add": "Ajouter une catégorie",
@@ -177,6 +184,7 @@
   },
   "tags": {
     "add": "Ajouter une étiquette",
+    "empty": "Aucune étiquette pour le moment.",
     "empty_group": "Aucune étiquette dans ce groupe.",
     "delete_warning": "Supprimer cette étiquette la retirera de toutes les dépenses.",
     "new": "Nouvelle étiquette",
@@ -316,6 +324,7 @@
     "all_types": "Tous les types",
     "export_csv": "Exporter CSV",
     "export_pdf": "Exporter PDF",
+    "export_failed": "Échec de l'export : {{error}}",
     "no_data": "Aucune dépense dans la période sélectionnée.",
     "generating": "Génération…",
     "filename_csv": "depenses",
@@ -393,7 +402,8 @@
     "filter_partial": "Les filtres s'appliquent uniquement aux dépenses chargées. Chargez-en plus pour poursuivre la recherche.",
     "no_results": "Aucune dépense ne correspond aux filtres actuels.",
     "showing": "Affichage de {{count}} sur {{total}}",
-    "type_ahorro": "Épargne"
+    "type_ahorro": "Épargne",
+    "tag": "Étiquette"
   },
   "auth": {
     "title": "Gastos",
@@ -521,5 +531,14 @@
   },
   "exit": {
     "toast": "Appuyez à nouveau pour quitter"
+  },
+  "a11y": {
+    "refresh": "Actualiser",
+    "filter": "Filtrer",
+    "settings": "Paramètres",
+    "clear_selection": "Effacer la sélection",
+    "delete_selection": "Supprimer la sélection",
+    "archive_toggle": "Basculer l'affichage des archives",
+    "color_swatch": "Couleur {{n}}"
   }
 }

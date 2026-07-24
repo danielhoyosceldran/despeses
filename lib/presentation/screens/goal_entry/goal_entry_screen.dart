@@ -145,8 +145,19 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
     return _categoryId != null;
   }
 
+  bool _saving = false;
+
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (!_canSave || _saving) return;
+    _saving = true;
+    try {
+      await _doSave();
+    } finally {
+      if (mounted) _saving = false;
+    }
+  }
+
+  Future<void> _doSave() async {
     final repo = ref.read(savingsGoalRepositoryProvider);
     final name = _nameController.text.trim();
     if (_isEdit) {
@@ -167,6 +178,7 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
         deadline: _deadline,
       );
     }
+    if (!mounted) return;
     _close(true);
   }
 
@@ -318,7 +330,7 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
   Widget _saveButton(Translations? translations) => ValueListenableBuilder<TextEditingValue>(
         valueListenable: _nameController,
         builder: (context, _, _) => FilledButton(
-          onPressed: _canSave ? _save : null,
+          onPressed: (_canSave && !_saving) ? _save : null,
           child: Text(translations?.t('common.save') ?? 'Save'),
         ),
       );

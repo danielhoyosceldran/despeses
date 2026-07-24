@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/format/date.dart';
 import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/theme/app_theme.dart';
@@ -82,25 +83,25 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Filters', style: Theme.of(context).textTheme.headlineSmall),
+            Text(widget.translations.t('expenses.filters'), style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String?>(
               initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Any')),
-                DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                DropdownMenuItem(value: 'income', child: Text('Income')),
-                DropdownMenuItem(value: 'refund', child: Text('Refund')),
+              decoration: InputDecoration(labelText: widget.translations.t('expenses.type')),
+              items: [
+                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
+                DropdownMenuItem(value: 'expense', child: Text(widget.translations.t('expenses.type_expense'))),
+                DropdownMenuItem(value: 'income', child: Text(widget.translations.t('expenses.type_income'))),
+                DropdownMenuItem(value: 'refund', child: Text(widget.translations.t('expenses.type_refund'))),
               ],
               onChanged: (v) => setState(() => _type = v),
             ),
             const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _categoryId,
-              decoration: const InputDecoration(labelText: 'Category'),
+              decoration: InputDecoration(labelText: widget.translations.t('expenses.category')),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Any')),
+                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
                 for (final c in widget.categories) DropdownMenuItem(value: c.id, child: Text(_label(c))),
               ],
               onChanged: (v) => setState(() => _categoryId = v),
@@ -108,9 +109,9 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
             const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _tagId,
-              decoration: const InputDecoration(labelText: 'Tag'),
+              decoration: InputDecoration(labelText: widget.translations.t('expenses.tag')),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Any')),
+                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
                 for (final t in widget.tags) DropdownMenuItem(value: t.id, child: Text(_label(t))),
               ],
               onChanged: (v) => setState(() => _tagId = v),
@@ -118,9 +119,9 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
             const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _paymentMethodId,
-              decoration: const InputDecoration(labelText: 'Payment method'),
+              decoration: InputDecoration(labelText: widget.translations.t('expenses.payment_method')),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Any')),
+                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
                 for (final p in widget.paymentMethods) DropdownMenuItem(value: p.id, child: Text(_label(p))),
               ],
               onChanged: (v) => setState(() => _paymentMethodId = v),
@@ -128,9 +129,9 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
             const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _eventId,
-              decoration: const InputDecoration(labelText: 'Event'),
+              decoration: InputDecoration(labelText: widget.translations.t('expenses.event')),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Any')),
+                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
                 for (final e in widget.events) DropdownMenuItem(value: e.id, child: Text(e.name)),
               ],
               onChanged: (v) => setState(() => _eventId = v),
@@ -138,9 +139,9 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
             const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _projectId,
-              decoration: const InputDecoration(labelText: 'Project'),
+              decoration: InputDecoration(labelText: widget.translations.t('expenses.project')),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Any')),
+                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
                 for (final p in widget.projects) DropdownMenuItem(value: p.id, child: Text(p.name)),
               ],
               onChanged: (v) => setState(() => _projectId = v),
@@ -159,7 +160,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
                       );
                       if (picked != null) setState(() => _dateFrom = picked);
                     },
-                    child: Text(_dateFrom == null ? 'From' : _dateFrom.toString().split(' ').first),
+                    child: Text(_dateFrom == null ? widget.translations.t('expenses.date_from') : formatDate(_dateFrom!)),
                   ),
                 ),
                 Expanded(
@@ -173,7 +174,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
                       );
                       if (picked != null) setState(() => _dateTo = picked);
                     },
-                    child: Text(_dateTo == null ? 'To' : _dateTo.toString().split(' ').first),
+                    child: Text(_dateTo == null ? widget.translations.t('expenses.date_to') : formatDate(_dateTo!)),
                   ),
                 ),
               ],
@@ -184,7 +185,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(const ExpenseFilters()),
-                    child: const Text('Clear'),
+                    child: Text(widget.translations.t('expenses.clear_filters')),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -202,7 +203,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
                         dateTo: _dateTo,
                       ),
                     ),
-                    child: const Text('Apply'),
+                    child: Text(widget.translations.t('common.apply')),
                   ),
                 ),
               ],

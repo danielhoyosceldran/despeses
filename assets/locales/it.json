@@ -80,7 +80,9 @@
     "empty_events": "Ancora nessun evento.",
     "event_label": "Evento",
     "budget_projected_close": "Chiusura prevista:",
-    "budget_over_pace": "⚠ oltre il ritmo"
+    "budget_over_pace": "⚠ oltre il ritmo",
+    "total_label": "TOTALE",
+    "tags_label": "ETICHETTE"
   },
   "analytics_info": {
     "burnup": "Confronta quanto hai speso questo mese, giorno per giorno, con quanto avevi speso lo stesso giorno il mese scorso. Se la linea di oggi è sopra quella del mese scorso, stai spendendo più velocemente di prima.",
@@ -160,7 +162,12 @@
     "error_generic": "Impossibile caricare.",
     "delete_named": "Eliminare \"{{name}}\"?",
     "delete_with_budgets": "\"{{name}}\" ha {{count}} budget che verranno eliminati. Continuare?",
-    "error_delete_named": "Impossibile eliminare \"{{name}}\""
+    "error_delete_named": "Impossibile eliminare \"{{name}}\"",
+    "error_duplicate_name": "\"{{name}}\" esiste già.",
+    "any": "Qualsiasi",
+    "icon_optional": "Icona (opzionale)",
+    "description_optional": "Descrizione (opzionale)",
+    "apply": "Applica"
   },
   "categories": {
     "add": "Aggiungi categoria",
@@ -177,6 +184,7 @@
   },
   "tags": {
     "add": "Aggiungi etichetta",
+    "empty": "Nessuna etichetta ancora.",
     "empty_group": "Nessuna etichetta in questo gruppo.",
     "delete_warning": "Eliminare questa etichetta la rimuoverà da tutte le spese.",
     "new": "Nuova etichetta",
@@ -316,6 +324,7 @@
     "all_types": "Tutti i tipi",
     "export_csv": "Esporta CSV",
     "export_pdf": "Esporta PDF",
+    "export_failed": "Esportazione non riuscita: {{error}}",
     "no_data": "Nessuna spesa nel periodo selezionato.",
     "generating": "Generazione…",
     "filename_csv": "spese",
@@ -393,7 +402,8 @@
     "filter_partial": "I filtri si applicano solo alle spese caricate. Carica altri per continuare la ricerca.",
     "no_results": "Nessuna spesa corrisponde ai filtri attuali.",
     "showing": "Visualizzando {{count}} di {{total}}",
-    "type_ahorro": "Risparmio"
+    "type_ahorro": "Risparmio",
+    "tag": "Etichetta"
   },
   "auth": {
     "title": "Gastos",
@@ -521,5 +531,14 @@
   },
   "exit": {
     "toast": "Premi di nuovo indietro per uscire"
+  },
+  "a11y": {
+    "refresh": "Aggiorna",
+    "filter": "Filtro",
+    "settings": "Impostazioni",
+    "clear_selection": "Deseleziona",
+    "delete_selection": "Elimina selezionati",
+    "archive_toggle": "Mostra/nascondi archiviati",
+    "color_swatch": "Colore {{n}}"
   }
 }

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Money-entry keypad (plan §3.1 redesign): 4x4 grid with digits, `00`, `,`,
-/// backspace, a vestigial `-`, and `Next` spanning the last two rows.
+/// backspace, and `Next` spanning the last two rows.
 ///
 /// Amounts are entered as euros by default; tapping `,` switches into cents
 /// mode for up to two more digits. `amountCents` is always the derived total
@@ -109,10 +109,8 @@ class _NumericKeypadState extends State<NumericKeypad> {
             child: Column(
               children: [
                 Expanded(
+                  flex: 2,
                   child: _Key(key: const ValueKey('keypad_⌫'), onTap: () => _tap(_backspace), child: const Text('⌫')),
-                ),
-                Expanded(
-                  child: _Key(key: const ValueKey('keypad_-'), onTap: () => _tap(() {}), child: const Text('-')),
                 ),
                 Expanded(
                   flex: 2,

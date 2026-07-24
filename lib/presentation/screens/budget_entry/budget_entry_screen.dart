@@ -264,8 +264,19 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
     };
   }
 
+  bool _saving = false;
+
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (!_canSave || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await _doSave();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _doSave() async {
     final repo = ref.read(budgetRepositoryProvider);
     final name = _nameController.text.trim();
 
@@ -292,6 +303,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
         endsMonth: (_isEntityDimension || _type == _BudgetType.range) ? _endsMonth?.key : null,
       );
     }
+    if (!mounted) return;
     _close(true);
   }
 
@@ -538,7 +550,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+                child: FilledButton(onPressed: (_canSave && !_saving) ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
               ),
             ),
           BottomActionPanel(
@@ -570,7 +582,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: SizedBox(
                   width: double.infinity,
-                  child: FilledButton(onPressed: _canSave ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+                  child: FilledButton(onPressed: (_canSave && !_saving) ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
                 ),
               ),
             ),
