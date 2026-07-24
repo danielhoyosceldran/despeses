@@ -1,5 +1,12 @@
 import 'package:drift/drift.dart';
 
+// CRITICAL: adding a column to any EXISTING table below? See database.dart's
+// onUpgrade (near `_devReseedOnUpgrade`) — you MUST also bump schemaVersion
+// and add a matching `if (from < N) await m.addColumn(table, table.column);`
+// step there in the SAME change, and the new column MUST declare
+// withDefault(...)/clientDefault. Skipping this crashes every existing
+// install with "no such column" on next launch after upgrade.
+
 class Profile extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
   TextColumn get language => text().withDefault(const Constant('en'))();

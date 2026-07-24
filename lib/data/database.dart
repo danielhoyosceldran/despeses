@@ -111,6 +111,22 @@ class AppDatabase extends _$AppDatabase {
           // schema bump, e.g.:
           //   if (from < 8) await m.addColumn(expenses, expenses.someColumn);
           //   if (from < 9) await m.createTable(recurring);
+          //
+          // CRITICAL when adding a column to an EXISTING table (tables.dart):
+          //   1. The column MUST declare withDefault(...)/clientDefault in
+          //      tables.dart — SQLite's ALTER TABLE ADD COLUMN cannot add a
+          //      NOT NULL column without a default.
+          //   2. Bump schemaVersion above and add the matching
+          //      `if (from < N) await m.addColumn(table, table.column);`
+          //      step here in the SAME change. Drift's generated queries
+          //      SELECT the table's full explicit column list, so any
+          //      installed app that reaches the new schemaVersion via
+          //      onUpgrade WITHOUT this step will crash on next launch with
+          //      "no such column" — onCreate/createAll (fresh installs)
+          //      hides this because it always builds the full current
+          //      schema, so the bug only shows up on upgrade.
+          //   3. Steps must stay additive/idempotent and accumulate
+          //      (if (from < N)), never replace an earlier step.
           // v7 adds the analytics/listing indexes on `expenses` (R3).
           if (from < 7) await _createIndexes(this);
           // v8 adds recurring-transaction tables (feature 3.13): template,
