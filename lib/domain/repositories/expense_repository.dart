@@ -138,7 +138,9 @@ class ExpenseRepository {
               projectId: Value(projectId),
             ),
           );
-      for (final tagId in tagIds) {
+      // Dedup: `expense_tags` PK is {expenseId, tagId}, so a repeated tagId
+      // would raise a UNIQUE violation and roll back the whole insert.
+      for (final tagId in tagIds.toSet()) {
         await _db.into(_db.expenseTags).insert(
               ExpenseTagsCompanion.insert(expenseId: id, tagId: tagId),
             );
@@ -179,7 +181,8 @@ class ExpenseRepository {
       );
       if (tagIds != null) {
         await (_db.delete(_db.expenseTags)..where((t) => t.expenseId.equals(id))).go();
-        for (final tagId in tagIds) {
+        // Dedup: see `create` — repeated tagIds violate the {expenseId, tagId} PK.
+        for (final tagId in tagIds.toSet()) {
           await _db.into(_db.expenseTags).insert(
                 ExpenseTagsCompanion.insert(expenseId: id, tagId: tagId),
               );

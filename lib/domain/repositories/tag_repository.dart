@@ -45,7 +45,9 @@ class TagGroupRepository {
   }
 
   /// Deleting a group first reassigns its tags to "ungrouped", then deletes it
-  /// (the group->tag FK is RESTRICT, so it would otherwise fail).
+  /// (the group->tag FK is RESTRICT, so it would otherwise fail). Remaining
+  /// groups are recompacted to a contiguous 0..n-1 position range so a later
+  /// `create` (which appends at `max(position)+1`) can't collide with the gap.
   Future<void> delete(String id) async {
     final target = await ungrouped();
     if (target.id == id) {
@@ -55,6 +57,16 @@ class TagGroupRepository {
       TagsCompanion(tagGroupId: Value(target.id)),
     );
     await (_db.delete(_db.tagGroups)..where((g) => g.id.equals(id))).go();
+    final remaining = await listAll();
+    await _db.batch((batch) {
+      for (var i = 0; i < remaining.length; i++) {
+        batch.update(
+          _db.tagGroups,
+          TagGroupsCompanion(position: Value(i)),
+          where: (g) => g.id.equals(remaining[i].id),
+        );
+      }
+    });
   }
 
   Future<void> reorder(List<String> orderedIds) async {
@@ -142,8 +154,23 @@ class TagRepository {
     return row.read(count) ?? 0;
   }
 
+  /// Deletes [id] and recompacts the remaining tags in its group to a
+  /// contiguous 0..n-1 position range, so a later `create` (which appends at
+  /// `max(position)+1`) can't collide with the gap left by this delete.
   Future<void> delete(String id) async {
+    final target = await (_db.select(_db.tags)..where((t) => t.id.equals(id))).getSingleOrNull();
     await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+    if (target == null) return;
+    final siblings = await listByGroup(target.tagGroupId);
+    await _db.batch((batch) {
+      for (var i = 0; i < siblings.length; i++) {
+        batch.update(
+          _db.tags,
+          TagsCompanion(position: Value(i)),
+          where: (t) => t.id.equals(siblings[i].id),
+        );
+      }
+    });
   }
 
   Future<void> reorder(String tagGroupId, List<String> orderedIds) async {

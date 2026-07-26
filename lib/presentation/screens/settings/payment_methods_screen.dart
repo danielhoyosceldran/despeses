@@ -105,8 +105,9 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     }
   }
 
+  /// Wired to `onReorderItem`, which already adjusts [newIndex] for the removed
+  /// item — so no `if (newIndex > oldIndex) newIndex -= 1` correction here.
   Future<void> _reorder(int oldIndex, int newIndex) async {
-    if (newIndex > oldIndex) newIndex -= 1;
     final reordered = List<PaymentMethod>.from(_methods);
     final item = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, item);
@@ -188,7 +189,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
                     padding: const EdgeInsets.only(bottom: 96),
                     buildDefaultDragHandles: false,
                     itemCount: _methods.length,
-                    onReorder: _reorder,
+                    onReorderItem: _reorder,
                     itemBuilder: (context, index) {
                 final method = _methods[index];
                 final label = translations == null

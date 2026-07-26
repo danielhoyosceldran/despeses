@@ -53,8 +53,21 @@ class PaymentMethodRepository {
     );
   }
 
+  /// Deletes [id] and recompacts the remaining methods to a contiguous
+  /// 0..n-1 position range, so a later `create` (which appends at
+  /// `max(position)+1`) can't collide with the gap left by this delete.
   Future<void> delete(String id) async {
     await (_db.delete(_db.paymentMethods)..where((p) => p.id.equals(id))).go();
+    final remaining = await listAll();
+    await _db.batch((batch) {
+      for (var i = 0; i < remaining.length; i++) {
+        batch.update(
+          _db.paymentMethods,
+          PaymentMethodsCompanion(position: Value(i)),
+          where: (p) => p.id.equals(remaining[i].id),
+        );
+      }
+    });
   }
 
   Future<void> reorder(List<String> orderedIds) async {

@@ -264,6 +264,19 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
     };
   }
 
+  /// Save button that re-evaluates [_canSave] on every name keystroke without
+  /// rebuilding the rest of the screen (the name is the only `_canSave` input
+  /// not already held in state).
+  Widget _saveButton(Translations? translations) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _nameController,
+      builder: (context, _, _) => FilledButton(
+        onPressed: (_canSave && !_saving) ? _save : null,
+        child: Text(translations?.t('common.save') ?? 'Save'),
+      ),
+    );
+  }
+
   bool _saving = false;
 
   Future<void> _save() async {
@@ -437,7 +450,10 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                   controller: _nameController,
                   focusNode: _nameFocus,
                   decoration: InputDecoration(labelText: translations?.t('common.name') ?? 'Name'),
-                  onChanged: (_) => setState(() {}),
+                  // No onChanged/setState here: the only thing a keystroke can
+                  // change is `_canSave`, and the Save buttons listen to the
+                  // controller directly (see `_saveButton`). Rebuilding the
+                  // whole screen per character was R40a.
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 // Tracks (dimension)
@@ -550,7 +566,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: (_canSave && !_saving) ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+                child: _saveButton(translations),
               ),
             ),
           BottomActionPanel(
@@ -582,7 +598,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: SizedBox(
                   width: double.infinity,
-                  child: FilledButton(onPressed: (_canSave && !_saving) ? _save : null, child: Text(translations?.t('common.save') ?? 'Save')),
+                  child: _saveButton(translations),
                 ),
               ),
             ),

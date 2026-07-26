@@ -78,9 +78,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       final rows = await _buildRows();
       final csv = buildExportCsv(rows);
       final dir = await getTemporaryDirectory();
-      final file = File(p.join(dir.path, 'despeses_export.csv'));
+      // Unique name so a previous export left in the private cache is never
+      // reshared, and delete it once the share sheet is done with it.
+      final file = File(p.join(dir.path, 'despeses_export_${DateTime.now().millisecondsSinceEpoch}.csv'));
       await file.writeAsBytes(encodeCsvUtf8(csv));
-      await Share.shareXFiles([XFile(file.path)]);
+      try {
+        await Share.shareXFiles([XFile(file.path)]);
+      } finally {
+        if (await file.exists()) await file.delete();
+      }
     } catch (e) {
       if (mounted) {
         final t = ref.read(translationsProvider).asData?.value;
@@ -97,9 +103,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       final rows = await _buildRows();
       final bytes = await buildExportPdf(rows, rangeLabel: _rangeLabel);
       final dir = await getTemporaryDirectory();
-      final file = File(p.join(dir.path, 'despeses_export.pdf'));
+      // Unique name + cleanup, same rationale as the CSV export above.
+      final file = File(p.join(dir.path, 'despeses_export_${DateTime.now().millisecondsSinceEpoch}.pdf'));
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)]);
+      try {
+        await Share.shareXFiles([XFile(file.path)]);
+      } finally {
+        if (await file.exists()) await file.delete();
+      }
     } catch (e) {
       if (mounted) {
         final t = ref.read(translationsProvider).asData?.value;

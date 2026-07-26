@@ -111,10 +111,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         .watchAll(
           filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
         )
-        .map((expenses) {
-          debugPrint('[Dashboard] expenses stream emitted ${expenses.length} rows for $month');
-          return expenses;
-        })
         .asBroadcastStream();
 
     if (_monthStreamCache.length >= _maxCachedMonthStreams) {
@@ -125,7 +121,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Future<void> _loadBudgets() async {
-    debugPrint('[Dashboard] loading budgets for $_month');
     final budgetRepo = ref.read(budgetRepositoryProvider);
     final allBudgets = await budgetRepo.listAll();
     final progress = <String, int>{};
@@ -137,12 +132,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       _allBudgets = allBudgets;
       _budgetProgress = progress;
     });
-    debugPrint('[Dashboard] loaded ${allBudgets.length} budgets');
   }
 
   Future<void> _onRefresh() async {
     ref.read(hapticsProvider).light();
-    await ref.read(recurringRepositoryProvider).materializeDue();
+    // Materialization is a side task: if it fails, the pull-to-refresh must
+    // still reload the dashboard rather than abort with no feedback.
+    try {
+      await ref.read(recurringRepositoryProvider).materializeDue();
+    } catch (_) {
+      // Ignored on purpose; the next refresh/app start retries.
+    }
     await _loadBudgets();
   }
 

@@ -83,7 +83,9 @@ class RecurringRepository {
               projectId: Value(projectId),
             ),
           );
-      for (final tagId in tagIds) {
+      // Dedup: `recurring_tags` PK is {recurringId, tagId}, so a repeated tagId
+      // would raise a UNIQUE violation and roll back the whole insert.
+      for (final tagId in tagIds.toSet()) {
         await _db.into(_db.recurringTags).insert(
               RecurringTagsCompanion.insert(recurringId: id, tagId: tagId),
             );
@@ -145,7 +147,8 @@ class RecurringRepository {
       );
       if (tagIds != null) {
         await (_db.delete(_db.recurringTags)..where((t) => t.recurringId.equals(id))).go();
-        for (final tagId in tagIds) {
+        // Dedup: see `create` — repeated tagIds violate the {recurringId, tagId} PK.
+        for (final tagId in tagIds.toSet()) {
           await _db.into(_db.recurringTags).insert(
                 RecurringTagsCompanion.insert(recurringId: id, tagId: tagId),
               );

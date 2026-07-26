@@ -141,8 +141,9 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     }
   }
 
+  /// Wired to `onReorderItem`, which already adjusts [newIndex] for the removed
+  /// item — so no `if (newIndex > oldIndex) newIndex -= 1` correction here.
   Future<void> _reorder(String groupId, int oldIndex, int newIndex) async {
-    if (newIndex > oldIndex) newIndex -= 1;
     final reordered = List<Tag>.from(_tagsByGroup[groupId]!);
     final item = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, item);
@@ -251,7 +252,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           buildDefaultDragHandles: false,
                           itemCount: _tagsByGroup[group.id]?.length ?? 0,
-                          onReorder: (oldIndex, newIndex) => _reorder(group.id, oldIndex, newIndex),
+                          onReorderItem: (oldIndex, newIndex) => _reorder(group.id, oldIndex, newIndex),
                           itemBuilder: (context, index) {
                             final tag = _tagsByGroup[group.id]![index];
                             final label = translations == null

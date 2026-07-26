@@ -25,8 +25,18 @@ NumberFormat _currencyFormat(String currency, String? locale) =>
     NumberFormat.simpleCurrency(locale: locale ?? _moneyLocale, name: currency);
 
 /// Cents → localized amount with the currency symbol.
-String formatMoney(int cents, String currency, {String? locale}) =>
-    _currencyFormat(currency, locale).format(cents / 100);
+///
+/// `simpleCurrency` throws for a currency code `intl` doesn't know (only
+/// reachable through a corrupt import/restore, since the UI has no free-form
+/// currency input). Fall back to `<amount> <code>` instead of crashing the
+/// widget that renders the amount.
+String formatMoney(int cents, String currency, {String? locale}) {
+  try {
+    return _currencyFormat(currency, locale).format(cents / 100);
+  } catch (_) {
+    return '${formatDecimal(cents, locale: locale)} $currency';
+  }
+}
 
 /// Cents → localized plain number (2 decimals, no currency symbol). Used where
 /// the symbol is shown separately (e.g. split-styled displays).

@@ -288,7 +288,14 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     }
     // Surface any dates already due immediately (start date in the past/today)
     // so the new template's first occurrence appears in the inbox right away.
-    await repo.materializeDue();
+    // The template is already saved at this point, so a materialization failure
+    // must not turn a successful save into an error — the next app start or
+    // dashboard refresh retries it.
+    try {
+      await repo.materializeDue();
+    } catch (_) {
+      // Ignored on purpose; see above.
+    }
     _close(true);
   }
 

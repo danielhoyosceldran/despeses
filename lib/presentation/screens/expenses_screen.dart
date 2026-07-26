@@ -12,6 +12,7 @@ import '../../domain/repositories/expense_repository.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/drag_up_fab.dart';
+import '../widgets/error_retry.dart';
 import '../widgets/expense_filter_sheet.dart';
 import 'expense_entry/expense_entry_screen.dart';
 
@@ -31,6 +32,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   bool _hasMore = true;
   bool _loading = true;
   bool _loadingMore = false;
+  bool _hasError = false;
   final Set<String> _selectedIds = {};
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
@@ -54,32 +56,47 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   Future<void> _reload() async {
     setState(() {
       _loading = true;
+      _hasError = false;
       _expenses.clear();
       _page = 0;
       _hasMore = true;
       _loadingMore = false;
     });
-    final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: 0);
-    setState(() {
-      _expenses.addAll(page);
-      _hasMore = page.length == ExpenseRepository.pageSize;
-      _loading = false;
-    });
+    try {
+      final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: 0);
+      if (!mounted) return;
+      setState(() {
+        _expenses.addAll(page);
+        _hasMore = page.length == ExpenseRepository.pageSize;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _hasError = true;
+      });
+    }
   }
 
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
     final nextPage = _page + 1;
-    final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: nextPage);
-    if (!mounted) return;
-    setState(() {
-      _page = nextPage;
-      final existingIds = _expenses.map((e) => e.id).toSet();
-      _expenses.addAll(page.where((e) => !existingIds.contains(e.id)));
-      _hasMore = page.length == ExpenseRepository.pageSize;
-      _loadingMore = false;
-    });
+    try {
+      final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: nextPage);
+      if (!mounted) return;
+      setState(() {
+        _page = nextPage;
+        final existingIds = _expenses.map((e) => e.id).toSet();
+        _expenses.addAll(page.where((e) => !existingIds.contains(e.id)));
+        _hasMore = page.length == ExpenseRepository.pageSize;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
   }
 
   Future<void> _openFilters() async {
@@ -172,6 +189,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
+                : _hasError
+                    ? ErrorRetry(
+                        onRetry: _reload,
+                        retryLabel: t?.t('common.retry') ?? 'Retry',
+                      )
                 : _expenses.isEmpty
                     ? Center(child: Text(t?.t('dashboard.no_transactions') ?? 'No transactions'))
                     : ListView.builder(

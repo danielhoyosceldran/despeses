@@ -65,10 +65,24 @@ class DashboardAnalytics {
 
     final monthKey = monthKeyOf(DateTime(month.year, month.month));
     final active = (await _budgets.listAll()).where((b) => _budgets.isActiveForMonth(b, monthKey));
+    // "At risk" must be evaluated inside the *displayed* month, not always the
+    // current one (R33). `pace` takes a single `asOf` that drives both the spend
+    // window and the elapsed-time fraction, so anchor it to `month`:
+    //  - past month  → end of that month: time fraction 1, i.e. plain
+    //                  spent-vs-limit for a period that is fully over;
+    //  - current month → today (unchanged behaviour);
+    //  - future month → nothing has been spent or elapsed yet, so no risk.
+    final now = asOf ?? DateTime.now();
+    final currentMonthKey = monthKeyOf(DateTime(now.year, now.month));
+    final comparison = monthKey.compareTo(currentMonthKey);
     var atRisk = 0;
-    for (final b in active) {
-      final pace = await _budgetAnalytics.pace(b, asOf: asOf);
-      if (pace.overPace || pace.spentFraction > 1) atRisk++;
+    if (comparison <= 0) {
+      // Last day of `month` for a past month, `now` for the current one.
+      final paceAsOf = comparison < 0 ? DateTime(month.year, month.month + 1, 0) : now;
+      for (final b in active) {
+        final pace = await _budgetAnalytics.pace(b, asOf: paceAsOf);
+        if (pace.overPace || pace.spentFraction > 1) atRisk++;
+      }
     }
 
     return FinancialHealth(
