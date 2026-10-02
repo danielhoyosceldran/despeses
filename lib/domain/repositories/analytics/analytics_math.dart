@@ -35,27 +35,15 @@ List<DateTime> monthsIn(DateRange range) {
   return months;
 }
 
-/// The signed **spend** total: `expense` and `ahorro` add, `refund`
-/// subtracts, `income` is excluded.
-int signedSpend(Iterable<Expense> expenses) {
-  var total = 0;
-  for (final e in expenses) {
-    switch (e.type) {
-      case 'expense':
-      case 'ahorro':
-        total += e.amount;
-      case 'refund':
-        total -= e.amount;
-      // income excluded.
-    }
-  }
-  return total;
-}
+// Spend vs. savings — the single definition every screen uses:
+//
+// - **Spent** ("Gastado") = [expenseOutflow]: `expense` minus `refund`.
+// - **Savings** ("Ahorro") = [savingsSetAside]: money set aside as not
+//   available this month. It is NOT spending and is shown as its own figure.
+// - **Balance** = income − spent − savings: savings still reduce what's left.
 
-/// Pure expense outflow: `expense` positive, `refund` subtracts, `ahorro` and
-/// `income` excluded. Use this wherever "spend" means money spent on goods and
-/// services, as opposed to [signedSpend]'s "total outflow" that also counts
-/// money set aside as savings.
+/// Spent: `expense` positive, `refund` subtracts; `ahorro` and `income`
+/// excluded. Use this wherever a figure means "spent" (see the note above).
 int expenseOutflow(Iterable<Expense> expenses) {
   var total = 0;
   for (final e in expenses) {
@@ -69,6 +57,10 @@ int expenseOutflow(Iterable<Expense> expenses) {
   }
   return total;
 }
+
+/// Savings set aside: the sum of `ahorro` amounts. Shown next to (never inside)
+/// the spent figure.
+int savingsSetAside(Iterable<Expense> expenses) => sumOfType(expenses, 'ahorro');
 
 /// Signed amount of a single spend transaction: `expense` positive, `refund`
 /// negative. Only meaningful for lists already filtered to expense/refund.

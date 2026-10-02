@@ -19,9 +19,16 @@ class EventAnalytics {
     return q.get();
   }
 
-  /// A6.1 — signed total cost of the event/project (expense − refund).
+  /// A6.1 — signed total cost of the event/project (expense − refund). Savings
+  /// are not a cost; see [savings].
   Future<int> totalCost({String? eventId, String? projectId}) async {
-    return signedSpend(await _scopeExpenses(eventId: eventId, projectId: projectId));
+    return expenseOutflow(await _scopeExpenses(eventId: eventId, projectId: projectId));
+  }
+
+  /// Savings (`ahorro`) set aside under the event/project, shown apart from
+  /// [totalCost].
+  Future<int> savings({String? eventId, String? projectId}) async {
+    return savingsSetAside(await _scopeExpenses(eventId: eventId, projectId: projectId));
   }
 
   /// A6.3 — cost per day = total / duration in days (inclusive). Returns null

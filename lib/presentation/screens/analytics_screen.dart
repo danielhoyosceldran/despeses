@@ -791,6 +791,10 @@ class _TagsSection extends ConsumerWidget {
                 color: AppDataColors.cycle[i % AppDataColors.cycle.length],
                 label: data.labels[data.slices[i].tagId] ?? '',
                 trailing: formatAmount(data.slices[i].amountCents, currency),
+                // Savings aren't spending: shown apart, outside the donut.
+                detail: data.slices[i].savingsCents == 0
+                    ? null
+                    : '${data.translations.t('expenses.type_ahorro')}: ${formatAmount(data.slices[i].savingsCents, currency)}',
               ),
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.sm),

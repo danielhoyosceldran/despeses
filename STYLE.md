@@ -219,9 +219,13 @@ All use `colors.shadow` (pre-baked opacity per theme).
   column: uppercase category line (Inter 11 w500, `letterSpacing 0.5`, muted) +
   title (`labelLarge`). Right: signed amount in Clash 18 via
   `amountColorForType` (income `+`, refund `±`, expense `-`).
-- **Stat tile** (dashboard hero) — `mutedFill(0.30)`, radius 16, hairline; 32px
-  icon chip (`iconChipBackground`) + `labelSmall` label + Clash 20 value.
-  Income = emerald `arrowDownRight`, Spent = rose `arrowUpRight`.
+- **Stat tile** (dashboard hero, three in a row) — `mutedFill(0.30)`, radius
+  16, hairline, padding 12; 24px icon chip (`iconChipBackground`, 14px icon) +
+  `labelSmall` label (1 line, ellipsis), then a Clash 20 value scaled down to
+  fit (`FittedBox`). Income = emerald `arrowDownRight`, Spent = rose
+  `arrowUpRight`, Savings = savings color `coins`. Tiles are 12 apart.
+- **Legend row detail** (`LegendRow.detail`) — optional second line under the
+  label in `bodySmall`, `textMuted`.
 - **Budget tile** — name `labelLarge`, `ThinProgressBar`, `spent / limit` in
   `bodySmall` tabular (`over` color when exceeded).
 - **Recurring-due tile** (`_RecurringDueTile`) — hairline card radius 16 on
@@ -319,7 +323,7 @@ Header gear `settings`.
 - **Dashboard balance collapse** (`dashboard_screen` `_HeroHeaderDelegate`) — a
   pinned `SliverPersistentHeader` whose `shrinkOffset` maps 1:1 to `t` (0→1)
   between `minExtent 88` and `maxExtent 244`. As `t` grows the balance shrinks
-  (Clash 60→30), the Income/Spent tiles fold away (`Align(heightFactor: 1-t)` +
+  (Clash 60→30), the Income/Spent/Savings tiles fold away (`Align(heightFactor: 1-t)` +
   `Opacity(1-t)`), padding tightens, and a hairline bottom border fades in. The
   scroll **is** the animation clock — no timed controller.
 - **FAB press** — `PressableScale` (see §5).

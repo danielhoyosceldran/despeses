@@ -681,6 +681,18 @@ class _EventBody extends ConsumerWidget {
                     ),
                   ),
                 ]),
+                // Savings aren't a cost: shown on their own, only when present.
+                if (d.savings > 0) ...[
+                  const SizedBox(height: AppSpacing.smMd),
+                  Row(children: [
+                    Expanded(
+                      child: KpiTile(
+                        label: t?.t('expenses.type_ahorro') ?? 'Savings',
+                        value: formatAmount(d.savings, currency),
+                      ),
+                    ),
+                  ]),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 StatCard(
                   title: t?.t('analytics.stat_spend_timeline') ?? 'Spend timeline',

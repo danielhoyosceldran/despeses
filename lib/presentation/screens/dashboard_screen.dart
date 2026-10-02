@@ -15,6 +15,7 @@ import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
+import '../../domain/repositories/analytics/analytics_math.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_top_bar.dart';
@@ -585,30 +586,23 @@ class _RecurringDueTile extends StatelessWidget {
   }
 }
 
-/// Signed monthly totals in the profile currency (accounting rule: expense
-/// and ahorro subtract, refund adds back, income is tracked separately).
+/// Monthly totals in the profile currency, per the shared definition in
+/// analytics_math.dart: spent = expense − refund; savings (ahorro) are shown
+/// apart, not as spending, but still reduce the balance.
 class _Totals {
-  const _Totals({required this.spent, required this.income});
+  const _Totals({required this.spent, required this.savings, required this.income});
   final int spent;
+  final int savings;
   final int income;
-  int get balance => income - spent;
+  int get balance => income - spent - savings;
 
   factory _Totals.of(List<Expense> expenses, String currency) {
-    var spent = 0;
-    var income = 0;
-    for (final e in expenses) {
-      if (e.currency != currency) continue;
-      switch (e.type) {
-        case 'expense':
-        case 'ahorro':
-          spent += e.amount;
-        case 'refund':
-          spent -= e.amount;
-        case 'income':
-          income += e.amount;
-      }
-    }
-    return _Totals(spent: spent, income: income);
+    final inCurrency = expenses.where((e) => e.currency == currency).toList();
+    return _Totals(
+      spent: expenseOutflow(inCurrency),
+      savings: savingsSetAside(inCurrency),
+      income: sumOfType(inCurrency, 'income'),
+    );
   }
 }
 
@@ -672,7 +666,7 @@ class _BalanceHeader extends StatelessWidget {
                           color: semantic.income,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
+                      const SizedBox(width: AppSpacing.smMd),
                       Expanded(
                         child: _StatTile(
                           label: translations?.t('analytics.spent') ?? 'Spent',
@@ -680,6 +674,16 @@ class _BalanceHeader extends StatelessWidget {
                           currency: currency,
                           icon: LucideIcons.arrowUpRight,
                           color: semantic.expense,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.smMd),
+                      Expanded(
+                        child: _StatTile(
+                          label: translations?.t('expenses.type_ahorro') ?? 'Savings',
+                          value: totals.savings,
+                          currency: currency,
+                          icon: LucideIcons.coins300,
+                          color: semantic.savings,
                         ),
                       ),
                     ],
@@ -695,7 +699,9 @@ class _BalanceHeader extends StatelessWidget {
   }
 }
 
-/// Income/Spent stat tile: muted fill, hairline border, colored icon chip.
+/// Income/Spent/Savings stat tile (three in a row): muted fill, hairline
+/// border; a small colored icon chip beside the label, the amount below it,
+/// scaled down to fit the narrow tile.
 class _StatTile extends StatelessWidget {
   const _StatTile({
     required this.label,
@@ -715,33 +721,42 @@ class _StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.smMd),
       decoration: BoxDecoration(
         color: colors.mutedFill(0.30),
         borderRadius: BorderRadius.circular(AppDimens.radiusCard),
         border: Border.all(color: colors.borderSoft, width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(color: iconChipBackground(color), shape: BoxShape.circle),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(width: AppSpacing.smMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: Theme.of(context).textTheme.labelSmall),
-                const SizedBox(height: AppSpacing.xs),
-                AmountText(
-                  amountCents: value,
-                  currency: currency,
-                  style: appDisplay(colors, fontSize: 20),
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(color: iconChipBackground(color), shape: BoxShape.circle),
+                child: Icon(icon, size: 14, color: color),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: AmountText(
+              amountCents: value,
+              currency: currency,
+              style: appDisplay(colors, fontSize: 20),
             ),
           ),
         ],
@@ -899,6 +914,7 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_HeroHeaderDelegate old) =>
       old.totals.spent != totals.spent ||
+      old.totals.savings != totals.savings ||
       old.totals.income != totals.income ||
       old.currency != currency ||
       old.translations != translations;

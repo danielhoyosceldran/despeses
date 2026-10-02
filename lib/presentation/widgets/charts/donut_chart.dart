@@ -69,6 +69,7 @@ class LegendRow extends StatelessWidget {
     required this.color,
     required this.label,
     required this.trailing,
+    this.detail,
     this.canDrill = false,
     this.onTap,
   });
@@ -76,6 +77,9 @@ class LegendRow extends StatelessWidget {
   final Color color;
   final String label;
   final String trailing;
+
+  /// Optional secondary line under [label] (e.g. a tag's savings).
+  final String? detail;
   final bool canDrill;
   final VoidCallback? onTap;
 
@@ -91,7 +95,17 @@ class LegendRow extends StatelessWidget {
           children: [
             Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: AppSpacing.smMd),
-            Expanded(child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
+            Expanded(
+              child: detail == null
+                  ? Text(label, style: Theme.of(context).textTheme.labelLarge)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: Theme.of(context).textTheme.labelLarge),
+                        Text(detail!, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: colors.textMuted)),
+                      ],
+                    ),
+            ),
             Text(
               trailing,
               style: Theme.of(context)

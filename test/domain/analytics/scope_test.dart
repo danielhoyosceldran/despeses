@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 import 'package:despeses/data/database.dart';
 import 'package:despeses/domain/repositories/analytics/analytics_budgets.dart';
 import 'package:despeses/domain/repositories/analytics/analytics_events.dart';
+import 'package:despeses/domain/repositories/analytics/analytics_math.dart';
+import 'package:despeses/domain/repositories/analytics/analytics_tags.dart';
 import 'package:despeses/domain/repositories/budget_repository.dart';
 import 'package:despeses/domain/repositories/category_repository.dart';
 
@@ -50,6 +52,47 @@ void main() {
       final oor = await ev.outOfRange(eventId: eventId, startsAt: start, endsAt: end);
       expect(oor.length, 1);
       expect(oor.single.amount, 100);
+    });
+  });
+
+  group('savings are not spending', () {
+    test('event total cost excludes savings, reported apart', () async {
+      const eventId = 'ev2';
+      await db.into(db.events).insert(EventsCompanion.insert(id: eventId, name: 'Trip'));
+      await add(600, 'expense', DateTime(2026, 6, 2), eventId: eventId);
+      await add(100, 'refund', DateTime(2026, 6, 3), eventId: eventId);
+      await add(300, 'ahorro', DateTime(2026, 6, 4), eventId: eventId);
+
+      final ev = EventAnalytics(db);
+      expect(await ev.totalCost(eventId: eventId), 500);
+      expect(await ev.savings(eventId: eventId), 300);
+    });
+
+    test('tag slices are spending only, with savings per tag apart', () async {
+      final tag = (await db.select(db.tags).get()).first;
+      Future<void> tagged(int amount, String type) async {
+        final id = _uuid.v4();
+        await db.into(db.expenses).insert(ExpensesCompanion.insert(
+              id: id, amount: amount, currency: 'EUR', type: type, date: DateTime(2026, 3, 5)));
+        await db.into(db.expenseTags).insert(ExpenseTagsCompanion.insert(expenseId: id, tagId: tag.id));
+      }
+
+      await tagged(1000, 'expense');
+      await tagged(400, 'ahorro');
+
+      final slices = await TagAnalytics(db).byTag(DateRange.month(DateTime(2026, 3)), 'EUR');
+      expect(slices.single.amountCents, 1000);
+      expect(slices.single.savingsCents, 400);
+    });
+
+    test('a tag with only savings has no slice', () async {
+      final tag = (await db.select(db.tags).get()).first;
+      final id = _uuid.v4();
+      await db.into(db.expenses).insert(ExpensesCompanion.insert(
+            id: id, amount: 400, currency: 'EUR', type: 'ahorro', date: DateTime(2026, 3, 5)));
+      await db.into(db.expenseTags).insert(ExpenseTagsCompanion.insert(expenseId: id, tagId: tag.id));
+
+      expect(await TagAnalytics(db).byTag(DateRange.month(DateTime(2026, 3)), 'EUR'), isEmpty);
     });
   });
 

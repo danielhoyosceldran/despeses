@@ -44,6 +44,11 @@ balance: there are no savings withdrawals and no running savings balance.
 Tracking real patrimony (balances, withdrawals) may come in the future
 (backlog BL-037), but is **out of scope for now** — don't design for it.
 
+The definition lives in `lib/domain/repositories/analytics/analytics_math.dart`:
+**Spent** ("Gastado") = `expenseOutflow` (expense − refund) everywhere;
+**Savings** = `savingsSetAside` (ahorro), always shown as its own figure;
+**Balance** = income − spent − savings.
+
 **Refunds and category budgets.** Categories are per transaction type, so a
 refund can never carry an expense category. Budgets by category therefore do
 **not** subtract refunds (by design, decision BL-009 option b); budgets by

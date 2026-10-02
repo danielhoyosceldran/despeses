@@ -3,13 +3,18 @@ import 'analytics_math.dart';
 import 'analytics_query.dart';
 
 class TagSlice {
-  const TagSlice({required this.tagId, required this.amountCents});
+  const TagSlice({required this.tagId, required this.amountCents, this.savingsCents = 0});
   final String tagId;
+
+  /// Spent under the tag ([expenseOutflow]).
   final int amountCents;
+
+  /// Savings set aside under the tag ([savingsSetAside]), shown apart.
+  final int savingsCents;
 }
 
 /// Tag / tag-group analytics (Analytics › Tags y grupos, section A4). Amounts
-/// use the signed spend rule; a multi-tag expense counts fully in each tag, so
+/// are spent ([expenseOutflow]; savings reported separately); a multi-tag expense counts fully in each tag, so
 /// slice sums can exceed the period total.
 class TagAnalytics {
   TagAnalytics(this._db);
@@ -25,7 +30,8 @@ class TagAnalytics {
     return (expenses, links);
   }
 
-  /// A4 base — signed spend per tag.
+  /// A4 base — spent per tag, plus each tag's savings. Only tags with spending
+  /// are returned (a tag with only savings has no slice).
   Future<List<TagSlice>> byTag(DateRange range, String currency) async {
     final (expenses, links) = await _expensesAndLinks(range, currency);
     final byId = {for (final e in expenses) e.id: e};
@@ -36,11 +42,16 @@ class TagAnalytics {
     }
     return [
       for (final entry in grouped.entries)
-        if (signedSpend(entry.value) != 0) TagSlice(tagId: entry.key, amountCents: signedSpend(entry.value)),
+        if (expenseOutflow(entry.value) != 0)
+          TagSlice(
+            tagId: entry.key,
+            amountCents: expenseOutflow(entry.value),
+            savingsCents: savingsSetAside(entry.value),
+          ),
     ];
   }
 
-  /// A4.1 — signed spend per tag group (`tagGroupId → cents`).
+  /// A4.1 — spent per tag group (`tagGroupId → cents`).
   Future<Map<String, int>> byGroup(DateRange range, String currency) async {
     final (expenses, links) = await _expensesAndLinks(range, currency);
     final byId = {for (final e in expenses) e.id: e};
@@ -53,7 +64,7 @@ class TagAnalytics {
       final group = groupOf[link.tagId];
       if (e != null && group != null) grouped.putIfAbsent(group, () => []).add(e);
     }
-    return {for (final entry in grouped.entries) entry.key: signedSpend(entry.value)};
+    return {for (final entry in grouped.entries) entry.key: expenseOutflow(entry.value)};
   }
 
   /// A4.3 — data quality: fraction of expense/refund transactions with no tag.

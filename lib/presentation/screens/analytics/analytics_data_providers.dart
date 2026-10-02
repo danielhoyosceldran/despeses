@@ -291,8 +291,11 @@ final eventListProvider = FutureProvider<List<Event>>(
     (ref) => ref.watch(referenceDataCacheProvider).events());
 
 class EventSectionData {
-  EventSectionData(this.total, this.perDay, this.timeline, this.outOfRange);
+  EventSectionData(this.total, this.savings, this.perDay, this.timeline, this.outOfRange);
   final int total;
+
+  /// Savings set aside under the event — shown apart from [total].
+  final int savings;
   final double? perDay;
   final List<(DateTime, int)> timeline;
   final int outOfRange;
@@ -303,8 +306,9 @@ final eventSectionProvider =
   _keepAliveFor(ref);
   final ev = ref.watch(eventAnalyticsProvider);
   final total = await ev.totalCost(eventId: a.eventId);
+  final savings = await ev.savings(eventId: a.eventId);
   final perDay = await ev.costPerDay(startsAt: a.startsAt, endsAt: a.endsAt, eventId: a.eventId);
   final timeline = await ev.timeline(eventId: a.eventId);
   final oor = await ev.outOfRange(eventId: a.eventId, startsAt: a.startsAt, endsAt: a.endsAt);
-  return EventSectionData(total, perDay, timeline, oor.length);
+  return EventSectionData(total, savings, perDay, timeline, oor.length);
 });
