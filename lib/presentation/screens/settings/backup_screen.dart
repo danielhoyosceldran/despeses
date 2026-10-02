@@ -109,7 +109,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       confirmLabel: translations?.t('backup.restore') ?? 'Restore',
       destructive: true,
     );
-    if (!confirmed) return;
+    if (!confirmed || !mounted) return;
 
     setState(() => _busy = true);
     final backupService = ref.read(backupServiceProvider);

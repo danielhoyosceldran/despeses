@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart';
+
 import '../../../data/database.dart';
 import 'analytics_category.dart';
 import 'analytics_math.dart';
