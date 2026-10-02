@@ -83,10 +83,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   Future<void> _import() async {
     final translations = ref.read(translationsProvider).asData?.value;
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['sqlite'],
-    );
+    // Any file type: a .sqlite received via WhatsApp/Drive often has no
+    // usable MIME type or a renamed extension, so filtering by extension can
+    // leave it greyed out on Android. The content is validated below instead.
+    final result = await FilePicker.pickFiles(type: FileType.any);
     final path = result?.files.single.path;
     if (path == null) return;
 
