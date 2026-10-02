@@ -14,7 +14,8 @@ class BudgetPace {
 
   /// Elapsed fraction of the budget period (0..1). For `monthly` budgets this
   /// is how far through the current month we are; for `range` budgets, elapsed
-  /// months over total months.
+  /// days over the total days of the window (both day-level, today counted as
+  /// elapsed).
   final double? timeFraction;
 
   double get spentFraction => limitCents == 0 ? 0 : spentCents / limitCents;
@@ -46,19 +47,17 @@ class BudgetAnalytics {
         final daysInMonth = DateTime(asOf.year, asOf.month + 1, 0).day;
         return asOf.day / daysInMonth;
       case 'range':
-        final start = budget.startsMonth!;
-        final end = budget.endsMonth!;
-        final asOfKey = monthKeyOf(DateTime(asOf.year, asOf.month));
-        int monthsBetween(String a, String b) {
-          final pa = a.split('-');
-          final pb = b.split('-');
-          return (int.parse(pb[0]) - int.parse(pa[0])) * 12 + (int.parse(pb[1]) - int.parse(pa[1]));
-        }
-
-        final total = monthsBetween(start, end) + 1;
-        final elapsedTo = asOfKey.compareTo(end) > 0 ? end : (asOfKey.compareTo(start) < 0 ? start : asOfKey);
-        final elapsed = (monthsBetween(start, elapsedTo) + 1).clamp(0, total);
-        return total == 0 ? null : elapsed / total;
+        // Day-level over [first day of startsMonth, last day of endsMonth].
+        // UTC dates so a DST change can't make a day 23h and skew inDays.
+        final s = budget.startsMonth!.split('-');
+        final e = budget.endsMonth!.split('-');
+        final start = DateTime.utc(int.parse(s[0]), int.parse(s[1]));
+        final endExclusive = DateTime.utc(int.parse(e[0]), int.parse(e[1]) + 1);
+        final total = endExclusive.difference(start).inDays;
+        if (total <= 0) return null;
+        final today = DateTime.utc(asOf.year, asOf.month, asOf.day);
+        final elapsed = (today.difference(start).inDays + 1).clamp(0, total);
+        return elapsed / total;
       default:
         return null;
     }
