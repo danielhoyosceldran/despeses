@@ -23,6 +23,9 @@ class ExpenseFilters {
   final String? paymentMethodId;
   final String? eventId;
   final String? projectId;
+
+  /// Inclusive day bounds: only the calendar day counts, the time of day is
+  /// ignored. A transaction at 18:00 on [dateTo]'s day is included.
   final DateTime? dateFrom;
   final DateTime? dateTo;
 }
@@ -57,10 +60,14 @@ class ExpenseRepository {
       conditions.add(_db.expenses.projectId.equals(filters.projectId!));
     }
     if (filters.dateFrom != null) {
-      conditions.add(_db.expenses.date.isBiggerOrEqualValue(filters.dateFrom!));
+      final from = filters.dateFrom!;
+      conditions.add(_db.expenses.date.isBiggerOrEqualValue(DateTime(from.year, from.month, from.day)));
     }
     if (filters.dateTo != null) {
-      conditions.add(_db.expenses.date.isSmallerOrEqualValue(filters.dateTo!));
+      // Pickers return the day at 00:00, but transactions carry a time: compare
+      // against the start of the next day so the whole last day is included.
+      final to = filters.dateTo!;
+      conditions.add(_db.expenses.date.isSmallerThanValue(DateTime(to.year, to.month, to.day + 1)));
     }
     for (final c in conditions) {
       query.where(c);

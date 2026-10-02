@@ -66,4 +66,23 @@ void main() {
     await repo.delete(id);
     expect(await repo.byId(id), isNull);
   });
+
+  test('dateTo includes the whole last day regardless of time', () async {
+    Future<void> add(DateTime date) => repo.create(
+          amountCents: 100,
+          currency: 'EUR',
+          type: 'expense',
+          date: date,
+        );
+    await add(DateTime(2026, 3, 1, 9)); // first day, morning
+    await add(DateTime(2026, 3, 31, 18)); // last day, 18:00
+    await add(DateTime(2026, 4, 1, 0, 0, 1)); // just past the range
+    await add(DateTime(2026, 2, 28, 23, 59)); // just before the range
+
+    final rows = await repo.listAll(
+      filters: ExpenseFilters(dateFrom: DateTime(2026, 3, 1), dateTo: DateTime(2026, 3, 31)),
+    );
+
+    expect(rows.map((e) => e.date).toSet(), {DateTime(2026, 3, 1, 9), DateTime(2026, 3, 31, 18)});
+  });
 }
