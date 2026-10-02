@@ -106,12 +106,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final cached = _monthStreamCache[key];
     if (cached != null) return cached;
 
+    // Drift's watch streams are already multi-listener and replay the latest
+    // result to each new subscriber. Don't wrap in `asBroadcastStream()`: it
+    // doesn't replay, so a page rebuilt after paging away would never get data.
     final repo = ref.read(expenseRepositoryProvider);
-    final stream = repo
-        .watchAll(
-          filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
-        )
-        .asBroadcastStream();
+    final stream = repo.watchAll(
+      filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
+    );
 
     if (_monthStreamCache.length >= _maxCachedMonthStreams) {
       _monthStreamCache.remove(_monthStreamCache.keys.first);
