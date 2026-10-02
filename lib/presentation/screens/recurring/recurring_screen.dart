@@ -269,6 +269,8 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                                 if (i != -1) _templates[i] = _templates[i].copyWith(active: v);
                               });
                               await ref.read(recurringRepositoryProvider).setActive(r.id, v);
+                              // Resuming moves nextDate past the paused period.
+                              if (v) _load();
                             },
                             onCheckbox: () => _toggleSelection(r),
                           ),

@@ -157,10 +157,32 @@ class RecurringRepository {
     });
   }
 
-  Future<void> setActive(String id, bool active) async {
-    await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
-      RecurringsCompanion(active: Value(active), updatedAt: Value(DateTime.now())),
-    );
+  /// Pauses or resumes a template. Resuming skips the paused period: [nextDate]
+  /// jumps forward to the first scheduled date on or after today, so the dates
+  /// that fell while it was paused are never materialized. [now] is injectable
+  /// for tests.
+  Future<void> setActive(String id, bool active, {DateTime? now}) async {
+    await _db.transaction(() async {
+      Value<DateTime> nextDateValue = const Value.absent();
+      if (active) {
+        final current = await templateById(id);
+        if (current != null && !current.active) {
+          final today = _dateOnly(now ?? DateTime.now());
+          var cursor = _dateOnly(current.nextDate);
+          while (cursor.isBefore(today)) {
+            cursor = _advance(cursor, current.frequency, current.startDate);
+          }
+          nextDateValue = Value(cursor);
+        }
+      }
+      await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
+        RecurringsCompanion(
+          active: Value(active),
+          nextDate: nextDateValue,
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    });
   }
 
   /// Deleting a template cascades to its tags and any pending occurrences.

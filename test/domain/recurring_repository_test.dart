@@ -191,6 +191,30 @@ void main() {
     expect(created, 0);
   });
 
+  test('resuming a paused template skips the dates of the paused period', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 10));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15)); // Jan 10
+    await recurring.setActive(id, false);
+
+    await recurring.setActive(id, true, now: DateTime(2026, 6, 20));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isTrue);
+    expect(template.nextDate, DateTime(2026, 7, 10));
+    final created = await recurring.materializeDue(now: DateTime(2026, 6, 20));
+    expect(created, 0);
+    expect((await recurring.listPending()).length, 1); // only the pre-pause Jan 10
+  });
+
+  test('resuming keeps a scheduled date that falls today', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 10));
+    await recurring.setActive(id, false);
+
+    await recurring.setActive(id, true, now: DateTime(2026, 6, 10, 18));
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 6, 10));
+  });
+
   test('deleting a template cascades to its pending occurrences', () async {
     final id = await addMonthly(start: DateTime(2026, 1, 1));
     await recurring.materializeDue(now: DateTime(2026, 3, 15));
