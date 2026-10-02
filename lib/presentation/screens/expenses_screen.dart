@@ -9,6 +9,7 @@ import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/expense_repository.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/drag_up_fab.dart';
@@ -119,8 +120,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       translations: translations,
     );
     if (result != null) {
-      setState(() => _filters = result);
+      // An inverted range would silently match nothing: swap it and say so.
+      final swap = result.hasInvertedDates;
+      setState(() => _filters = swap ? result.withSwappedDates() : result);
       _reload();
+      if (swap && mounted) showAppToast(context, translations.t('common.dates_swapped'), variant: ToastVariant.warning);
     }
   }
 

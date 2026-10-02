@@ -164,6 +164,7 @@
     "delete_with_budgets": "\"{{name}}\" té {{count}} pressupost(os) que també s'eliminaran. Continuar?",
     "error_delete_named": "No s'ha pogut eliminar \"{{name}}\"",
     "error_duplicate_name": "\"{{name}}\" ja existeix.",
+    "dates_swapped": "La data inicial era posterior a la final: s'han intercanviat.",
     "any": "Qualsevol",
     "icon_optional": "Icona (opcional)",
     "description_optional": "Descripció (opcional)",

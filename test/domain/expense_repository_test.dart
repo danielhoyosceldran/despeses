@@ -85,4 +85,17 @@ void main() {
 
     expect(rows.map((e) => e.date).toSet(), {DateTime(2026, 3, 1, 9), DateTime(2026, 3, 31, 18)});
   });
+
+  test('hasInvertedDates compares days and withSwappedDates exchanges them', () {
+    final inverted = ExpenseFilters(type: 'expense', dateFrom: DateTime(2026, 3, 10), dateTo: DateTime(2026, 3, 5));
+    final sameDay = ExpenseFilters(dateFrom: DateTime(2026, 3, 5, 18), dateTo: DateTime(2026, 3, 5));
+
+    expect(inverted.hasInvertedDates, isTrue);
+    expect(sameDay.hasInvertedDates, isFalse);
+    expect(const ExpenseFilters().hasInvertedDates, isFalse);
+    final swapped = inverted.withSwappedDates();
+    expect(swapped.dateFrom, DateTime(2026, 3, 5));
+    expect(swapped.dateTo, DateTime(2026, 3, 10));
+    expect(swapped.type, 'expense');
+  });
 }

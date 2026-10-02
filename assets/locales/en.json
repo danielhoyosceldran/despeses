@@ -166,6 +166,7 @@
     "delete_selected": "Delete {{count}} selected item(s)?",
     "error_delete_named": "Could not delete \"{{name}}\"",
     "error_duplicate_name": "\"{{name}}\" already exists.",
+    "dates_swapped": "The start date was after the end date, so they were swapped.",
     "done": "Done",
     "any": "Any",
     "icon_optional": "Icon (optional)",

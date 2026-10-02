@@ -39,6 +39,22 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     if (picked != null) setState(() => _to = picked);
   }
 
+  /// An inverted range would export an empty file: swap it and say so.
+  void _orderDates() {
+    if (!_from.isAfter(_to)) return;
+    final from = _to;
+    setState(() {
+      _to = _from;
+      _from = from;
+    });
+    final t = ref.read(translationsProvider).asData?.value;
+    showAppToast(
+      context,
+      t?.t('common.dates_swapped') ?? 'The start date was after the end date, so they were swapped.',
+      variant: ToastVariant.warning,
+    );
+  }
+
   Future<List<List<String>>> _buildRows() async {
     final expenseRepo = ref.read(expenseRepositoryProvider);
     final expenses = await expenseRepo.listAll(
@@ -73,6 +89,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   String get _rangeLabel => '${DateFormat.yMMMd().format(_from)} - ${DateFormat.yMMMd().format(_to)}';
 
   Future<void> _exportCsv() async {
+    _orderDates();
     setState(() => _busy = true);
     try {
       final rows = await _buildRows();
@@ -98,6 +115,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   Future<void> _exportPdf() async {
+    _orderDates();
     setState(() => _busy = true);
     try {
       final rows = await _buildRows();

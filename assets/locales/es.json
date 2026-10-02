@@ -166,6 +166,7 @@
     "delete_selected": "¿Eliminar {{count}} elemento(s) seleccionado(s)?",
     "error_delete_named": "No se pudo eliminar \"{{name}}\"",
     "error_duplicate_name": "\"{{name}}\" ya existe.",
+    "dates_swapped": "La fecha inicial era posterior a la final: se han intercambiado.",
     "done": "Hecho",
     "any": "Cualquiera",
     "icon_optional": "Icono (opcional)",

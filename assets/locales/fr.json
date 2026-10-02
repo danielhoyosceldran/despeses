@@ -164,6 +164,7 @@
     "delete_with_budgets": "« {{name}} » a {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
     "error_delete_named": "Impossible de supprimer « {{name}} »",
     "error_duplicate_name": "« {{name}} » existe déjà.",
+    "dates_swapped": "La date de début était postérieure à la date de fin : elles ont été inversées.",
     "any": "N'importe lequel",
     "icon_optional": "Icône (optionnel)",
     "description_optional": "Description (optionnel)",

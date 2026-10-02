@@ -28,6 +28,25 @@ class ExpenseFilters {
   /// ignored. A transaction at 18:00 on [dateTo]'s day is included.
   final DateTime? dateFrom;
   final DateTime? dateTo;
+
+  /// Whether both date bounds are set and [dateFrom]'s day is after [dateTo]'s.
+  bool get hasInvertedDates {
+    if (dateFrom == null || dateTo == null) return false;
+    return DateTime(dateFrom!.year, dateFrom!.month, dateFrom!.day)
+        .isAfter(DateTime(dateTo!.year, dateTo!.month, dateTo!.day));
+  }
+
+  /// A copy with [dateFrom] and [dateTo] exchanged.
+  ExpenseFilters withSwappedDates() => ExpenseFilters(
+        type: type,
+        categoryId: categoryId,
+        tagId: tagId,
+        paymentMethodId: paymentMethodId,
+        eventId: eventId,
+        projectId: projectId,
+        dateFrom: dateTo,
+        dateTo: dateFrom,
+      );
 }
 
 class ExpenseRepository {

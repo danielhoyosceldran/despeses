@@ -164,6 +164,7 @@
     "delete_with_budgets": "\"{{name}}\" ha {{count}} budget che verranno eliminati. Continuare?",
     "error_delete_named": "Impossibile eliminare \"{{name}}\"",
     "error_duplicate_name": "\"{{name}}\" esiste già.",
+    "dates_swapped": "La data iniziale era successiva a quella finale: sono state scambiate.",
     "any": "Qualsiasi",
     "icon_optional": "Icona (opzionale)",
     "description_optional": "Descrizione (opzionale)",
