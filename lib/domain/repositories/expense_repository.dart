@@ -56,6 +56,15 @@ class ExpenseRepository {
 
   static const pageSize = 100;
 
+  /// Most-recent-first with a total order: many rows share a `date` (edited
+  /// ones at 00:00, recurring ones), and LIMIT/OFFSET over ties in undefined
+  /// order can repeat or skip rows across pages. createdAt then id break ties.
+  List<OrderingTerm> get _newestFirst => [
+        OrderingTerm.desc(_db.expenses.date),
+        OrderingTerm.desc(_db.expenses.createdAt),
+        OrderingTerm.desc(_db.expenses.id),
+      ];
+
   JoinedSelectStatement<HasResultSet, dynamic> _filteredQuery(ExpenseFilters filters) {
     final query = _db.select(_db.expenses).join([
       if (filters.tagId != null)
@@ -98,7 +107,7 @@ class ExpenseRepository {
   /// partial filtering / "filtro parcial" warning like the web app has).
   Future<List<Expense>> list({ExpenseFilters filters = const ExpenseFilters(), int page = 0}) {
     final query = _filteredQuery(filters)
-      ..orderBy([OrderingTerm.desc(_db.expenses.date)])
+      ..orderBy(_newestFirst)
       ..limit(pageSize, offset: page * pageSize);
 
     return query.map((row) => row.readTable(_db.expenses)).get();
@@ -108,7 +117,7 @@ class ExpenseRepository {
   /// full month's data (never more than a few hundred rows) rather than a
   /// fixed-size page.
   Future<List<Expense>> listAll({ExpenseFilters filters = const ExpenseFilters()}) {
-    final query = _filteredQuery(filters)..orderBy([OrderingTerm.desc(_db.expenses.date)]);
+    final query = _filteredQuery(filters)..orderBy(_newestFirst);
     return query.map((row) => row.readTable(_db.expenses)).get();
   }
 
@@ -117,7 +126,7 @@ class ExpenseRepository {
   /// to manually cache/invalidate (e.g. after confirming a recurring
   /// occurrence, which inserts directly into `expenses`).
   Stream<List<Expense>> watchAll({ExpenseFilters filters = const ExpenseFilters()}) {
-    final query = _filteredQuery(filters)..orderBy([OrderingTerm.desc(_db.expenses.date)]);
+    final query = _filteredQuery(filters)..orderBy(_newestFirst);
     return query.map((row) => row.readTable(_db.expenses)).watch();
   }
 

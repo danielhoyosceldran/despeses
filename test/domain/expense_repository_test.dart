@@ -98,4 +98,19 @@ void main() {
     expect(swapped.dateTo, DateTime(2026, 3, 10));
     expect(swapped.type, 'expense');
   });
+
+  test('pagination over many same-date rows neither repeats nor skips', () async {
+    final total = ExpenseRepository.pageSize * 2 + 7;
+    for (var i = 0; i < total; i++) {
+      await repo.create(amountCents: 100 + i, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+    }
+
+    final seen = <String>[];
+    for (var page = 0; page < 3; page++) {
+      seen.addAll((await repo.list(page: page)).map((e) => e.id));
+    }
+
+    expect(seen.length, total);
+    expect(seen.toSet().length, total);
+  });
 }
