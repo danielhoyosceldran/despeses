@@ -266,7 +266,12 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         initial: _date ?? DateTime.now(),
         onSelected: (picked) {
           ref.read(hapticsProvider).selection();
-          setState(() => _date = picked);
+          // CalendarPanel picks a day (00:00). Keep the transaction's original
+          // time of day so changing only the day doesn't move it to the end of
+          // that day's list and scramble the intraday order.
+          final time = _date ?? DateTime.now();
+          setState(() => _date = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute,
+              time.second, time.millisecond, time.microsecond));
           _closePanel();
         },
       );
