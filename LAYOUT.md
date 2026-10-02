@@ -157,7 +157,7 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. 
 
 ### Account › Backup (`settings/backup_screen.dart`)
 - **AppBar**: empty.
-- **Body**: `AppCard` Column of 2 `HairlineListTile`: "Export backup" (spinner trailing while busy) + "Restore backup". Export → share sheet; Restore → file picker + destructive confirm + toast.
+- **Body**: `AppCard` Column of `HairlineListTile`: "Export backup" (spinner trailing while busy) + "Restore backup", plus "Undo restore" (subtitle with the date of the saved copy) only when a pre-restore copy exists. Export → share sheet; Restore → file picker + destructive confirm + toast (the current data is saved first); Undo restore → destructive confirm, then restores the data from before the last restore.
 
 ### Account › Export (`settings/export_screen.dart`)
 - **AppBar**: empty.

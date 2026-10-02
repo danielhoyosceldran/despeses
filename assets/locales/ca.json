@@ -371,11 +371,15 @@
     "export_subtitle": "Copia la base de dades local i obre el menú de compartir",
     "restore_title": "Restaurar còpia",
     "restore_subtitle": "Tria un fitxer .sqlite — això sobreescriu totes les dades actuals",
-    "restore_confirm_message": "Això sobreescriu totes les dades actuals amb la còpia seleccionada. No es pot desfer. Continuar?",
+    "restore_confirm_message": "Això sobreescriu totes les dades actuals amb la còpia seleccionada. Abans es desaran les dades actuals perquè ho puguis desfer. Vols continuar?",
     "restore": "Restaurar",
     "restored": "Còpia restaurada. Reinicia l'app per veure tots els canvis.",
     "export_failed": "No s'ha pogut fer la còpia. Torna-ho a provar.",
-    "restore_failed": "No s'ha pogut restaurar la còpia."
+    "restore_failed": "No s'ha pogut restaurar la còpia.",
+    "undo_title": "Desfés la restauració",
+    "undo_subtitle": "Torna a les dades d'abans de l'última restauració ({{date}})",
+    "undo_confirm_message": "Això substitueix les dades actuals per les que tenies abans de l'última restauració. Vols continuar?",
+    "undone": "S'ha desfet la restauració."
   },
   "expenses": {
     "add": "Afegir despesa",

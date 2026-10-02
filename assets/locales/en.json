@@ -375,11 +375,15 @@
     "export_subtitle": "Copies the local database and opens the share sheet",
     "restore_title": "Restore backup",
     "restore_subtitle": "Pick a .sqlite file — this overwrites all current data",
-    "restore_confirm_message": "This overwrites all current data with the selected backup. This cannot be undone. Continue?",
+    "restore_confirm_message": "This overwrites all current data with the selected backup. Your current data is saved first so you can undo it. Continue?",
     "restore": "Restore",
     "restored": "Backup restored. Restart the app to see all changes.",
     "export_failed": "Backup failed. Please try again.",
-    "restore_failed": "Restore failed."
+    "restore_failed": "Restore failed.",
+    "undo_title": "Undo restore",
+    "undo_subtitle": "Go back to your data from before the last restore ({{date}})",
+    "undo_confirm_message": "This replaces your current data with the data you had before the last restore. Continue?",
+    "undone": "Restore undone."
   },
   "expenses": {
     "add": "Add expense",

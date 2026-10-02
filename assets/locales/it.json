@@ -371,11 +371,15 @@
     "export_subtitle": "Copia il database locale e apre il menu di condivisione",
     "restore_title": "Ripristina backup",
     "restore_subtitle": "Scegli un file .sqlite — questo sovrascrive tutti i dati attuali",
-    "restore_confirm_message": "Questo sovrascrive tutti i dati attuali con il backup selezionato. Non può essere annullato. Continuare?",
+    "restore_confirm_message": "Questo sovrascrive tutti i dati attuali con il backup selezionato. Prima vengono salvati i dati attuali, così potrai annullare. Continuare?",
     "restore": "Ripristina",
     "restored": "Backup ripristinato. Riavvia l'app per vedere tutte le modifiche.",
     "export_failed": "Backup non riuscito. Riprova.",
-    "restore_failed": "Ripristino non riuscito."
+    "restore_failed": "Ripristino non riuscito.",
+    "undo_title": "Annulla ripristino",
+    "undo_subtitle": "Torna ai dati precedenti all'ultimo ripristino ({{date}})",
+    "undo_confirm_message": "Questo sostituisce i dati attuali con quelli precedenti all'ultimo ripristino. Continuare?",
+    "undone": "Ripristino annullato."
   },
   "expenses": {
     "add": "Aggiungi spesa",

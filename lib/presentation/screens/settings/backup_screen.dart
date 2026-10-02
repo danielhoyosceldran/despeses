@@ -5,10 +5,12 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../domain/backup/backup_service.dart';
 import '../../../main.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
@@ -36,6 +38,21 @@ class BackupScreen extends ConsumerStatefulWidget {
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   bool _busy = false;
+
+  /// Safety copy of the data from before the last restore, if any; enables
+  /// the "Undo restore" row.
+  File? _undoFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUndoFile();
+  }
+
+  Future<void> _loadUndoFile() async {
+    final file = await ref.read(backupServiceProvider).latestPreRestoreBackup();
+    if (mounted) setState(() => _undoFile = file);
+  }
 
   Future<void> _export() async {
     final translations = ref.read(translationsProvider).asData?.value;
@@ -106,6 +123,45 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     }
   }
 
+  /// Restores the data saved right before the last restore.
+  Future<void> _undoRestore(File snapshot) async {
+    final translations = ref.read(translationsProvider).asData?.value;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: translations?.t('backup.undo_title') ?? 'Undo restore',
+      message: translations?.t('backup.undo_confirm_message') ??
+          'This replaces your current data with the data you had before the last restore. Continue?',
+      confirmLabel: translations?.t('backup.restore') ?? 'Restore',
+      cancelLabel: translations?.t('common.cancel') ?? 'Cancel',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busy = true);
+    final backupService = ref.read(backupServiceProvider);
+    try {
+      // Same teardown/rebuild as a regular restore (R18).
+      await AppRestartScope.restart(context, () => backupService.restoreBackup(snapshot));
+      RestoreNotice.pendingMessage = translations?.t('backup.undone') ?? 'Restore undone.';
+    } catch (e, st) {
+      developer.log('undo restore failed', name: 'BackupScreen', error: e, stackTrace: st);
+      if (mounted) {
+        showAppToast(
+          context,
+          translations?.t('backup.restore_failed') ?? 'Restore failed.',
+          variant: ToastVariant.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _takenAtLabel(File backup) {
+    final at = BackupService.takenAt(backup);
+    return at == null ? '' : DateFormat.yMMMd().add_Hm().format(at);
+  }
+
   @override
   Widget build(BuildContext context) {
     final translations = ref.watch(translationsProvider).asData?.value;
@@ -137,8 +193,18 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                     subtitle: translations?.t('backup.restore_subtitle') ??
                         'Pick a .sqlite file — this overwrites all current data',
                     onTap: _busy ? null : _import,
-                    showDivider: false,
+                    showDivider: _undoFile != null,
                   ),
+                  if (_undoFile != null)
+                    HairlineListTile(
+                      icon: LucideIcons.undo2300,
+                      title: translations?.t('backup.undo_title') ?? 'Undo restore',
+                      subtitle: (translations?.t('backup.undo_subtitle') ??
+                              'Go back to your data from before the last restore ({{date}})')
+                          .replaceAll('{{date}}', _takenAtLabel(_undoFile!)),
+                      onTap: _busy ? null : () => _undoRestore(_undoFile!),
+                      showDivider: false,
+                    ),
                 ],
               ),
             ),

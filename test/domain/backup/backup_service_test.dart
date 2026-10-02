@@ -95,4 +95,38 @@ void main() {
     await File(p.join(tempDir.path, 'despeses.sqlite')).delete();
     expect(await service.createAutoBackup(), isNull);
   });
+
+  test('restoreBackup first saves the current data as a pre_restore backup', () async {
+    final backup = await service.createBackup();
+    final dbFile = File(p.join(tempDir.path, 'despeses.sqlite'));
+    await dbFile.writeAsString('current-data');
+    expect(await service.latestPreRestoreBackup(), isNull);
+
+    await service.restoreBackup(backup);
+
+    final snapshot = await service.latestPreRestoreBackup();
+    expect(snapshot, isNotNull);
+    expect(p.basename(snapshot!.path), startsWith('despeses_pre_restore_'));
+    expect(await snapshot.readAsString(), 'current-data');
+    expect(await dbFile.readAsString(), 'original-db-contents');
+  });
+
+  test('restoring the pre_restore backup undoes the restore', () async {
+    final backup = await service.createBackup();
+    final dbFile = File(p.join(tempDir.path, 'despeses.sqlite'));
+    await dbFile.writeAsString('current-data');
+    await service.restoreBackup(backup);
+
+    await service.restoreBackup((await service.latestPreRestoreBackup())!);
+
+    expect(await dbFile.readAsString(), 'current-data');
+  });
+
+  test('takenAt parses the timestamp in a backup file name', () {
+    expect(
+      BackupService.takenAt(File('despeses_pre_restore_2026-10-02T13-37-58-123456.sqlite')),
+      DateTime(2026, 10, 2, 13, 37, 58),
+    );
+    expect(BackupService.takenAt(File('whatever.sqlite')), isNull);
+  });
 }

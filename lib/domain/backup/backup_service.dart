@@ -6,6 +6,10 @@ import 'package:path_provider/path_provider.dart';
 const _dbFileName = 'despeses.sqlite';
 const _backupsFolderName = 'backups';
 
+/// [BackupService.createAutoBackup] label of the safety copy taken right
+/// before a restore overwrites the live database.
+const preRestoreLabel = 'pre_restore';
+
 /// WAL/shared-memory sidecar files SQLite keeps next to the main `.sqlite`.
 const _sidecarSuffixes = ['-wal', '-shm'];
 
@@ -91,8 +95,19 @@ class BackupService {
   /// let SQLite replay old transactions on top of the restored file,
   /// corrupting or mixing state, so any sidecar without a backup counterpart
   /// is deleted rather than kept.
+  ///
+  /// Before overwriting, the current data is saved as a [preRestoreLabel]
+  /// auto-backup so a wrong pick can be undone (see [latestPreRestoreBackup]).
+  /// If that safety copy fails while there is data to lose, the restore is
+  /// aborted with a [StateError] and nothing is touched.
   Future<void> restoreBackup(File backupFile) async {
     final dbPath = await _dbFilePath();
+    if (await File(dbPath).exists()) {
+      final snapshot = await createAutoBackup(label: preRestoreLabel);
+      if (snapshot == null) {
+        throw StateError('Could not save the current data before restoring; restore aborted.');
+      }
+    }
     await backupFile.copy(dbPath);
     for (final suffix in _sidecarSuffixes) {
       final sidecar = File('$dbPath$suffix');
@@ -103,6 +118,30 @@ class BackupService {
         await sidecar.delete();
       }
     }
+  }
+
+  /// The most recent [preRestoreLabel] safety copy (the data as it was before
+  /// the last restore), or null if no restore has been made yet.
+  Future<File?> latestPreRestoreBackup() async {
+    final backupsDir = await _backupsDirectory();
+    final prefix = 'despeses_${preRestoreLabel}_';
+    final files = (await backupsDir.list().toList())
+        .whereType<File>()
+        .where((f) => p.basename(f.path).startsWith(prefix) && f.path.endsWith('.sqlite'))
+        .toList();
+    if (files.isEmpty) return null;
+    files.sort((a, b) => b.path.compareTo(a.path)); // newest first (ISO timestamp in name)
+    return files.first;
+  }
+
+  /// When [backup] was taken, parsed from the timestamp in its file name (the
+  /// file's mtime is unreliable: copies may keep the source's). Null if the
+  /// name has no timestamp.
+  static DateTime? takenAt(File backup) {
+    final m = RegExp(r'(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})').firstMatch(p.basename(backup.path));
+    if (m == null) return null;
+    final v = [for (var i = 1; i <= 6; i++) int.parse(m.group(i)!)];
+    return DateTime(v[0], v[1], v[2], v[3], v[4], v[5]);
   }
 
   Future<List<File>> listBackups() async {
