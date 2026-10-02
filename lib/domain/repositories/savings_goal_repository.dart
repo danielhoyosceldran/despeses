@@ -7,6 +7,15 @@ import 'category_repository.dart';
 
 const _uuid = Uuid();
 
+/// Thrown by [SavingsGoalRepository.create] when another goal already tracks
+/// the same category, one of its ancestors or one of its descendants: progress
+/// includes descendants, so both goals would count the same savings.
+class GoalCategoryInUseException implements Exception {
+  const GoalCategoryInUseException(this.conflictingGoalName);
+
+  final String conflictingGoalName;
+}
+
 /// Progress toward a [SavingsGoal] plus the pace needed to hit its deadline.
 class GoalProgress {
   const GoalProgress({
@@ -34,8 +43,8 @@ class GoalProgress {
 
 /// Savings goals (feature 3.14). A goal tracks how much `ahorro` has been filed
 /// under a savings category (and its descendants) against a target amount —
-/// the mirror of a budget's spend-vs-limit. Progress is cumulative over all
-/// time (no period window), so it reuses [CategoryRepository.descendantIds]
+/// the mirror of a budget's spend-vs-limit. Progress is cumulative from the
+/// day the goal was created (earlier savings belong to no goal), so it reuses [CategoryRepository.descendantIds]
 /// and sums the `ahorro` type via [sumOfType].
 class SavingsGoalRepository {
   SavingsGoalRepository(this._db, this._categories);
@@ -51,25 +60,60 @@ class SavingsGoalRepository {
     return (_db.select(_db.savingsGoals)..where((g) => g.id.equals(id))).getSingleOrNull();
   }
 
+  /// Throws [GoalCategoryInUseException] if another goal's category overlaps
+  /// [categoryId]'s tree (see [goalOverlapping]). [now] (the creation time) is
+  /// injectable for tests.
   Future<String> create({
     required String name,
     required String categoryId,
     required int targetCents,
     required String currency,
     DateTime? deadline,
+    DateTime? now,
   }) async {
     final id = _uuid.v4();
-    await _db.into(_db.savingsGoals).insert(
-          SavingsGoalsCompanion.insert(
-            id: id,
-            name: name,
-            categoryId: categoryId,
-            targetAmount: targetCents,
-            currency: currency,
-            deadline: Value(deadline),
-          ),
-        );
+    await _db.transaction(() async {
+      final conflict = await goalOverlapping(categoryId);
+      if (conflict != null) throw GoalCategoryInUseException(conflict.name);
+      await _db.into(_db.savingsGoals).insert(
+            SavingsGoalsCompanion.insert(
+              id: id,
+              name: name,
+              categoryId: categoryId,
+              targetAmount: targetCents,
+              currency: currency,
+              deadline: Value(deadline),
+              createdAt: now == null ? const Value.absent() : Value(now),
+            ),
+          );
+    });
     return id;
+  }
+
+  /// An existing goal whose category is [categoryId] itself, an ancestor or a
+  /// descendant of it — i.e. one that would count the same savings — or null.
+  Future<SavingsGoal?> goalOverlapping(String categoryId) async {
+    // Fresh parent links (not the memoized descendant map, which is cleared
+    // asynchronously and could miss a category created just before).
+    final parentOf = {for (final c in await _categories.listAll()) c.id: c.parentId};
+    Set<String> selfAndAncestors(String id) {
+      final ids = <String>{};
+      String? cursor = id;
+      while (cursor != null && ids.add(cursor)) {
+        cursor = parentOf[cursor];
+      }
+      return ids;
+    }
+
+    final lineage = selfAndAncestors(categoryId);
+    for (final goal in await listAll()) {
+      // Same or ancestor: goal's category is in our lineage. Descendant: our
+      // category is in the goal category's lineage.
+      if (lineage.contains(goal.categoryId) || selfAndAncestors(goal.categoryId).contains(categoryId)) {
+        return goal;
+      }
+    }
+    return null;
   }
 
   /// Edits a goal. The linked category and currency are locked after creation
@@ -96,11 +140,15 @@ class SavingsGoalRepository {
   }
 
   /// Cumulative `ahorro` saved under the goal's category (+ descendants), in the
-  /// goal's currency. No date window — savings accrue over all time.
+  /// goal's currency, from the day the goal was created: savings recorded
+  /// before it existed don't count toward it (a new goal starts empty).
   Future<int> calculateSaved(SavingsGoal goal) async {
     final ids = {goal.categoryId, ...await _categories.descendantIds(goal.categoryId)};
+    final created = goal.createdAt;
+    final from = DateTime(created.year, created.month, created.day);
     final rows = await (_db.select(_db.expenses)
           ..where((e) => e.currency.equals(goal.currency))
+          ..where((e) => e.date.isBiggerOrEqualValue(from))
           ..where((e) => e.type.equals('ahorro'))
           ..where((e) => e.categoryId.isIn(ids)))
         .get();

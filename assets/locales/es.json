@@ -298,7 +298,8 @@
     "search": "Buscar objetivos",
     "per_month": "Ahorra {{amount}}/mes para llegar a tiempo",
     "delete_title": "Eliminar objetivo",
-    "delete_message": "¿Eliminar {{count}} objetivo(s) de ahorro?"
+    "delete_message": "¿Eliminar {{count}} objetivo(s) de ahorro?",
+    "category_in_use": "El objetivo «{{name}}» ya cuenta el ahorro de esta categoría (o de una relacionada). Elige otra categoría."
   },
   "budgets": {
     "add": "Añadir presupuesto",

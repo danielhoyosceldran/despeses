@@ -298,7 +298,8 @@
     "search": "Search goals",
     "per_month": "Save {{amount}}/month to reach it in time",
     "delete_title": "Delete goals",
-    "delete_message": "Delete {{count}} savings goal(s)?"
+    "delete_message": "Delete {{count}} savings goal(s)?",
+    "category_in_use": "The goal \"{{name}}\" already counts savings in this category (or a related one). Choose another category."
   },
   "budgets": {
     "add": "Add budget",

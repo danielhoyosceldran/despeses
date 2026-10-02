@@ -12,6 +12,7 @@ import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/savings_goal_repository.dart';
 import '../../widgets/amount_text.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
@@ -180,6 +181,17 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
     _saving = true;
     try {
       await _doSave();
+    } on GoalCategoryInUseException catch (e) {
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(
+          context,
+          (t?.t('goals.category_in_use') ??
+                  'The goal "{{name}}" already counts savings in this category (or a related one). Choose another category.')
+              .replaceAll('{{name}}', e.conflictingGoalName),
+          variant: ToastVariant.error,
+        );
+      }
     } catch (e, st) {
       developer.log('save failed', name: 'GoalEntryScreen', error: e, stackTrace: st);
       if (mounted) {

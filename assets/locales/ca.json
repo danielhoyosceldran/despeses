@@ -294,7 +294,8 @@
     "search": "Cerca objectius",
     "per_month": "Estalvia {{amount}}/mes per arribar-hi a temps",
     "delete_title": "Elimina objectius",
-    "delete_message": "Vols eliminar {{count}} objectiu(s) d'estalvi?"
+    "delete_message": "Vols eliminar {{count}} objectiu(s) d'estalvi?",
+    "category_in_use": "L'objectiu «{{name}}» ja compta l'estalvi d'aquesta categoria (o d'una de relacionada). Tria'n una altra."
   },
   "budgets": {
     "add": "Afegir pressupost",

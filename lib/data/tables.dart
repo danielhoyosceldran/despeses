@@ -300,7 +300,8 @@ class Budgets extends Table {
 /// transaction filed under [categoryId] (and its descendants), so a goal fills
 /// up as the user records savings — the inverse read of a [Budgets] limit.
 /// Unlike a budget it has no period window; the sum is cumulative from the
-/// first-ever savings transaction. [targetAmount] is the meta (positive cents);
+/// day the goal was created ([createdAt]), and no two goals may track
+/// overlapping category trees (see SavingsGoalRepository). [targetAmount] is the meta (positive cents);
 /// [deadline] is optional and only powers the "needed per month" pace hint.
 class SavingsGoals extends Table {
   TextColumn get id => text()();

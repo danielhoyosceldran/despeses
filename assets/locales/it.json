@@ -294,7 +294,8 @@
     "search": "Cerca obiettivi",
     "per_month": "Risparmia {{amount}}/mese per arrivarci in tempo",
     "delete_title": "Elimina obiettivi",
-    "delete_message": "Eliminare {{count}} obiettivo/i di risparmio?"
+    "delete_message": "Eliminare {{count}} obiettivo/i di risparmio?",
+    "category_in_use": "L'obiettivo «{{name}}» conta già i risparmi di questa categoria (o di una collegata). Scegline un'altra."
   },
   "budgets": {
     "add": "Aggiungi budget",

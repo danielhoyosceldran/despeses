@@ -294,7 +294,8 @@
     "search": "Rechercher des objectifs",
     "per_month": "Épargnez {{amount}}/mois pour y arriver à temps",
     "delete_title": "Supprimer les objectifs",
-    "delete_message": "Supprimer {{count}} objectif(s) d'épargne ?"
+    "delete_message": "Supprimer {{count}} objectif(s) d'épargne ?",
+    "category_in_use": "L'objectif « {{name}} » compte déjà l'épargne de cette catégorie (ou d'une catégorie liée). Choisissez-en une autre."
   },
   "budgets": {
     "add": "Ajouter un budget",
