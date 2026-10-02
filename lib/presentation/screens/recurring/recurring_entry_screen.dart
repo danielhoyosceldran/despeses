@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../widgets/amount_text.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
@@ -245,8 +248,25 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
       _descriptionController.text.trim().isNotEmpty &&
       (_endDate == null || !_endDate!.isBefore(_startDate));
 
+  bool _saving = false;
+
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (!_canSave || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await _doSave();
+    } catch (e, st) {
+      developer.log('save failed', name: 'RecurringEntryScreen', error: e, stackTrace: st);
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(context, t?.t('common.error_save') ?? 'Could not save.', variant: ToastVariant.error);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _doSave() async {
     final repo = ref.read(recurringRepositoryProvider);
     final description = _descriptionController.text.trim();
     final notes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
@@ -296,6 +316,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     } catch (_) {
       // Ignored on purpose; see above.
     }
+    if (!mounted) return;
     _close(true);
   }
 
@@ -531,7 +552,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: _descriptionController,
       builder: (context, _, _) => FilledButton(
-        onPressed: _canSave ? _save : null,
+        onPressed: (_canSave && !_saving) ? _save : null,
         child: Text(translations?.t('common.save') ?? 'Save'),
       ),
     );

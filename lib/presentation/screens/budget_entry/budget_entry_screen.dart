@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../widgets/amount_text.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/month_picker_dialog.dart';
@@ -284,6 +287,12 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
     setState(() => _saving = true);
     try {
       await _doSave();
+    } catch (e, st) {
+      developer.log('save failed', name: 'BudgetEntryScreen', error: e, stackTrace: st);
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(context, t?.t('common.error_save') ?? 'Could not save.', variant: ToastVariant.error);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
