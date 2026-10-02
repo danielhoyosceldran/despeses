@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/errors.dart';
 import '../../../domain/repositories/tag_repository.dart';
@@ -188,7 +189,7 @@ class _TagGroupsScreenState extends ConsumerState<TagGroupsScreen> {
                 : _groups.isEmpty
                     ? EmptyState(translations?.t('tag_groups.empty') ?? 'No tag groups yet.')
                     : ReorderableListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
                     buildDefaultDragHandles: false,
                     itemCount: _groups.length,
                     onReorderItem: _reorder,

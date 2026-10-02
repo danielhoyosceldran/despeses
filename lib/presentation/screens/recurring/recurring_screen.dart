@@ -208,7 +208,7 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
+                        AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.fabClearance),
                     children: [
                       if (pending.isNotEmpty) ...[
                         Row(

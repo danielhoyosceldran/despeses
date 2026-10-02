@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
@@ -197,7 +198,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> {
                 : _events.isEmpty
                     ? EmptyState(translations?.t('events.empty') ?? 'No events yet.')
                     : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
                     itemCount: _events.length,
                     itemBuilder: (context, index) {
                       final event = _events[index];

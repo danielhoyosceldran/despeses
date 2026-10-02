@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
@@ -186,7 +187,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
                 : _methods.isEmpty
                     ? EmptyState(translations?.t('payment_methods.empty') ?? 'No payment methods yet.')
                     : ReorderableListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
                     buildDefaultDragHandles: false,
                     itemCount: _methods.length,
                     onReorderItem: _reorder,

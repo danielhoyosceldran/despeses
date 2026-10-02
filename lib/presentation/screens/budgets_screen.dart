@@ -273,7 +273,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       return Center(child: Text(_showActiveOnly ? tr('budgets.empty') : tr('budgets.no_expired')));
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.fabClearance),
       itemCount: visible.length,
       itemBuilder: (context, index) {
         final budget = visible[index];
@@ -329,7 +329,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       return Center(child: Text(_showActiveOnly ? tr('goals.empty') : tr('goals.no_completed')));
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.fabClearance),
       itemCount: visible.length,
       itemBuilder: (context, index) {
         final goal = visible[index];

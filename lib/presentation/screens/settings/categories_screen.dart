@@ -302,7 +302,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 : _children.isEmpty
                     ? EmptyState(translations?.t('categories.empty') ?? 'No categories yet.')
                     : ReorderableListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
                     buildDefaultDragHandles: false,
                     itemCount: _children.length,
                     onReorderItem: _reorder,

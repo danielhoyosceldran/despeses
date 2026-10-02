@@ -202,7 +202,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 : _expenses.isEmpty
                     ? Center(child: Text(t?.t('dashboard.no_transactions') ?? 'No transactions'))
                     : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxl),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.fabClearance),
                   itemCount: _expenses.length + 1,
                   itemBuilder: (context, index) {
                     if (index == _expenses.length) {

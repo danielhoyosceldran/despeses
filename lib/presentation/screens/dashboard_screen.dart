@@ -878,7 +878,7 @@ class _MonthPage extends ConsumerWidget {
               delegate: _HeroHeaderDelegate(totals: totals, currency: currency, translations: translations),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxxl),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.fabClearance),
               sliver: SliverList.list(children: content),
             ),
           ],

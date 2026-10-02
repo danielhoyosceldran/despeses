@@ -144,6 +144,10 @@ outlines, stat tiles, transaction rows, inputs, settings row separators. Full
 `xs 4 · sm 8 · smMd 12 · md 16 · lg 24 · xl 32 · xxl 48 · xxxl 64`. Space is the
 primary separator; borders appear only where space alone isn't enough.
 
+`fabClearance 96` (56 FAB + 16 Scaffold margin + 24 gap) is the bottom padding
+of every scrollable list on a screen with a FAB, so the last item can scroll
+clear of the button.
+
 ### Shadows — `AppShadows`
 One soft shadow, reserved for elevated things (cards rely on the hairline
 instead):

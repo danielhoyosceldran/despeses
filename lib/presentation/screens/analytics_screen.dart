@@ -525,7 +525,7 @@ class _CategorySection extends ConsumerWidget {
         }
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.fabClearance),
           children: [
             AppCard.large(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -615,7 +615,7 @@ class _TagsSection extends ConsumerWidget {
         }
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.fabClearance),
           children: [
             AppCard.large(
               padding: const EdgeInsets.all(AppSpacing.lg),

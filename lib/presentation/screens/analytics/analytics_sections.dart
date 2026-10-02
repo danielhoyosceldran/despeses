@@ -83,7 +83,7 @@ class BudgetsSection extends ConsumerWidget {
           data: (rows) {
             if (rows.isEmpty) return EmptyState(t?.t('analytics.empty_budgets') ?? 'No active budgets.');
             return ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.fabClearance),
               children: [
                 for (final r in rows)
                   StatCard(
@@ -157,7 +157,7 @@ class _EventsSectionState extends ConsumerState<EventsSection> {
               });
             }
             return ListView(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.fabClearance),
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: _selectedEventId,

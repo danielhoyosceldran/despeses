@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
@@ -195,7 +196,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 : _projects.isEmpty
                     ? EmptyState(translations?.t('projects.empty') ?? 'No projects yet.')
                     : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
                     itemCount: _projects.length,
                     itemBuilder: (context, index) {
                       final project = _projects[index];
