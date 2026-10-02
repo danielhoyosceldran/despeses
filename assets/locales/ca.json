@@ -185,7 +185,9 @@
     "delete_warning_budgets": "Aquesta categoria té {{count}} pressupost(os) vinculat(s) que s'eliminaran.",
     "new": "Nova categoria",
     "delete_title": "Eliminar categoria",
-    "delete_with_budgets": "\"{{name}}\" (i les seves subcategories) té {{count}} pressupost(os) que també s'eliminaran. Continuar?"
+    "delete_with_budgets": "\"{{name}}\" (i les seves subcategories) té {{count}} pressupost(os) que també s'eliminaran. Continuar?",
+    "others": "Altres",
+    "moved_to_others": "S'han mogut {{count}} element(s) a «{{name}}» perquè la categoria pare no tingui moviments."
   },
   "tags": {
     "add": "Afegir etiqueta",

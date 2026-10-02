@@ -189,6 +189,8 @@
     "new": "New category",
     "delete_title": "Delete category",
     "delete_with_budgets": "\"{{name}}\" (and its subcategories) has {{count}} budget(s) that will also be deleted. Continue?",
+    "others": "Others",
+    "moved_to_others": "{{count}} item(s) were moved to \"{{name}}\" so the parent category has no transactions.",
     "delete_with_budgets_multi": "Selected categories (and their subcategories) have {{count}} budget(s) that will also be deleted. Continue?"
   },
   "tags": {

@@ -70,17 +70,37 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       translations: translations,
     );
     if (result == null) return;
+    final repo = ref.read(categoryRepositoryProvider);
+    final parentId = _currentParentId;
+    final othersName = translations.t('categories.others');
+    var moved = 0;
     try {
-      await ref.read(categoryRepositoryProvider).create(
-            name: result.name,
-            parentId: _currentParentId,
-            type: _type,
-            color: result.color,
-            icon: result.icon,
-          );
+      if (parentId == null) {
+        await repo.create(name: result.name, type: _type, color: result.color, icon: result.icon);
+      } else {
+        // Keeps the leaf-only rule: anything filed under the parent moves to
+        // an "Others" child (see CategoryRepository.createSubcategory).
+        final created = await repo.createSubcategory(
+          name: result.name,
+          parentId: parentId,
+          othersName: othersName,
+          color: result.color,
+          icon: result.icon,
+        );
+        moved = created.movedCount;
+      }
     } on DuplicateNameException catch (e) {
       if (mounted) showDuplicateNameToast(context, translations, e.name);
       return;
+    }
+    if (moved > 0 && mounted) {
+      showAppToast(
+        context,
+        translations
+            .t('categories.moved_to_others')
+            .replaceAll('{{count}}', '$moved')
+            .replaceAll('{{name}}', othersName),
+      );
     }
     ref.read(referenceDataCacheProvider).invalidate();
     ref.invalidate(categoriesListProvider);

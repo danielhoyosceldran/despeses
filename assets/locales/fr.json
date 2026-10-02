@@ -185,7 +185,9 @@
     "delete_warning_budgets": "Cette catégorie a {{count}} budget(s) lié(s) qui seront supprimés.",
     "new": "Nouvelle catégorie",
     "delete_title": "Supprimer la catégorie",
-    "delete_with_budgets": "« {{name}} » (et ses sous-catégories) a {{count}} budget(s) qui seront aussi supprimés. Continuer ?"
+    "delete_with_budgets": "« {{name}} » (et ses sous-catégories) a {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
+    "others": "Autres",
+    "moved_to_others": "{{count}} élément(s) déplacé(s) vers « {{name}} » pour que la catégorie parente n'ait pas de transactions."
   },
   "tags": {
     "add": "Ajouter une étiquette",

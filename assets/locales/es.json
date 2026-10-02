@@ -189,6 +189,8 @@
     "new": "Nueva categoría",
     "delete_title": "Eliminar categoría",
     "delete_with_budgets": "\"{{name}}\" (y sus subcategorías) tiene {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?",
+    "others": "Otros",
+    "moved_to_others": "Se han movido {{count}} elemento(s) a «{{name}}» para que la categoría padre no tenga movimientos.",
     "delete_with_budgets_multi": "Las categorías seleccionadas (y sus subcategorías) tienen {{count}} presupuesto(s) que también se eliminarán. ¿Continuar?"
   },
   "tags": {
