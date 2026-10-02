@@ -54,6 +54,71 @@ void main() {
     expect(nextCalled, isTrue);
   });
 
+  testWidgets('seeded amount keeps its cents when editing continues', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    // Edit mode: the caller seeds an existing amount of 12,50. The keypad used
+    // to seed only the whole part, so the first key press re-emitted from 12,00
+    // and silently dropped the ,50.
+    var cents = 1250;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => NumericKeypad(
+              amountCents: cents,
+              onAmountChanged: (v) => setState(() => cents = v),
+              onNext: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Backspace clears the last cents digit, so 12,50 → 12,5 — the same amount,
+    // not 1,00 as before.
+    await tester.tap(find.byKey(const ValueKey('keypad_⌫')));
+    await tester.pump();
+    expect(cents, 1250);
+
+    // Second backspace drops the cents entirely, leaving the euros untouched.
+    await tester.tap(find.byKey(const ValueKey('keypad_⌫')));
+    await tester.pump();
+    expect(cents, 1200);
+  });
+
+  testWidgets('seeded whole-euro amount starts outside cents mode', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var cents = 1200;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => NumericKeypad(
+              amountCents: cents,
+              onAmountChanged: (v) => setState(() => cents = v),
+              onNext: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // No cents to seed, so a digit still appends to the euros.
+    await tester.tap(find.byKey(const ValueKey('keypad_3')));
+    await tester.pump();
+    expect(cents, 12300);
+  });
+
   testWidgets('00 inserts two zeros respecting the active segment', (tester) async {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1.0;

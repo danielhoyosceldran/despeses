@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:despeses/data/database.dart';
@@ -32,16 +32,33 @@ void main() {
     expect(tags.every((t) => t.isDefault), isTrue);
 
     final categories = await db.select(db.categories).get();
-    // One flat forest per transaction type: 7 expense + 5 income + 3 refund + 4 savings.
-    expect(categories.length, 19);
-    expect(categories.every((c) => c.parentId == null), isTrue);
-    expect(categories.where((c) => c.type == 'expense').length, 7);
-    expect(categories.where((c) => c.type == 'income').length, 5);
-    expect(categories.where((c) => c.type == 'refund').length, 3);
-    expect(categories.where((c) => c.type == 'ahorro').length, 4);
+    // One forest per transaction type. Only `expense` is nested (up to 3
+    // levels); the other three are flat.
+    expect(categories.length, 51);
+    List<Category> ofType(String type) =>
+        categories.where((c) => c.type == type).toList();
+    List<Category> rootsOf(String type) =>
+        ofType(type).where((c) => c.parentId == null).toList();
+    expect(rootsOf('expense').length, 8);
+    expect(ofType('expense').length, 40);
+    expect(rootsOf('income').length, 3);
+    expect(ofType('income').length, 3);
+    expect(rootsOf('refund').length, 4);
+    expect(ofType('refund').length, 4);
+    expect(rootsOf('ahorro').length, 4);
+    expect(ofType('ahorro').length, 4);
+    expect(categories.every((c) => c.isDefault), isTrue);
+    // Every non-root's parent exists and belongs to the same type forest, so no
+    // subtree can straddle two transaction types.
+    final byId = {for (final c in categories) c.id: c};
+    for (final c in categories.where((c) => c.parentId != null)) {
+      expect(byId[c.parentId], isNotNull, reason: 'orphan category ${c.name}');
+      expect(byId[c.parentId]!.type, c.type);
+    }
 
     final paymentMethods = await db.select(db.paymentMethods).get();
-    expect(paymentMethods.length, 4);
+    expect(paymentMethods.map((p) => p.name), containsAll(['payment.card', 'payment.cash']));
+    expect(paymentMethods.length, 2);
   });
 
   test('expense currency is frozen at insert and never changed by app logic', () async {

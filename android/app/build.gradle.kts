@@ -44,12 +44,29 @@ android {
 
     buildTypes {
         release {
-            // Falls back to debug signing when key.properties is absent (e.g. CI/dev
-            // machines without the release keystore), so `flutter build` never breaks.
-            signingConfig = if (hasKeystoreProperties) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            // A release build MUST be signed with the real keystore. Falling back
+            // to debug signing here used to produce a debug-signed AAB with no
+            // warning, which Play rejects and which can never be updated by a
+            // properly signed build. Debug signing is still allowed for local
+            // release smoke-tests, but only when explicitly opted into with
+            // `-PallowDebugSigningForRelease=true`.
+            val allowDebugSigning =
+                (project.findProperty("allowDebugSigningForRelease") as String?)
+                    ?.toBoolean() == true
+            signingConfig = when {
+                hasKeystoreProperties -> signingConfigs.getByName("release")
+                allowDebugSigning -> {
+                    logger.warn(
+                        "WARNING: signing the release build with the DEBUG key " +
+                            "(allowDebugSigningForRelease). This artifact must not be published."
+                    )
+                    signingConfigs.getByName("debug")
+                }
+                else -> throw GradleException(
+                    "Cannot sign the release build: android/key.properties is missing. " +
+                        "Create it with keyAlias/keyPassword/storeFile/storePassword, or pass " +
+                        "-PallowDebugSigningForRelease=true for a local, non-publishable build."
+                )
             }
         }
     }

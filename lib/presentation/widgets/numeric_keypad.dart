@@ -43,6 +43,14 @@ class _NumericKeypadState extends State<NumericKeypad> {
     super.initState();
     _whole = (widget.amountCents ~/ 100).toString();
     if (_whole == '0') _whole = '';
+    // Seed the cents digits too (edit mode: the caller passes an existing
+    // amount). Without this, editing 12,50 keeps only `_whole = '12'`, so the
+    // first digit or backspace re-emits from 12,00 and silently drops the ,50.
+    final cents = widget.amountCents % 100;
+    if (cents != 0) {
+      _cents = cents.toString().padLeft(2, '0');
+      _hasComma = true;
+    }
   }
 
   void _emit() {

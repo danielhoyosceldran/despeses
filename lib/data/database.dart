@@ -96,14 +96,23 @@ class AppDatabase extends _$AppDatabase {
           if (_devReseedOnUpgrade) {
             // DEV-ONLY: wipe everything and reseed. Guarded by a const that is
             // false in real builds (see _devReseedOnUpgrade).
-            await customStatement('PRAGMA foreign_keys = OFF');
-            for (final table in allTables) {
-              await m.deleteTable(table.actualTableName);
-            }
-            await m.createAll();
-            await _seedDefaults(this);
-            await _createIndexes(this);
-            await customStatement('PRAGMA foreign_keys = ON');
+            await _rebuildFromScratch(this, m);
+            return;
+          }
+
+          // Schemas older than v7 predate data-preserving migrations: back then
+          // every upgrade wiped and reseeded, so no install ever carried data
+          // forward across them. They are also not reachable additively — v1→v6
+          // dropped `budgets.months`, rewrote the `budget_type`/`type` CHECK
+          // constraints and changed `categories`' unique key, none of which
+          // SQLite's ALTER TABLE can express, and v2/v3/v5 added
+          // `categories.type` / `profile.haptics_enabled` /
+          // `profile.haptics_strength` that the steps below never add. Falling
+          // through would leave those columns missing and crash every query
+          // with "no such column". So rebuild instead — the auto-backup above
+          // already holds the pre-migration file.
+          if (from < 7) {
+            await _rebuildFromScratch(this, m);
             return;
           }
 
@@ -127,8 +136,8 @@ class AppDatabase extends _$AppDatabase {
           //      schema, so the bug only shows up on upgrade.
           //   3. Steps must stay additive/idempotent and accumulate
           //      (if (from < N)), never replace an earlier step.
-          // v7 adds the analytics/listing indexes on `expenses` (R3).
-          if (from < 7) await _createIndexes(this);
+          //   4. v7 is the oldest schema these steps handle; anything older is
+          //      rebuilt above, so no step may assume a pre-v7 shape.
           // v8 adds recurring-transaction tables (feature 3.13): template,
           // its tags, and the pending-occurrence inbox. Additive only.
           if (from < 8) {
@@ -144,6 +153,23 @@ class AppDatabase extends _$AppDatabase {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
+}
+
+/// Drops every table and rebuilds the current schema from scratch (seed +
+/// indexes included), i.e. exactly what [AppDatabase.migration]'s onCreate
+/// does for a fresh install. Destructive by design: only for upgrade paths
+/// that cannot preserve data, and only ever called *after*
+/// [BackupService.createAutoBackup] has snapshotted the old file.
+Future<void> _rebuildFromScratch(AppDatabase db, Migrator m) async {
+  await db.customStatement('PRAGMA foreign_keys = OFF');
+  for (final table in db.allTables) {
+    await m.deleteTable(table.actualTableName);
+  }
+  await m.createAll();
+  await _seedDefaults(db);
+  await _createIndexes(db);
+  await _createRecurringIndexes(db);
+  await db.customStatement('PRAGMA foreign_keys = ON');
 }
 
 /// Indexes on the hottest `expenses` query paths (R3): every analytics/listing
