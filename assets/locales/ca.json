@@ -163,6 +163,8 @@
     "error_generic": "No s'ha pogut carregar.",
     "delete_named": "Eliminar \"{{name}}\"?",
     "delete_with_budgets": "\"{{name}}\" té {{count}} pressupost(os) que també s'eliminaran. Continuar?",
+    "delete_with_budgets_multi": "Els elements seleccionats tenen {{count}} pressupost(os) que també s'eliminaran. Continuar?",
+    "delete_selected": "Eliminar {{count}} element(s) seleccionat(s)?",
     "error_delete_named": "No s'ha pogut eliminar \"{{name}}\"",
     "error_duplicate_name": "\"{{name}}\" ja existeix.",
     "dates_swapped": "La data inicial era posterior a la final: s'han intercanviat.",
@@ -186,6 +188,7 @@
     "new": "Nova categoria",
     "delete_title": "Eliminar categoria",
     "delete_with_budgets": "\"{{name}}\" (i les seves subcategories) té {{count}} pressupost(os) que també s'eliminaran. Continuar?",
+    "delete_with_budgets_multi": "Les categories seleccionades (i les seves subcategories) tenen {{count}} pressupost(os) que també s'eliminaran. Continuar?",
     "others": "Altres",
     "moved_to_others": "S'han mogut {{count}} element(s) a «{{name}}» perquè la categoria pare no tingui moviments."
   },

@@ -163,6 +163,8 @@
     "error_generic": "Impossible de charger.",
     "delete_named": "Supprimer « {{name}} » ?",
     "delete_with_budgets": "« {{name}} » a {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
+    "delete_with_budgets_multi": "Les éléments sélectionnés ont {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
+    "delete_selected": "Supprimer {{count}} élément(s) sélectionné(s) ?",
     "error_delete_named": "Impossible de supprimer « {{name}} »",
     "error_duplicate_name": "« {{name}} » existe déjà.",
     "dates_swapped": "La date de début était postérieure à la date de fin : elles ont été inversées.",
@@ -186,6 +188,7 @@
     "new": "Nouvelle catégorie",
     "delete_title": "Supprimer la catégorie",
     "delete_with_budgets": "« {{name}} » (et ses sous-catégories) a {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
+    "delete_with_budgets_multi": "Les catégories sélectionnées (et leurs sous-catégories) ont {{count}} budget(s) qui seront aussi supprimés. Continuer ?",
     "others": "Autres",
     "moved_to_others": "{{count}} élément(s) déplacé(s) vers « {{name}} » pour que la catégorie parente n'ait pas de transactions."
   },

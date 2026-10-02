@@ -163,6 +163,8 @@
     "error_generic": "Impossibile caricare.",
     "delete_named": "Eliminare \"{{name}}\"?",
     "delete_with_budgets": "\"{{name}}\" ha {{count}} budget che verranno eliminati. Continuare?",
+    "delete_with_budgets_multi": "Gli elementi selezionati hanno {{count}} budget che verranno eliminati. Continuare?",
+    "delete_selected": "Eliminare {{count}} elemento/i selezionato/i?",
     "error_delete_named": "Impossibile eliminare \"{{name}}\"",
     "error_duplicate_name": "\"{{name}}\" esiste già.",
     "dates_swapped": "La data iniziale era successiva a quella finale: sono state scambiate.",
@@ -186,6 +188,7 @@
     "new": "Nuova categoria",
     "delete_title": "Elimina categoria",
     "delete_with_budgets": "\"{{name}}\" (e le sue sottocategorie) ha {{count}} budget che verranno eliminati. Continuare?",
+    "delete_with_budgets_multi": "Le categorie selezionate (e le loro sottocategorie) hanno {{count}} budget che verranno eliminati. Continuare?",
     "others": "Altro",
     "moved_to_others": "{{count}} elemento/i spostato/i in «{{name}}» perché la categoria superiore non abbia transazioni."
   },
