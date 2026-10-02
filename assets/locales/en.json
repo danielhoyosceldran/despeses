@@ -128,7 +128,8 @@
     "projects": "Projects",
     "recurring": "Recurring",
     "profile": "Profile",
-    "export": "Export"
+    "export": "Export",
+    "backup": "Backup"
   },
   "common": {
     "save": "Save",
@@ -335,7 +336,7 @@
     "all_types": "All types",
     "export_csv": "Export CSV",
     "export_pdf": "Export PDF",
-    "export_failed": "Export failed: {{error}}",
+    "export_failed": "Export failed. Please try again.",
     "no_data": "No expenses in selected range.",
     "generating": "Generating…",
     "filename_csv": "expenses",
@@ -377,12 +378,13 @@
     "restore_confirm_message": "This overwrites all current data with the selected backup. This cannot be undone. Continue?",
     "restore": "Restore",
     "restored": "Backup restored. Restart the app to see all changes.",
-    "export_failed": "Backup failed: {{error}}",
-    "restore_failed": "Restore failed: {{error}}"
+    "export_failed": "Backup failed. Please try again.",
+    "restore_failed": "Restore failed."
   },
   "expenses": {
     "add": "Add expense",
     "edit": "Edit expense",
+    "not_found": "Transaction not found.",
     "empty": "No expenses yet.",
     "delete_warning": "This expense will be permanently deleted.",
     "type": "Type",

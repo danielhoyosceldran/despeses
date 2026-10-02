@@ -203,8 +203,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     if (!mounted) return;
     if (expense == null) {
       setState(() => _loadingExisting = false);
+      final t = ref.read(translationsProvider).asData?.value;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Movimiento no encontrado')),
+        SnackBar(content: Text(t?.t('expenses.not_found') ?? 'Transaction not found.')),
       );
       Navigator.of(context).pop();
       return;

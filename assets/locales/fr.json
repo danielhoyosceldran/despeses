@@ -128,7 +128,8 @@
     "projects": "Projets",
     "recurring": "Récurrents",
     "profile": "Profil",
-    "export": "Exporter"
+    "export": "Exporter",
+    "backup": "Sauvegarde"
   },
   "common": {
     "save": "Enregistrer",
@@ -331,7 +332,7 @@
     "all_types": "Tous les types",
     "export_csv": "Exporter CSV",
     "export_pdf": "Exporter PDF",
-    "export_failed": "Échec de l'export : {{error}}",
+    "export_failed": "Échec de l'export. Veuillez réessayer.",
     "no_data": "Aucune dépense dans la période sélectionnée.",
     "generating": "Génération…",
     "filename_csv": "depenses",
@@ -373,12 +374,13 @@
     "restore_confirm_message": "Cela écrase toutes les données actuelles avec la sauvegarde sélectionnée. Action irréversible. Continuer ?",
     "restore": "Restaurer",
     "restored": "Sauvegarde restaurée. Redémarrez l'app pour voir tous les changements.",
-    "export_failed": "Échec de la sauvegarde : {{error}}",
-    "restore_failed": "Échec de la restauration : {{error}}"
+    "export_failed": "Échec de la sauvegarde. Veuillez réessayer.",
+    "restore_failed": "Échec de la restauration."
   },
   "expenses": {
     "add": "Ajouter une dépense",
     "edit": "Modifier la dépense",
+    "not_found": "Transaction introuvable.",
     "empty": "Aucune dépense pour l'instant.",
     "delete_warning": "Cette dépense sera définitivement supprimée.",
     "type": "Type",

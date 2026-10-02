@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:io';
 
@@ -118,10 +119,11 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       final csv = buildExportCsv(rows);
       final file = await _writeExportFile('csv', encodeCsvUtf8(csv));
       await Share.shareXFiles([XFile(file.path)]);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('export failed', name: 'ExportScreen', error: e, stackTrace: st);
       if (mounted) {
         final t = ref.read(translationsProvider).asData?.value;
-        showAppToast(context, t?.t('export.export_failed').replaceAll('{{error}}', '$e') ?? 'Export failed: $e', variant: ToastVariant.error);
+        showAppToast(context, t?.t('export.export_failed') ?? 'Export failed. Please try again.', variant: ToastVariant.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -136,10 +138,11 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       final bytes = await buildExportPdf(rows, rangeLabel: _rangeLabel);
       final file = await _writeExportFile('pdf', bytes);
       await Share.shareXFiles([XFile(file.path)]);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('export failed', name: 'ExportScreen', error: e, stackTrace: st);
       if (mounted) {
         final t = ref.read(translationsProvider).asData?.value;
-        showAppToast(context, t?.t('export.export_failed').replaceAll('{{error}}', '$e') ?? 'Export failed: $e', variant: ToastVariant.error);
+        showAppToast(context, t?.t('export.export_failed') ?? 'Export failed. Please try again.', variant: ToastVariant.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

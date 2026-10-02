@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:io';
 
@@ -48,11 +49,12 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           );
       if (!mounted) return;
       await Share.shareXFiles([XFile(backup.path)]);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('backup export failed', name: 'BackupScreen', error: e, stackTrace: st);
       if (mounted) {
         showAppToast(
           context,
-          (translations?.t('backup.export_failed') ?? 'Backup failed: {{error}}').replaceAll('{{error}}', '$e'),
+          translations?.t('backup.export_failed') ?? 'Backup failed. Please try again.',
           variant: ToastVariant.error,
         );
       }
@@ -90,11 +92,12 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       await AppRestartScope.restart(context, () => backupService.restoreBackup(File(path)));
       RestoreNotice.pendingMessage =
           translations?.t('backup.restored') ?? 'Backup restored.';
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('restore failed', name: 'BackupScreen', error: e, stackTrace: st);
       if (mounted) {
         showAppToast(
           context,
-          (translations?.t('backup.restore_failed') ?? 'Restore failed: {{error}}').replaceAll('{{error}}', '$e'),
+          translations?.t('backup.restore_failed') ?? 'Restore failed.',
           variant: ToastVariant.error,
         );
       }

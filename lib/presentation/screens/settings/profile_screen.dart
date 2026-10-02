@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,7 +115,10 @@ class ProfileScreen extends ConsumerWidget {
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, st) {
+          developer.log('profile load failed', name: 'ProfileScreen', error: e, stackTrace: st);
+          return Center(child: Text(t?.t('common.error_load') ?? 'Could not load the data.'));
+        },
       ),
     );
   }

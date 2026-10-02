@@ -128,7 +128,8 @@
     "projects": "Proyectos",
     "recurring": "Recurrentes",
     "profile": "Perfil",
-    "export": "Exportar"
+    "export": "Exportar",
+    "backup": "Copia de seguridad"
   },
   "common": {
     "save": "Guardar",
@@ -335,7 +336,7 @@
     "all_types": "Todos los tipos",
     "export_csv": "Exportar CSV",
     "export_pdf": "Exportar PDF",
-    "export_failed": "Error al exportar: {{error}}",
+    "export_failed": "No se pudo exportar. Inténtalo de nuevo.",
     "no_data": "Sin gastos en el rango seleccionado.",
     "generating": "Generando…",
     "filename_csv": "gastos",
@@ -377,12 +378,13 @@
     "restore_confirm_message": "Esto sobrescribe todos los datos actuales con la copia seleccionada. No se puede deshacer. ¿Continuar?",
     "restore": "Restaurar",
     "restored": "Copia restaurada. Reinicia la app para ver todos los cambios.",
-    "export_failed": "Error en la copia: {{error}}",
-    "restore_failed": "Error en la restauración: {{error}}"
+    "export_failed": "No se pudo crear la copia. Inténtalo de nuevo.",
+    "restore_failed": "No se pudo restaurar la copia."
   },
   "expenses": {
     "add": "Añadir gasto",
     "edit": "Editar gasto",
+    "not_found": "Movimiento no encontrado.",
     "empty": "No hay gastos todavía.",
     "delete_warning": "Este gasto se eliminará permanentemente.",
     "type": "Tipo",

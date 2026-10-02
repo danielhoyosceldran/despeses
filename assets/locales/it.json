@@ -128,7 +128,8 @@
     "projects": "Progetti",
     "recurring": "Ricorrenti",
     "profile": "Profilo",
-    "export": "Esporta"
+    "export": "Esporta",
+    "backup": "Backup"
   },
   "common": {
     "save": "Salva",
@@ -331,7 +332,7 @@
     "all_types": "Tutti i tipi",
     "export_csv": "Esporta CSV",
     "export_pdf": "Esporta PDF",
-    "export_failed": "Esportazione non riuscita: {{error}}",
+    "export_failed": "Esportazione non riuscita. Riprova.",
     "no_data": "Nessuna spesa nel periodo selezionato.",
     "generating": "Generazione…",
     "filename_csv": "spese",
@@ -373,12 +374,13 @@
     "restore_confirm_message": "Questo sovrascrive tutti i dati attuali con il backup selezionato. Non può essere annullato. Continuare?",
     "restore": "Ripristina",
     "restored": "Backup ripristinato. Riavvia l'app per vedere tutte le modifiche.",
-    "export_failed": "Backup non riuscito: {{error}}",
-    "restore_failed": "Ripristino non riuscito: {{error}}"
+    "export_failed": "Backup non riuscito. Riprova.",
+    "restore_failed": "Ripristino non riuscito."
   },
   "expenses": {
     "add": "Aggiungi spesa",
     "edit": "Modifica spesa",
+    "not_found": "Transazione non trovata.",
     "empty": "Nessuna spesa ancora.",
     "delete_warning": "Questa spesa verrà eliminata definitivamente.",
     "type": "Tipo",

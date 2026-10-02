@@ -128,7 +128,8 @@
     "projects": "Projectes",
     "recurring": "Recurrents",
     "profile": "Perfil",
-    "export": "Exportar"
+    "export": "Exportar",
+    "backup": "Còpia de seguretat"
   },
   "common": {
     "save": "Desar",
@@ -331,7 +332,7 @@
     "all_types": "Tots els tipus",
     "export_csv": "Exportar CSV",
     "export_pdf": "Exportar PDF",
-    "export_failed": "Error en exportar: {{error}}",
+    "export_failed": "No s'ha pogut exportar. Torna-ho a provar.",
     "no_data": "Sense despeses al rang seleccionat.",
     "generating": "Generant…",
     "filename_csv": "despeses",
@@ -373,12 +374,13 @@
     "restore_confirm_message": "Això sobreescriu totes les dades actuals amb la còpia seleccionada. No es pot desfer. Continuar?",
     "restore": "Restaurar",
     "restored": "Còpia restaurada. Reinicia l'app per veure tots els canvis.",
-    "export_failed": "Error en la còpia: {{error}}",
-    "restore_failed": "Error en la restauració: {{error}}"
+    "export_failed": "No s'ha pogut fer la còpia. Torna-ho a provar.",
+    "restore_failed": "No s'ha pogut restaurar la còpia."
   },
   "expenses": {
     "add": "Afegir despesa",
     "edit": "Editar despesa",
+    "not_found": "No s'ha trobat el moviment.",
     "empty": "Encara no hi ha despeses.",
     "delete_warning": "Aquesta despesa s'eliminarà permanentment.",
     "type": "Tipus",
