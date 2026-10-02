@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,6 +20,7 @@ import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/numeric_keypad.dart';
 import '../../widgets/swipe_down_to_close.dart';
+import '../../widgets/unsaved_changes_guard.dart';
 
 /// Create/edit a savings goal (feature 3.14). Reuses the budget entry pattern
 /// (keypad + panels). The linked savings category and currency are locked once
@@ -49,6 +51,11 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
   String? _openPanel;
   Widget? _panelContent;
 
+  /// Field values as hydrated/initialized; closing with different values asks
+  /// before discarding them.
+  late List<Object?> _initialSnapshot;
+  bool _confirmingClose = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +65,7 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel());
     }
+    _initialSnapshot = _snapshot();
     _nameFocus.addListener(() {
       if (_nameFocus.hasFocus && _openPanel != null) _closePanel();
     });
@@ -75,6 +83,23 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
     _targetCents = goal.targetAmount;
     _categoryId = goal.categoryId;
     _deadline = goal.deadline;
+  }
+
+  List<Object?> _snapshot() => [_nameController.text.trim(), _targetCents, _categoryId, _deadline];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
+
+  /// Every user-initiated close (chevron, swipe down, system back) goes
+  /// through here: with unsaved changes it asks before discarding them.
+  Future<void> _requestClose() async {
+    if (_confirmingClose) return;
+    if (_isDirty) {
+      _confirmingClose = true;
+      final discard = await confirmDiscardChanges(context, ref.read(translationsProvider).asData?.value);
+      _confirmingClose = false;
+      if (!discard || !mounted) return;
+    }
+    _close();
   }
 
   Future<void> _resolveCategoryLabel() async {
@@ -234,104 +259,108 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
     final currency = ref.watch(profileStreamProvider).asData?.value.currency ?? 'EUR';
     final colors = context.appColors;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: () => _close()),
-        title: Text(_isEdit
-            ? (translations?.t('goals.edit') ?? 'Edit goal')
-            : (translations?.t('goals.new') ?? 'New goal')),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SwipeDownToClose(
-              onClose: _close,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
-                children: [
-                  Center(child: Text((translations?.t('goals.target') ?? 'Target').toUpperCase(), style: appHeaderStyle(colors))),
-                  const SizedBox(height: AppSpacing.sm),
-                  Center(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _openAmountPanel,
-                      child: AmountText(amountCents: _targetCents, currency: currency, color: colors.text),
+    return UnsavedChangesGuard(
+      overlayMode: widget.onClose != null,
+      onRequestClose: _requestClose,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: _requestClose),
+          title: Text(_isEdit
+              ? (translations?.t('goals.edit') ?? 'Edit goal')
+              : (translations?.t('goals.new') ?? 'New goal')),
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: SwipeDownToClose(
+                onClose: _requestClose,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                  children: [
+                    Center(child: Text((translations?.t('goals.target') ?? 'Target').toUpperCase(), style: appHeaderStyle(colors))),
+                    const SizedBox(height: AppSpacing.sm),
+                    Center(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _openAmountPanel,
+                        child: AmountText(amountCents: _targetCents, currency: currency, color: colors.text),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextField(
-                    controller: _nameController,
-                    focusNode: _nameFocus,
-                    decoration: InputDecoration(labelText: translations?.t('common.name') ?? 'Name'),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _sectionLabel(translations?.t('goals.category') ?? 'Savings category'),
-                  const SizedBox(height: AppSpacing.sm),
-                  AppCard(
-                    clip: true,
-                    padding: EdgeInsets.zero,
-                    child: _fieldTile(
-                      text: _categoryLabel ?? (translations?.t('goals.select_category') ?? 'Select category'),
-                      isPlaceholder: _categoryLabel == null,
-                      // Category is locked in edit mode.
-                      onTap: _isEdit ? null : _openCategoryPanel,
+                    const SizedBox(height: AppSpacing.lg),
+                    TextField(
+                      controller: _nameController,
+                      focusNode: _nameFocus,
+                      decoration: InputDecoration(labelText: translations?.t('common.name') ?? 'Name'),
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  _sectionLabel(translations?.t('goals.deadline') ?? 'Deadline'),
-                  const SizedBox(height: AppSpacing.sm),
-                  AppCard(
-                    clip: true,
-                    padding: EdgeInsets.zero,
-                    child: _fieldTile(
-                      text: _deadline == null
-                          ? (translations?.t('goals.no_deadline') ?? 'No deadline')
-                          : DateFormat.yMMMd().format(_deadline!),
-                      isPlaceholder: _deadline == null,
-                      onTap: _openDeadlinePanel,
-                      onClear: _deadline == null ? null : () => setState(() => _deadline = null),
+                    const SizedBox(height: AppSpacing.lg),
+                    _sectionLabel(translations?.t('goals.category') ?? 'Savings category'),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppCard(
+                      clip: true,
+                      padding: EdgeInsets.zero,
+                      child: _fieldTile(
+                        text: _categoryLabel ?? (translations?.t('goals.select_category') ?? 'Select category'),
+                        isPlaceholder: _categoryLabel == null,
+                        // Category is locked in edit mode.
+                        onTap: _isEdit ? null : _openCategoryPanel,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.lg),
+                    _sectionLabel(translations?.t('goals.deadline') ?? 'Deadline'),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppCard(
+                      clip: true,
+                      padding: EdgeInsets.zero,
+                      child: _fieldTile(
+                        text: _deadline == null
+                            ? (translations?.t('goals.no_deadline') ?? 'No deadline')
+                            : DateFormat.yMMMd().format(_deadline!),
+                        isPlaceholder: _deadline == null,
+                        onTap: _openDeadlinePanel,
+                        onClear: _deadline == null ? null : () => setState(() => _deadline = null),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_openPanel != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-              child: SizedBox(width: double.infinity, child: _saveButton(translations)),
-            ),
-          BottomActionPanel(
-            isOpen: _openPanel != null,
-            maxHeight: switch (_openPanel) {
-                  'deadline' => 380,
-                  _ => 340,
-                } +
-                MediaQuery.of(context).padding.bottom,
-            child: _openPanel == 'amount'
-                ? NumericKeypad(
-                    amountCents: _targetCents,
-                    nextLabel: translations?.t('common.next') ?? 'Next',
-                    onKeyTap: () => ref.read(hapticsProvider).selection(),
-                    onAmountChanged: (v) => setState(() => _targetCents = v),
-                    onNext: () {
-                      _closePanel();
-                      _nameFocus.requestFocus();
-                    },
-                  )
-                : _panelContent,
-          ),
-          if (_openPanel == null)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
+            if (_openPanel != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
                 child: SizedBox(width: double.infinity, child: _saveButton(translations)),
               ),
+            BottomActionPanel(
+              isOpen: _openPanel != null,
+              maxHeight: switch (_openPanel) {
+                    'deadline' => 380,
+                    _ => 340,
+                  } +
+                  MediaQuery.of(context).padding.bottom,
+              child: _openPanel == 'amount'
+                  ? NumericKeypad(
+                      amountCents: _targetCents,
+                      nextLabel: translations?.t('common.next') ?? 'Next',
+                      onKeyTap: () => ref.read(hapticsProvider).selection(),
+                      onAmountChanged: (v) => setState(() => _targetCents = v),
+                      onNext: () {
+                        _closePanel();
+                        _nameFocus.requestFocus();
+                      },
+                    )
+                  : _panelContent,
             ),
-        ],
+            if (_openPanel == null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: SizedBox(width: double.infinity, child: _saveButton(translations)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

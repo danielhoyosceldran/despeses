@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +20,7 @@ import '../../widgets/month_picker_dialog.dart';
 import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
+import '../../widgets/unsaved_changes_guard.dart';
 
 /// Rich entry for budgets (plan §4), reusing the same keypad/panel pattern
 /// as transactions (plan §3). Full-screen, closes with X (not back arrow).
@@ -63,6 +65,11 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
   String? _openPanel;
   Widget? _panelContent;
 
+  /// Field values as hydrated/initialized; closing with different values asks
+  /// before discarding them.
+  late List<Object?> _initialSnapshot;
+  bool _confirmingClose = false;
+
   @override
   void initState() {
     super.initState();
@@ -73,11 +80,37 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
       // New budget: open the keypad first so the flow starts at the amount.
       WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel(''));
     }
+    _initialSnapshot = _snapshot();
     // Focusing the name field must dismiss any open bottom panel (keypad/month
     // picker) so the OS keyboard doesn't stack on top of it.
     _nameFocus.addListener(() {
       if (_nameFocus.hasFocus && _openPanel != null) _closePanel();
     });
+  }
+
+  List<Object?> _snapshot() => [
+        _nameController.text.trim(),
+        _amountCents,
+        _dimension,
+        _type,
+        _dimensionValueId,
+        _startsMonth,
+        _endsMonth,
+      ];
+
+  bool get _isDirty => !listEquals(_snapshot(), _initialSnapshot);
+
+  /// Every user-initiated close (chevron, swipe down, system back) goes
+  /// through here: with unsaved changes it asks before discarding them.
+  Future<void> _requestClose() async {
+    if (_confirmingClose) return;
+    if (_isDirty) {
+      _confirmingClose = true;
+      final discard = await confirmDiscardChanges(context, ref.read(translationsProvider).asData?.value);
+      _confirmingClose = false;
+      if (!discard || !mounted) return;
+    }
+    _close();
   }
 
   Future<void> _resolveDimensionLabel() async {
@@ -428,190 +461,194 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
     final colors = context.appColors;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: () => _close()),
-        title: Text(_isEdit ? (translations?.t('budgets.edit') ?? 'Edit budget') : (translations?.t('budgets.new') ?? 'New budget')),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SwipeDownToClose(
-              onClose: _close,
-              child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
-              children: [
-                // Limit hero — the money value, Clash display, tap to open keypad.
-                Center(child: Text((translations?.t('budgets.limit') ?? 'Limit').toUpperCase(), style: appHeaderStyle(colors))),
-                const SizedBox(height: AppSpacing.sm),
-                Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openAmountPanel(currency),
-                    child: AmountText(amountCents: _amountCents, currency: currency, color: colors.text),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                // Name — the themed input carries its own filled surface; no
-                // wrapping card (its border would double up with the input's).
-                TextField(
-                  controller: _nameController,
-                  focusNode: _nameFocus,
-                  decoration: InputDecoration(labelText: translations?.t('common.name') ?? 'Name'),
-                  // No onChanged/setState here: the only thing a keystroke can
-                  // change is `_canSave`, and the Save buttons listen to the
-                  // controller directly (see `_saveButton`). Rebuilding the
-                  // whole screen per character was R40a.
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                // Tracks (dimension)
-                _sectionLabel(translations?.t('budgets.dimension') ?? 'Tracks'),
-                const SizedBox(height: AppSpacing.sm),
-                _dimensionGrid(translations, colors),
-                const SizedBox(height: AppSpacing.sm),
-                AppCard(
-                  clip: true,
-                  padding: EdgeInsets.zero,
-                  child: _fieldTile(
-                    text: _dimensionValueLabel ?? (translations?.t('budgets.select_value') ?? 'Select value'),
-                    isPlaceholder: _dimensionValueLabel == null,
-                    onTap: _isEdit ? null : _openDimensionValuePanel,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                // Period
-                _sectionLabel(translations?.t('budgets.type') ?? 'Period'),
-                const SizedBox(height: AppSpacing.sm),
-                // Project/event budgets: period is fixed to the entity's own
-                // duration — no type picker, just a read-only summary (or a
-                // warning if the entity has no start/end dates).
-                if (_isEntityDimension) ...[
-                  if (_startsMonth != null && _endsMonth != null) ...[
-                    AppCard(
-                      clip: true,
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          _fieldTile(text: '${translations?.t('budgets.starts_month') ?? 'From'}  ·  ${_startsMonth!.key}', isPlaceholder: false),
-                          Divider(height: 1, color: colors.divider),
-                          _fieldTile(text: '${translations?.t('budgets.ends_month') ?? 'Until'}  ·  ${_endsMonth!.key}', isPlaceholder: false),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                      child: Text(
-                        translations?.t('budgets.period_auto_hint') ?? 'Fixed to the event or project duration.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ] else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
-                      child: Text(
-                        _dimensionValueId == null
-                            ? (translations?.t('budgets.period_auto_hint') ?? 'Fixed to the event or project duration.')
-                            : (translations?.t('budgets.entity_no_dates') ?? 'This event or project has no start/end dates. Add them first to budget it.'),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                ] else ...[
-                  SegmentedButton<_BudgetType>(
-                    segments: [
-                      ButtonSegment(value: _BudgetType.monthly, label: Text(translations?.t('budgets.type_monthly') ?? 'Monthly')),
-                      ButtonSegment(value: _BudgetType.range, label: Text(translations?.t('budgets.type_range') ?? 'Range')),
-                    ],
-                    selected: {_type},
-                    onSelectionChanged: _isEdit ? null : (s) => setState(() => _type = s.first),
-                  ),
+    return UnsavedChangesGuard(
+      overlayMode: widget.onClose != null,
+      onRequestClose: _requestClose,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: _requestClose),
+          title: Text(_isEdit ? (translations?.t('budgets.edit') ?? 'Edit budget') : (translations?.t('budgets.new') ?? 'New budget')),
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: SwipeDownToClose(
+                onClose: _requestClose,
+                child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                children: [
+                  // Limit hero — the money value, Clash display, tap to open keypad.
+                  Center(child: Text((translations?.t('budgets.limit') ?? 'Limit').toUpperCase(), style: appHeaderStyle(colors))),
                   const SizedBox(height: AppSpacing.sm),
-                  if (_type == _BudgetType.monthly)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
-                      child: Text(
-                        translations?.t('budgets.type_monthly_hint') ?? 'Recurs every month: this limit applies to each month on its own.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                  Center(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openAmountPanel(currency),
+                      child: AmountText(amountCents: _amountCents, currency: currency, color: colors.text),
                     ),
-                  if (_type == _BudgetType.range)
-                    AppCard(
-                      clip: true,
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: [
-                          _fieldTile(
-                            text: _startsMonth == null ? (translations?.t('budgets.starts_month') ?? 'From') : _startsMonth!.key,
-                            isPlaceholder: _startsMonth == null,
-                            onTap: _isEdit
-                                ? null
-                                : () => _openMonthPanel(
-                                      initial: _startsMonth,
-                                      onSelected: (picked) => setState(() => _startsMonth = picked),
-                                    ),
-                          ),
-                          Divider(height: 1, color: colors.divider),
-                          _fieldTile(
-                            text: _endsMonth == null ? (translations?.t('budgets.ends_month') ?? 'Until') : _endsMonth!.key,
-                            isPlaceholder: _endsMonth == null,
-                            onTap: _isEdit
-                                ? null
-                                : () => _openMonthPanel(
-                                      initial: _endsMonth,
-                                      onSelected: (picked) => setState(() => _endsMonth = picked),
-                                    ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  // Name — the themed input carries its own filled surface; no
+                  // wrapping card (its border would double up with the input's).
+                  TextField(
+                    controller: _nameController,
+                    focusNode: _nameFocus,
+                    decoration: InputDecoration(labelText: translations?.t('common.name') ?? 'Name'),
+                    // No onChanged/setState here: the only thing a keystroke can
+                    // change is `_canSave`, and the Save buttons listen to the
+                    // controller directly (see `_saveButton`). Rebuilding the
+                    // whole screen per character was R40a.
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  // Tracks (dimension)
+                  _sectionLabel(translations?.t('budgets.dimension') ?? 'Tracks'),
+                  const SizedBox(height: AppSpacing.sm),
+                  _dimensionGrid(translations, colors),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppCard(
+                    clip: true,
+                    padding: EdgeInsets.zero,
+                    child: _fieldTile(
+                      text: _dimensionValueLabel ?? (translations?.t('budgets.select_value') ?? 'Select value'),
+                      isPlaceholder: _dimensionValueLabel == null,
+                      onTap: _isEdit ? null : _openDimensionValuePanel,
                     ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  // Period
+                  _sectionLabel(translations?.t('budgets.type') ?? 'Period'),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Project/event budgets: period is fixed to the entity's own
+                  // duration — no type picker, just a read-only summary (or a
+                  // warning if the entity has no start/end dates).
+                  if (_isEntityDimension) ...[
+                    if (_startsMonth != null && _endsMonth != null) ...[
+                      AppCard(
+                        clip: true,
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            _fieldTile(text: '${translations?.t('budgets.starts_month') ?? 'From'}  ·  ${_startsMonth!.key}', isPlaceholder: false),
+                            Divider(height: 1, color: colors.divider),
+                            _fieldTile(text: '${translations?.t('budgets.ends_month') ?? 'Until'}  ·  ${_endsMonth!.key}', isPlaceholder: false),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                        child: Text(
+                          translations?.t('budgets.period_auto_hint') ?? 'Fixed to the event or project duration.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ] else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
+                        child: Text(
+                          _dimensionValueId == null
+                              ? (translations?.t('budgets.period_auto_hint') ?? 'Fixed to the event or project duration.')
+                              : (translations?.t('budgets.entity_no_dates') ?? 'This event or project has no start/end dates. Add them first to budget it.'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                  ] else ...[
+                    SegmentedButton<_BudgetType>(
+                      segments: [
+                        ButtonSegment(value: _BudgetType.monthly, label: Text(translations?.t('budgets.type_monthly') ?? 'Monthly')),
+                        ButtonSegment(value: _BudgetType.range, label: Text(translations?.t('budgets.type_range') ?? 'Range')),
+                      ],
+                      selected: {_type},
+                      onSelectionChanged: _isEdit ? null : (s) => setState(() => _type = s.first),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    if (_type == _BudgetType.monthly)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
+                        child: Text(
+                          translations?.t('budgets.type_monthly_hint') ?? 'Recurs every month: this limit applies to each month on its own.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    if (_type == _BudgetType.range)
+                      AppCard(
+                        clip: true,
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            _fieldTile(
+                              text: _startsMonth == null ? (translations?.t('budgets.starts_month') ?? 'From') : _startsMonth!.key,
+                              isPlaceholder: _startsMonth == null,
+                              onTap: _isEdit
+                                  ? null
+                                  : () => _openMonthPanel(
+                                        initial: _startsMonth,
+                                        onSelected: (picked) => setState(() => _startsMonth = picked),
+                                      ),
+                            ),
+                            Divider(height: 1, color: colors.divider),
+                            _fieldTile(
+                              text: _endsMonth == null ? (translations?.t('budgets.ends_month') ?? 'Until') : _endsMonth!.key,
+                              isPlaceholder: _endsMonth == null,
+                              onTap: _isEdit
+                                  ? null
+                                  : () => _openMonthPanel(
+                                        initial: _endsMonth,
+                                        onSelected: (picked) => setState(() => _endsMonth = picked),
+                                      ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ],
-              ],
+                ),
               ),
             ),
-          ),
-          if (_openPanel != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-              child: SizedBox(
-                width: double.infinity,
-                child: _saveButton(translations),
-              ),
-            ),
-          BottomActionPanel(
-            isOpen: _openPanel != null,
-            maxHeight: switch (_openPanel) {
-                  'month' => 380,
-                  _ => 340,
-                } +
-                MediaQuery.of(context).padding.bottom,
-            child: _openPanel == 'amount'
-                ? NumericKeypad(
-                    amountCents: _amountCents,
-                    nextLabel: translations?.t('common.next') ?? 'Next',
-                    onKeyTap: () => ref.read(hapticsProvider).selection(),
-                    onAmountChanged: (v) => setState(() => _amountCents = v),
-                    // Auto-advance chain: amount → name, then stop. Dimension,
-                    // value and period are chosen manually by the user.
-                    onNext: () {
-                      _closePanel();
-                      _nameFocus.requestFocus();
-                    },
-                  )
-                : _panelContent,
-          ),
-          if (_openPanel == null)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
+            if (_openPanel != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
                 child: SizedBox(
                   width: double.infinity,
                   child: _saveButton(translations),
                 ),
               ),
+            BottomActionPanel(
+              isOpen: _openPanel != null,
+              maxHeight: switch (_openPanel) {
+                    'month' => 380,
+                    _ => 340,
+                  } +
+                  MediaQuery.of(context).padding.bottom,
+              child: _openPanel == 'amount'
+                  ? NumericKeypad(
+                      amountCents: _amountCents,
+                      nextLabel: translations?.t('common.next') ?? 'Next',
+                      onKeyTap: () => ref.read(hapticsProvider).selection(),
+                      onAmountChanged: (v) => setState(() => _amountCents = v),
+                      // Auto-advance chain: amount → name, then stop. Dimension,
+                      // value and period are chosen manually by the user.
+                      onNext: () {
+                        _closePanel();
+                        _nameFocus.requestFocus();
+                      },
+                    )
+                  : _panelContent,
             ),
-        ],
+            if (_openPanel == null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _saveButton(translations),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
