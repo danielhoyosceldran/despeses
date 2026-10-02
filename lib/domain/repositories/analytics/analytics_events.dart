@@ -10,7 +10,8 @@ class EventAnalytics {
   final AppDatabase _db;
 
   Future<List<Expense>> _scopeExpenses({String? eventId, String? projectId}) {
-    final q = _db.select(_db.expenses);
+    // Scheduled (future-dated) rows don't count until their day.
+    final q = _db.select(_db.expenses)..where((e) => e.date.isSmallerThanValue(scheduledFrom()));
     if (eventId != null) {
       q.where((e) => e.eventId.equals(eventId));
     } else if (projectId != null) {

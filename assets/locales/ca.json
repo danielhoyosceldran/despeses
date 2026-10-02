@@ -390,6 +390,7 @@
   "expenses": {
     "add": "Afegir despesa",
     "edit": "Editar despesa",
+    "scheduled": "Programat",
     "not_found": "No s'ha trobat el moviment.",
     "empty": "Encara no hi ha despeses.",
     "delete_warning": "Aquesta despesa s'eliminarà permanentment.",

@@ -149,6 +149,8 @@ class SavingsGoalRepository {
     final rows = await (_db.select(_db.expenses)
           ..where((e) => e.currency.equals(goal.currency))
           ..where((e) => e.date.isBiggerOrEqualValue(from))
+          // Scheduled (future-dated) rows don't count until their day.
+          ..where((e) => e.date.isSmallerThanValue(scheduledFrom()))
           ..where((e) => e.type.equals('ahorro'))
           ..where((e) => e.categoryId.isIn(ids)))
         .get();

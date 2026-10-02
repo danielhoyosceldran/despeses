@@ -390,6 +390,7 @@
   "expenses": {
     "add": "Ajouter une dépense",
     "edit": "Modifier la dépense",
+    "scheduled": "Programmé",
     "not_found": "Transaction introuvable.",
     "empty": "Aucune dépense pour l'instant.",
     "delete_warning": "Cette dépense sera définitivement supprimée.",

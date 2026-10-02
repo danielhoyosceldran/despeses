@@ -133,7 +133,9 @@ class BudgetRepository {
     final query = _db.select(_db.expenses)
       ..where((e) => e.currency.equals(budget.currency))
       ..where((e) => e.type.isIn(['expense', 'refund']))
-      ..where((e) => e.date.isBiggerOrEqualValue(start) & e.date.isSmallerThanValue(end));
+      ..where((e) => e.date.isBiggerOrEqualValue(start) & e.date.isSmallerThanValue(end))
+      // Scheduled (future-dated) rows don't count until their day.
+      ..where((e) => e.date.isSmallerThanValue(scheduledFrom()));
 
     if (budget.categoryId != null) {
       final ids = {budget.categoryId!, ...await _categories.descendantIds(budget.categoryId!)};

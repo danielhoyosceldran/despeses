@@ -394,6 +394,7 @@
   "expenses": {
     "add": "Add expense",
     "edit": "Edit expense",
+    "scheduled": "Scheduled",
     "not_found": "Transaction not found.",
     "empty": "No expenses yet.",
     "delete_warning": "This expense will be permanently deleted.",

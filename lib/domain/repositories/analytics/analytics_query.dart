@@ -14,6 +14,8 @@ Future<List<Expense>> expensesInRange(
   return (db.select(db.expenses)
         ..where((e) => e.currency.equals(currency))
         ..where((e) => e.date.isBiggerOrEqualValue(range.from))
-        ..where((e) => e.date.isSmallerOrEqualValue(range.to)))
+        ..where((e) => e.date.isSmallerOrEqualValue(range.to))
+        // Scheduled (future-dated) rows don't count until their day.
+        ..where((e) => e.date.isSmallerThanValue(scheduledFrom())))
       .get();
 }

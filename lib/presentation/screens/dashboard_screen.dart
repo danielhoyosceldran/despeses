@@ -597,7 +597,8 @@ class _Totals {
   int get balance => income - spent - savings;
 
   factory _Totals.of(List<Expense> expenses, String currency) {
-    final inCurrency = expenses.where((e) => e.currency == currency).toList();
+    // Scheduled (future-dated) rows are listed but don't count until their day.
+    final inCurrency = expenses.where((e) => e.currency == currency && !isScheduled(e)).toList();
     return _Totals(
       spent: expenseOutflow(inCurrency),
       savings: savingsSetAside(inCurrency),
@@ -1166,6 +1167,11 @@ class _ExpenseRow extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
+                      if (isScheduled(expense))
+                        Text(
+                          translations?.t('expenses.scheduled') ?? 'Scheduled',
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(color: colors.textMuted),
+                        ),
                     ],
                   ),
                 ),

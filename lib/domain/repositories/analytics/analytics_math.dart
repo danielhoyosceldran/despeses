@@ -42,6 +42,18 @@ List<DateTime> monthsIn(DateRange range) {
 //   available this month. It is NOT spending and is shown as its own figure.
 // - **Balance** = income − spent − savings: savings still reduce what's left.
 
+/// Start of tomorrow. Transactions dated on or after it are **scheduled**:
+/// recorded ahead of time, they don't count anywhere (totals, analytics,
+/// projection, streaks, budgets, goals) until their day arrives; lists show
+/// them marked as scheduled. [now] is injectable for tests.
+DateTime scheduledFrom([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  return DateTime(n.year, n.month, n.day + 1);
+}
+
+/// Whether [e] is scheduled (dated after today); see [scheduledFrom].
+bool isScheduled(Expense e, {DateTime? now}) => !e.date.isBefore(scheduledFrom(now));
+
 /// Spent: `expense` positive, `refund` subtracts; `ahorro` and `income`
 /// excluded. Use this wherever a figure means "spent" (see the note above).
 int expenseOutflow(Iterable<Expense> expenses) {

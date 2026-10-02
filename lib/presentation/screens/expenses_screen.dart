@@ -8,6 +8,7 @@ import '../../core/navigation/bottom_up_route.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
+import '../../domain/repositories/analytics/analytics_math.dart';
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/app_top_bar.dart';
@@ -218,6 +219,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     final expense = _expenses[index];
                     return _ExpenseTile(
                       expense: expense,
+                      scheduledLabel: t?.t('expenses.scheduled'),
                       selectionMode: _selectionMode,
                       selected: _selectedIds.contains(expense.id),
                       onTap: () =>
@@ -240,9 +242,13 @@ class _ExpenseTile extends ConsumerWidget {
     required this.onLongPress,
     this.selectionMode = false,
     this.selected = false,
+    this.scheduledLabel,
   });
 
   final Expense expense;
+
+  /// Translated "Scheduled" mark for future-dated rows.
+  final String? scheduledLabel;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final bool selectionMode;
@@ -270,7 +276,9 @@ class _ExpenseTile extends ConsumerWidget {
         selected: selected,
         leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
         title: Text(title),
-        subtitle: Text(DateFormat.yMMMd().format(expense.date)),
+        subtitle: Text(isScheduled(expense)
+            ? '${DateFormat.yMMMd().format(expense.date)} · ${scheduledLabel ?? 'Scheduled'}'
+            : DateFormat.yMMMd().format(expense.date)),
         trailing: Text(
           '$sign${formatMoney(expense.amount, expense.currency)}',
           style: TextStyle(color: color, fontWeight: FontWeight.w600, fontFeatures: const [FontFeature.tabularFigures()]),

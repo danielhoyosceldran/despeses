@@ -394,6 +394,7 @@
   "expenses": {
     "add": "Añadir gasto",
     "edit": "Editar gasto",
+    "scheduled": "Programado",
     "not_found": "Movimiento no encontrado.",
     "empty": "No hay gastos todavía.",
     "delete_warning": "Este gasto se eliminará permanentemente.",

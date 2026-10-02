@@ -390,6 +390,7 @@
   "expenses": {
     "add": "Aggiungi spesa",
     "edit": "Modifica spesa",
+    "scheduled": "Programmato",
     "not_found": "Transazione non trovata.",
     "empty": "Nessuna spesa ancora.",
     "delete_warning": "Questa spesa verrà eliminata definitivamente.",
