@@ -190,7 +190,10 @@ class RecurringRepository {
 
   /// Confirms a pending occurrence into a real [Expense] (copying the template's
   /// current tags) and removes it from the inbox — all in one transaction.
-  /// Returns the new expense id.
+  /// Returns the new expense id, or null when the occurrence was already
+  /// confirmed/skipped (e.g. a double tap, or "confirm all" racing a single
+  /// confirm): the occurrence is claimed by deleting it first, so only the
+  /// caller whose delete actually removed the row creates the expense.
   ///
   /// [RecurringOccurrence] stores its FK-shaped fields (category/payment
   /// method/event/project) as plain text without an actual FK constraint,
@@ -199,9 +202,12 @@ class RecurringRepository {
   /// as-is into `expenses` (which DOES have a real FK) would violate the
   /// constraint and roll back the whole confirmation, permanently. So each
   /// dangling id is nulled out here, right before the insert.
-  Future<String> confirm(RecurringOccurrence occ) async {
+  Future<String?> confirm(RecurringOccurrence occ) async {
     final expenseId = _uuid.v4();
-    await _db.transaction(() async {
+    final created = await _db.transaction(() async {
+      final claimed =
+          await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
+      if (claimed != 1) return false;
       final tagIds = await tagIdsOf(occ.recurringId);
       final categoryId = await _existingOrNull(_db.categories, _db.categories.id, occ.categoryId);
       final paymentMethodId =
@@ -228,9 +234,9 @@ class RecurringRepository {
               ExpenseTagsCompanion.insert(expenseId: expenseId, tagId: tagId),
             );
       }
-      await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
+      return true;
     });
-    return expenseId;
+    return created ? expenseId : null;
   }
 
   /// Returns [id] if a row with that primary key still exists in [table],

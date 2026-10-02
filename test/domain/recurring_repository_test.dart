@@ -111,7 +111,7 @@ void main() {
     await recurring.materializeDue(now: DateTime(2026, 1, 15));
     final occ = (await recurring.listPending()).single;
 
-    final expenseId = await recurring.confirm(occ);
+    final expenseId = (await recurring.confirm(occ))!;
 
     final expense = await (db.select(db.expenses)..where((e) => e.id.equals(expenseId))).getSingle();
     expect(expense.amount, 80000);
@@ -138,12 +138,37 @@ void main() {
     final occ = (await recurring.listPending()).single;
     expect(occ.recurringId, id);
 
-    final expenseId = await recurring.confirm(occ);
+    final expenseId = (await recurring.confirm(occ))!;
 
     final tagRows = await (db.select(db.expenseTags)
           ..where((t) => t.expenseId.equals(expenseId)))
         .get();
     expect(tagRows.map((r) => r.tagId).toList(), ['t1']);
+  });
+
+  test('confirming the same occurrence twice creates a single expense', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+
+    // Concurrent double tap, then a late third confirm.
+    final results = await Future.wait([recurring.confirm(occ), recurring.confirm(occ)]);
+    final late = await recurring.confirm(occ);
+
+    expect(results.whereType<String>().length, 1);
+    expect(late, isNull);
+    expect((await db.select(db.expenses).get()).length, 1);
+    expect(await recurring.listPending(), isEmpty);
+  });
+
+  test('confirming an already skipped occurrence creates nothing', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+    await recurring.skip(occ.id);
+
+    expect(await recurring.confirm(occ), isNull);
+    expect(await db.select(db.expenses).get(), isEmpty);
   });
 
   test('skip discards an occurrence without creating an expense', () async {

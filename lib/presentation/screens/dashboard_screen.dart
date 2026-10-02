@@ -299,6 +299,8 @@ class _RecurringDueSectionState extends ConsumerState<_RecurringDueSection> {
   /// Occurrence id currently showing its accept/reject controls, or null.
   String? _armedId;
   Timer? _revertTimer;
+  // Occurrences whose accept/reject is in flight, so a double tap is ignored.
+  final Set<String> _busyIds = {};
 
   @override
   void dispose() {
@@ -321,17 +323,27 @@ class _RecurringDueSectionState extends ConsumerState<_RecurringDueSection> {
   }
 
   Future<void> _accept(RecurringOccurrence occ) async {
+    if (!_busyIds.add(occ.id)) return;
     _revertTimer?.cancel();
     ref.read(hapticsProvider).medium();
     _armedId = null; // stream will rebuild without this tile
-    await ref.read(recurringRepositoryProvider).confirm(occ);
+    try {
+      await ref.read(recurringRepositoryProvider).confirm(occ);
+    } finally {
+      _busyIds.remove(occ.id);
+    }
   }
 
   Future<void> _reject(RecurringOccurrence occ) async {
+    if (!_busyIds.add(occ.id)) return;
     _revertTimer?.cancel();
     ref.read(hapticsProvider).light();
     _armedId = null;
-    await ref.read(recurringRepositoryProvider).skip(occ.id);
+    try {
+      await ref.read(recurringRepositoryProvider).skip(occ.id);
+    } finally {
+      _busyIds.remove(occ.id);
+    }
   }
 
   @override

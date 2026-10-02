@@ -33,6 +33,23 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
   List<Recurring> _templates = [];
   bool _loading = true;
   final Set<String> _selectedIds = {};
+  // Occurrences with an action in flight, plus a flag for "confirm all": their
+  // buttons stay disabled until it finishes so a double tap can't re-fire it.
+  final Set<String> _busyOccIds = {};
+  bool _confirmingAll = false;
+
+  bool _isOccBusy(String id) => _confirmingAll || _busyOccIds.contains(id);
+
+  /// Runs [action] for [occ] with its buttons disabled; ignores re-entry.
+  Future<void> _guardOcc(RecurringOccurrence occ, Future<void> Function() action) async {
+    if (_isOccBusy(occ.id)) return;
+    setState(() => _busyOccIds.add(occ.id));
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busyOccIds.remove(occ.id));
+    }
+  }
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
@@ -90,12 +107,15 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
     _load();
   }
 
-  Future<void> _confirmOccurrence(RecurringOccurrence occ, String Function(String) tr) async {
-    await ref.read(recurringRepositoryProvider).confirm(occ);
-    if (mounted) _showToast(tr('recurring.confirmed'));
-  }
+  Future<void> _confirmOccurrence(RecurringOccurrence occ, String Function(String) tr) =>
+      _guardOcc(occ, () async {
+        final expenseId = await ref.read(recurringRepositoryProvider).confirm(occ);
+        if (expenseId != null && mounted) _showToast(tr('recurring.confirmed'));
+      });
 
-  Future<void> _editOccurrence(RecurringOccurrence occ) async {
+  Future<void> _editOccurrence(RecurringOccurrence occ) => _guardOcc(occ, () => _doEditOccurrence(occ));
+
+  Future<void> _doEditOccurrence(RecurringOccurrence occ) async {
     final repo = ref.read(recurringRepositoryProvider);
     final tagIds = await repo.tagIdsOf(occ.recurringId);
     if (!mounted) return;
@@ -119,17 +139,26 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
     if (saved == true) await repo.skip(occ.id);
   }
 
-  Future<void> _skipOccurrence(RecurringOccurrence occ, String Function(String) tr) async {
-    await ref.read(recurringRepositoryProvider).skip(occ.id);
-    if (mounted) _showToast(tr('recurring.skipped'));
-  }
+  Future<void> _skipOccurrence(RecurringOccurrence occ, String Function(String) tr) =>
+      _guardOcc(occ, () async {
+        await ref.read(recurringRepositoryProvider).skip(occ.id);
+        if (mounted) _showToast(tr('recurring.skipped'));
+      });
 
   Future<void> _confirmAll(List<RecurringOccurrence> pending, String Function(String) tr) async {
-    final repo = ref.read(recurringRepositoryProvider);
-    for (final occ in pending) {
-      await repo.confirm(occ);
+    if (_confirmingAll) return;
+    setState(() => _confirmingAll = true);
+    try {
+      final repo = ref.read(recurringRepositoryProvider);
+      for (final occ in pending) {
+        // Skip ones a single confirm/edit/skip is already handling.
+        if (_busyOccIds.contains(occ.id)) continue;
+        await repo.confirm(occ);
+      }
+      if (mounted) _showToast(tr('recurring.confirmed'));
+    } finally {
+      if (mounted) setState(() => _confirmingAll = false);
     }
-    if (mounted) _showToast(tr('recurring.confirmed'));
   }
 
   void _showToast(String message) {
@@ -187,7 +216,7 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                             ),
                             if (pending.length > 1)
                               TextButton(
-                                onPressed: () => _confirmAll(pending, tr),
+                                onPressed: _confirmingAll ? null : () => _confirmAll(pending, tr),
                                 child: Text(tr('recurring.confirm_all')),
                               ),
                           ],
@@ -201,6 +230,7 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                             skipLabel: tr('recurring.skip'),
                             editLabel: tr('common.edit'),
                             confirmLabel: tr('recurring.confirm'),
+                            busy: _isOccBusy(occ.id),
                             onConfirm: () => _confirmOccurrence(occ, tr),
                             onEdit: () => _editOccurrence(occ),
                             onSkip: () => _skipOccurrence(occ, tr),
@@ -260,6 +290,7 @@ class _PendingCard extends StatelessWidget {
     required this.skipLabel,
     required this.editLabel,
     required this.confirmLabel,
+    required this.busy,
     required this.onConfirm,
     required this.onEdit,
     required this.onSkip,
@@ -271,6 +302,8 @@ class _PendingCard extends StatelessWidget {
   final String skipLabel;
   final String editLabel;
   final String confirmLabel;
+  // Disables the actions while one is in flight for this occurrence.
+  final bool busy;
   final VoidCallback onConfirm;
   final VoidCallback onEdit;
   final VoidCallback onSkip;
@@ -315,18 +348,18 @@ class _PendingCard extends StatelessWidget {
             runSpacing: AppSpacing.xs,
             children: [
               TextButton.icon(
-                onPressed: onSkip,
+                onPressed: busy ? null : onSkip,
                 icon: const Icon(LucideIcons.x300, size: 16),
                 label: Text(skipLabel),
                 style: TextButton.styleFrom(foregroundColor: colors.textMuted),
               ),
               OutlinedButton.icon(
-                onPressed: onEdit,
+                onPressed: busy ? null : onEdit,
                 icon: const Icon(LucideIcons.pencil300, size: 16),
                 label: Text(editLabel),
               ),
               FilledButton.icon(
-                onPressed: onConfirm,
+                onPressed: busy ? null : onConfirm,
                 icon: const Icon(LucideIcons.check300, size: 16),
                 label: Text(confirmLabel),
               ),
