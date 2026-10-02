@@ -2,9 +2,53 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3/sqlite3.dart';
+
+import '../../data/database.dart';
 
 const _dbFileName = 'despeses.sqlite';
 const _backupsFolderName = 'backups';
+
+/// Why [BackupService.validateBackup] rejected a file.
+enum InvalidBackupReason {
+  /// Not an SQLite database, corrupt, or missing the app's tables.
+  notABackup,
+
+  /// Made by a newer app version (schema above [AppDatabase.currentSchemaVersion]).
+  tooNew,
+
+  /// Older than [AppDatabase.baselineSchemaVersion]; can't be migrated.
+  tooOld,
+}
+
+class InvalidBackupException implements Exception {
+  const InvalidBackupException(this.reason, [this.detail]);
+
+  final InvalidBackupReason reason;
+  final String? detail;
+
+  @override
+  String toString() => 'InvalidBackupException(${reason.name}${detail == null ? '' : ': $detail'})';
+}
+
+/// Tables every baseline (v9+) database has; see docs/database_baseline.md and
+/// lib/data/tables.dart.
+const _requiredTables = {
+  'profile',
+  'tag_groups',
+  'tags',
+  'categories',
+  'payment_methods',
+  'events',
+  'projects',
+  'expenses',
+  'expense_tags',
+  'budgets',
+  'recurrings',
+  'recurring_tags',
+  'recurring_occurrences',
+  'savings_goals',
+};
 
 /// [BackupService.createAutoBackup] label of the safety copy taken right
 /// before a restore overwrites the live database.
@@ -100,7 +144,11 @@ class BackupService {
   /// auto-backup so a wrong pick can be undone (see [latestPreRestoreBackup]).
   /// If that safety copy fails while there is data to lose, the restore is
   /// aborted with a [StateError] and nothing is touched.
+  ///
+  /// The file is validated first ([validateBackup]); an invalid one throws an
+  /// [InvalidBackupException] before anything is touched.
   Future<void> restoreBackup(File backupFile) async {
+    validateBackup(backupFile);
     final dbPath = await _dbFilePath();
     if (await File(dbPath).exists()) {
       final snapshot = await createAutoBackup(label: preRestoreLabel);
@@ -117,6 +165,50 @@ class BackupService {
       } else if (await sidecar.exists()) {
         await sidecar.delete();
       }
+    }
+  }
+
+  /// Checks that [file] is a database this app can open before it replaces the
+  /// live one: opened read-only, it must pass `PRAGMA integrity_check`, have
+  /// all the app's tables, and a `user_version` between
+  /// [AppDatabase.baselineSchemaVersion] and [AppDatabase.currentSchemaVersion].
+  /// Throws an [InvalidBackupException] otherwise.
+  void validateBackup(File file) {
+    final Database db;
+    try {
+      db = sqlite3.open(file.path, mode: OpenMode.readOnly);
+    } on SqliteException catch (e) {
+      throw InvalidBackupException(InvalidBackupReason.notABackup, e.message);
+    }
+    try {
+      final int version;
+      final Set<String> tables;
+      try {
+        final integrity = db.select('PRAGMA integrity_check');
+        if (integrity.length != 1 || integrity.first.columnAt(0) != 'ok') {
+          throw const InvalidBackupException(InvalidBackupReason.notABackup, 'integrity_check failed');
+        }
+        tables = {
+          for (final row in db.select("SELECT name FROM sqlite_master WHERE type = 'table'"))
+            row['name'] as String,
+        };
+        version = db.userVersion;
+      } on SqliteException catch (e) {
+        // e.g. "file is not a database".
+        throw InvalidBackupException(InvalidBackupReason.notABackup, e.message);
+      }
+      final missing = _requiredTables.difference(tables);
+      if (missing.isNotEmpty) {
+        throw InvalidBackupException(InvalidBackupReason.notABackup, 'missing tables: ${missing.join(', ')}');
+      }
+      if (version > AppDatabase.currentSchemaVersion) {
+        throw InvalidBackupException(InvalidBackupReason.tooNew, 'schema v$version');
+      }
+      if (version < AppDatabase.baselineSchemaVersion) {
+        throw InvalidBackupException(InvalidBackupReason.tooOld, 'schema v$version');
+      }
+    } finally {
+      db.dispose();
     }
   }
 

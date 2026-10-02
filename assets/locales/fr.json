@@ -379,7 +379,10 @@
     "undo_title": "Annuler la restauration",
     "undo_subtitle": "Revenir aux données d'avant la dernière restauration ({{date}})",
     "undo_confirm_message": "Cela remplace vos données actuelles par celles d'avant la dernière restauration. Continuer ?",
-    "undone": "Restauration annulée."
+    "undone": "Restauration annulée.",
+    "invalid_file": "Le fichier n'est pas une sauvegarde valide de l'application.",
+    "too_new": "La sauvegarde provient d'une version plus récente de l'application. Mettez-la à jour pour la restaurer.",
+    "too_old": "La sauvegarde provient d'une ancienne version de l'application qui ne peut plus être restaurée."
   },
   "expenses": {
     "add": "Ajouter une dépense",

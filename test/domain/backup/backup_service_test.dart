@@ -2,7 +2,43 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
+import 'package:despeses/data/database.dart';
 import 'package:despeses/domain/backup/backup_service.dart';
+
+/// Writes a minimal database that passes [BackupService.validateBackup]: every
+/// app table (empty stubs), [version] as user_version, and a `marker` table
+/// holding [marker] so tests can tell copies apart.
+void writeDb(String path, String marker, {int version = AppDatabase.currentSchemaVersion, bool allTables = true}) {
+  final file = File(path);
+  if (file.existsSync()) file.deleteSync();
+  final db = sqlite3.open(path);
+  try {
+    if (allTables) {
+      for (final t in [
+        'profile', 'tag_groups', 'tags', 'categories', 'payment_methods', 'events', 'projects',
+        'expenses', 'expense_tags', 'budgets', 'recurrings', 'recurring_tags',
+        'recurring_occurrences', 'savings_goals',
+      ]) {
+        db.execute('CREATE TABLE $t (id TEXT)');
+      }
+    }
+    db.execute('CREATE TABLE marker (v TEXT)');
+    db.execute('INSERT INTO marker VALUES (?)', [marker]);
+    db.userVersion = version;
+  } finally {
+    db.dispose();
+  }
+}
+
+String readMarker(String path) {
+  final db = sqlite3.open(path, mode: OpenMode.readOnly);
+  try {
+    return db.select('SELECT v FROM marker').first.columnAt(0) as String;
+  } finally {
+    db.dispose();
+  }
+}
 
 void main() {
   late Directory tempDir;
@@ -12,7 +48,7 @@ void main() {
     tempDir = await Directory.systemTemp.createTemp('despeses_backup_test');
     service = BackupService(documentsDirProvider: () async => tempDir);
     // Simulate a live database file at the expected location.
-    await File(p.join(tempDir.path, 'despeses.sqlite')).writeAsString('original-db-contents');
+    writeDb(p.join(tempDir.path, 'despeses.sqlite'), 'original-db-contents');
   });
 
   tearDown(() async {
@@ -24,7 +60,7 @@ void main() {
 
     expect(await backup.exists(), isTrue);
     expect(p.dirname(backup.path), p.join(tempDir.path, 'backups'));
-    expect(await backup.readAsString(), 'original-db-contents');
+    expect(readMarker(backup.path), 'original-db-contents');
   });
 
   test('listBackups returns newest first', () async {
@@ -41,11 +77,11 @@ void main() {
   test('restoreBackup overwrites the live db file with the backup contents', () async {
     final backup = await service.createBackup();
     final dbFile = File(p.join(tempDir.path, 'despeses.sqlite'));
-    await dbFile.writeAsString('changed-after-backup');
+    writeDb(dbFile.path, 'changed-after-backup');
 
     await service.restoreBackup(backup);
 
-    expect(await dbFile.readAsString(), 'original-db-contents');
+    expect(readMarker(dbFile.path), 'original-db-contents');
   });
 
   test('createBackup throws if there is no database file yet', () async {
@@ -59,10 +95,10 @@ void main() {
       called = true;
       // Mutate the live file inside the checkpoint; the copy must capture this,
       // proving the checkpoint ran first.
-      await File(p.join(tempDir.path, 'despeses.sqlite')).writeAsString('after-checkpoint');
+      writeDb(p.join(tempDir.path, 'despeses.sqlite'), 'after-checkpoint');
     });
     expect(called, isTrue);
-    expect(await backup.readAsString(), 'after-checkpoint');
+    expect(readMarker(backup.path), 'after-checkpoint');
   });
 
   test('restoreBackup deletes stale -wal and -shm sidecars', () async {
@@ -75,7 +111,7 @@ void main() {
 
     expect(await File('$dbPath-wal').exists(), isFalse);
     expect(await File('$dbPath-shm').exists(), isFalse);
-    expect(await File(dbPath).readAsString(), 'original-db-contents');
+    expect(readMarker(dbPath), 'original-db-contents');
   });
 
   test('createAutoBackup copies main file plus WAL sidecars, never throwing', () async {
@@ -86,7 +122,8 @@ void main() {
     final auto = await service.createAutoBackup();
 
     expect(auto, isNotNull);
-    expect(await auto!.readAsString(), 'original-db-contents');
+    // Byte comparison: opening the copy would read the fake sidecars.
+    expect(await auto!.readAsBytes(), await File(dbPath).readAsBytes());
     expect(await File('${auto.path}-wal').readAsString(), 'wal-contents');
     expect(await File('${auto.path}-shm').readAsString(), 'shm-contents');
   });
@@ -99,7 +136,7 @@ void main() {
   test('restoreBackup first saves the current data as a pre_restore backup', () async {
     final backup = await service.createBackup();
     final dbFile = File(p.join(tempDir.path, 'despeses.sqlite'));
-    await dbFile.writeAsString('current-data');
+    writeDb(dbFile.path, 'current-data');
     expect(await service.latestPreRestoreBackup(), isNull);
 
     await service.restoreBackup(backup);
@@ -107,19 +144,19 @@ void main() {
     final snapshot = await service.latestPreRestoreBackup();
     expect(snapshot, isNotNull);
     expect(p.basename(snapshot!.path), startsWith('despeses_pre_restore_'));
-    expect(await snapshot.readAsString(), 'current-data');
-    expect(await dbFile.readAsString(), 'original-db-contents');
+    expect(readMarker(snapshot.path), 'current-data');
+    expect(readMarker(dbFile.path), 'original-db-contents');
   });
 
   test('restoring the pre_restore backup undoes the restore', () async {
     final backup = await service.createBackup();
     final dbFile = File(p.join(tempDir.path, 'despeses.sqlite'));
-    await dbFile.writeAsString('current-data');
+    writeDb(dbFile.path, 'current-data');
     await service.restoreBackup(backup);
 
     await service.restoreBackup((await service.latestPreRestoreBackup())!);
 
-    expect(await dbFile.readAsString(), 'current-data');
+    expect(readMarker(dbFile.path), 'current-data');
   });
 
   test('takenAt parses the timestamp in a backup file name', () {
@@ -128,5 +165,48 @@ void main() {
       DateTime(2026, 10, 2, 13, 37, 58),
     );
     expect(BackupService.takenAt(File('whatever.sqlite')), isNull);
+  });
+
+  group('validateBackup', () {
+    Future<void> expectRejected(String path, InvalidBackupReason reason) async {
+      final dbPath = p.join(tempDir.path, 'despeses.sqlite');
+      await expectLater(
+        service.restoreBackup(File(path)),
+        throwsA(isA<InvalidBackupException>().having((e) => e.reason, 'reason', reason)),
+      );
+      // Nothing was replaced and no pre_restore copy was made.
+      expect(readMarker(dbPath), 'original-db-contents');
+      expect(await service.latestPreRestoreBackup(), isNull);
+    }
+
+    test('accepts a valid backup', () {
+      final path = p.join(tempDir.path, 'ok.sqlite');
+      writeDb(path, 'ok');
+      expect(() => service.validateBackup(File(path)), returnsNormally);
+    });
+
+    test('rejects a file that is not SQLite', () async {
+      final path = p.join(tempDir.path, 'notes.sqlite');
+      await File(path).writeAsString('just some text, definitely not a database');
+      await expectRejected(path, InvalidBackupReason.notABackup);
+    });
+
+    test('rejects an SQLite file without the app tables', () async {
+      final path = p.join(tempDir.path, 'other.sqlite');
+      writeDb(path, 'other', allTables: false);
+      await expectRejected(path, InvalidBackupReason.notABackup);
+    });
+
+    test('rejects a backup from a newer schema', () async {
+      final path = p.join(tempDir.path, 'newer.sqlite');
+      writeDb(path, 'newer', version: AppDatabase.currentSchemaVersion + 1);
+      await expectRejected(path, InvalidBackupReason.tooNew);
+    });
+
+    test('rejects a backup older than the baseline', () async {
+      final path = p.join(tempDir.path, 'older.sqlite');
+      writeDb(path, 'older', version: AppDatabase.baselineSchemaVersion - 1);
+      await expectRejected(path, InvalidBackupReason.tooOld);
+    });
   });
 }

@@ -80,8 +80,12 @@ class AppDatabase extends _$AppDatabase {
   /// above it; see docs/database_baseline.md before changing it.
   static const int baselineSchemaVersion = 9;
 
+  /// Schema version this build creates/migrates to. Static so code without a
+  /// live connection (e.g. backup validation) can check a file against it.
+  static const int currentSchemaVersion = 9;
+
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => currentSchemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

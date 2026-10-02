@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/backup/backup_service.dart';
@@ -89,12 +90,22 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final path = result?.files.single.path;
     if (path == null) return;
 
+    // Reject a wrong/corrupt/incompatible file up front, before asking to
+    // confirm or tearing anything down (restoreBackup re-checks it anyway).
+    try {
+      ref.read(backupServiceProvider).validateBackup(File(path));
+    } on InvalidBackupException catch (e, st) {
+      developer.log('invalid backup picked', name: 'BackupScreen', error: e, stackTrace: st);
+      if (mounted) showAppToast(context, _restoreErrorMessage(e, translations), variant: ToastVariant.error);
+      return;
+    }
+
     if (!mounted) return;
     final confirmed = await showConfirmDialog(
       context,
       title: translations?.t('backup.restore_title') ?? 'Restore backup',
       message: translations?.t('backup.restore_confirm_message') ??
-          'This overwrites all current data with the selected backup. This cannot be undone. Continue?',
+          'This overwrites all current data with the selected backup. Your current data is saved first so you can undo it. Continue?',
       confirmLabel: translations?.t('backup.restore') ?? 'Restore',
       destructive: true,
     );
@@ -112,15 +123,25 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     } catch (e, st) {
       developer.log('restore failed', name: 'BackupScreen', error: e, stackTrace: st);
       if (mounted) {
-        showAppToast(
-          context,
-          translations?.t('backup.restore_failed') ?? 'Restore failed.',
-          variant: ToastVariant.error,
-        );
+        showAppToast(context, _restoreErrorMessage(e, translations), variant: ToastVariant.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// User-facing message for a failed restore; the detail goes to the log.
+  String _restoreErrorMessage(Object error, Translations? t) {
+    if (error is InvalidBackupException) {
+      return switch (error.reason) {
+        InvalidBackupReason.notABackup => t?.t('backup.invalid_file') ?? 'The file is not a valid backup of this app.',
+        InvalidBackupReason.tooNew =>
+          t?.t('backup.too_new') ?? 'The backup is from a newer version of the app. Update the app to restore it.',
+        InvalidBackupReason.tooOld =>
+          t?.t('backup.too_old') ?? 'The backup is from an old version of the app that can no longer be restored.',
+      };
+    }
+    return t?.t('backup.restore_failed') ?? 'Restore failed.';
   }
 
   /// Restores the data saved right before the last restore.
@@ -146,11 +167,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     } catch (e, st) {
       developer.log('undo restore failed', name: 'BackupScreen', error: e, stackTrace: st);
       if (mounted) {
-        showAppToast(
-          context,
-          translations?.t('backup.restore_failed') ?? 'Restore failed.',
-          variant: ToastVariant.error,
-        );
+        showAppToast(context, _restoreErrorMessage(e, translations), variant: ToastVariant.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

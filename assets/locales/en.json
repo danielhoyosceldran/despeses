@@ -383,7 +383,10 @@
     "undo_title": "Undo restore",
     "undo_subtitle": "Go back to your data from before the last restore ({{date}})",
     "undo_confirm_message": "This replaces your current data with the data you had before the last restore. Continue?",
-    "undone": "Restore undone."
+    "undone": "Restore undone.",
+    "invalid_file": "The file is not a valid backup of this app.",
+    "too_new": "The backup is from a newer version of the app. Update the app to restore it.",
+    "too_old": "The backup is from an old version of the app that can no longer be restored."
   },
   "expenses": {
     "add": "Add expense",

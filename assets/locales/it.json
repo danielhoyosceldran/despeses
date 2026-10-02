@@ -379,7 +379,10 @@
     "undo_title": "Annulla ripristino",
     "undo_subtitle": "Torna ai dati precedenti all'ultimo ripristino ({{date}})",
     "undo_confirm_message": "Questo sostituisce i dati attuali con quelli precedenti all'ultimo ripristino. Continuare?",
-    "undone": "Ripristino annullato."
+    "undone": "Ripristino annullato.",
+    "invalid_file": "Il file non è un backup valido dell'app.",
+    "too_new": "Il backup proviene da una versione più recente dell'app. Aggiorna l'app per ripristinarlo.",
+    "too_old": "Il backup proviene da una vecchia versione dell'app che non può più essere ripristinata."
   },
   "expenses": {
     "add": "Aggiungi spesa",

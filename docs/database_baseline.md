@@ -53,5 +53,6 @@ La fuente de verdad de las columnas es `lib/data/tables.dart`.
 2. **No** subas `baselineSchemaVersion` mientras pueda existir una instalación
    en una versión anterior. Al subirla, borra los pasos que queden por debajo
    y actualiza este documento y `test/data/migration_test.dart`.
-3. Los backups de una versión anterior a la baseline no se pueden restaurar
-   (ver BL-030 en `docs/backlog.csv` para validarlo antes de reemplazar la BD).
+3. Los backups de una versión anterior a la baseline (o posterior a
+   `AppDatabase.currentSchemaVersion`) no se pueden restaurar:
+   `BackupService.validateBackup` los rechaza antes de reemplazar la BD.
