@@ -129,6 +129,11 @@ class RecurringRepository {
   /// materialization, and `confirm` deletes occurrences (losing the unique-key
   /// protection), so rewinding it would let `materializeDue` regenerate
   /// already-confirmed dates as fresh, re-confirmable duplicates.
+  ///
+  /// Changing [frequency] recomputes [nextDate] as the first date of the new
+  /// schedule after the last materialized date (one old-frequency period
+  /// before the current [nextDate]), never before the start date — otherwise
+  /// the old schedule's [nextDate] would skip occurrences of the new one.
   Future<void> update(
     String id, {
     int? amountCents,
@@ -147,14 +152,22 @@ class RecurringRepository {
   }) async {
     await _db.transaction(() async {
       Value<DateTime> nextDateValue = const Value.absent();
-      if (startDate != null) {
-        final current = await templateById(id);
-        final currentNextDate = current == null ? null : _dateOnly(current.nextDate);
-        final newStartDate = _dateOnly(startDate);
+      final current = await templateById(id);
+      final frequencyChanged =
+          current != null && frequency != null && frequency != current.frequency;
+      if (startDate != null || frequencyChanged) {
+        DateTime? candidate = current == null ? null : _dateOnly(current.nextDate);
+        if (frequencyChanged) {
+          final currentStart = _dateOnly(current.startDate);
+          // Nothing materialized yet: the schedule still starts at startDate.
+          if (candidate!.isAfter(currentStart)) {
+            final lastDue = _retreat(candidate, current.frequency, current.startDate);
+            candidate = _firstAfter(lastDue, frequency, startDate ?? current.startDate);
+          }
+        }
+        final newStartDate = _dateOnly(startDate ?? current!.startDate);
         nextDateValue = Value(
-          currentNextDate != null && newStartDate.isBefore(currentNextDate)
-              ? currentNextDate
-              : newStartDate,
+          candidate != null && newStartDate.isBefore(candidate) ? candidate : newStartDate,
         );
       }
       await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
@@ -421,6 +434,45 @@ class RecurringRepository {
           nextMonthFirst.year,
           nextMonthFirst.month,
           _clampDay(nextMonthFirst.year, nextMonthFirst.month, anchor.day),
+        );
+    }
+  }
+
+  /// First date of the [frequency] schedule anchored on [anchor] that falls
+  /// strictly after [after]. Unlike [_advance], [after] need not be on that
+  /// schedule (it may come from a different frequency).
+  static DateTime _firstAfter(DateTime after, String frequency, DateTime anchor) {
+    switch (frequency) {
+      case 'weekly':
+        return DateTime(after.year, after.month, after.day + 7);
+      case 'yearly':
+        final sameYear =
+            DateTime(after.year, anchor.month, _clampDay(after.year, anchor.month, anchor.day));
+        return sameYear.isAfter(after) ? sameYear : _advance(sameYear, frequency, anchor);
+      case 'monthly':
+      default:
+        final sameMonth =
+            DateTime(after.year, after.month, _clampDay(after.year, after.month, anchor.day));
+        return sameMonth.isAfter(after) ? sameMonth : _advance(sameMonth, frequency, anchor);
+    }
+  }
+
+  /// Inverse of [_advance]: steps [from] back by one period on the same
+  /// [anchor] schedule.
+  static DateTime _retreat(DateTime from, String frequency, DateTime anchor) {
+    switch (frequency) {
+      case 'weekly':
+        return DateTime(from.year, from.month, from.day - 7);
+      case 'yearly':
+        final year = from.year - 1;
+        return DateTime(year, anchor.month, _clampDay(year, anchor.month, anchor.day));
+      case 'monthly':
+      default:
+        final prevMonthFirst = DateTime(from.year, from.month - 1);
+        return DateTime(
+          prevMonthFirst.year,
+          prevMonthFirst.month,
+          _clampDay(prevMonthFirst.year, prevMonthFirst.month, anchor.day),
         );
     }
   }

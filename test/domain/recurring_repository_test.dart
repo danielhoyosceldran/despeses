@@ -292,6 +292,56 @@ void main() {
     expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 6, 10));
   });
 
+  test('changing monthly to weekly recomputes nextDate from the last materialized date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15)); // Jan 1, Feb 1, Mar 1
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 4, 1));
+
+    await recurring.update(id, frequency: 'weekly');
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 3, 8));
+    await recurring.materializeDue(now: DateTime(2026, 3, 20));
+    final due = (await recurring.listPending()).map((o) => o.dueDate).toList();
+    expect(due.skip(3), [DateTime(2026, 3, 8), DateTime(2026, 3, 15)]);
+  });
+
+  test('changing monthly to yearly advances one year from the last materialized date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15)); // last: Mar 1
+
+    await recurring.update(id, frequency: 'yearly');
+
+    // Yearly re-anchors on the start date's month/day.
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2027, 1, 1));
+  });
+
+  test('changing weekly to monthly picks the next anchored day after the last date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 20), frequency: 'weekly');
+    await recurring.materializeDue(now: DateTime(2026, 2, 5)); // Jan 20, Jan 27, Feb 3
+
+    await recurring.update(id, frequency: 'monthly');
+
+    // Feb 20 is the first monthly date (anchored on the 20th) after Feb 3.
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 2, 20));
+  });
+
+  test('changing frequency before anything was materialized keeps the start date', () async {
+    final id = await addMonthly(start: DateTime(2026, 5, 1));
+
+    await recurring.update(id, frequency: 'weekly');
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 5, 1));
+  });
+
+  test('changing frequency never moves nextDate before a later start date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15));
+
+    await recurring.update(id, frequency: 'weekly', startDate: DateTime(2026, 6, 1));
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 6, 1));
+  });
+
   test('deleting a template cascades to its pending occurrences', () async {
     final id = await addMonthly(start: DateTime(2026, 1, 1));
     await recurring.materializeDue(now: DateTime(2026, 3, 15));
