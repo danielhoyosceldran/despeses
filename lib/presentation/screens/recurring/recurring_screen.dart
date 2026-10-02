@@ -119,7 +119,7 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
     final repo = ref.read(recurringRepositoryProvider);
     final tagIds = await repo.tagIdsOf(occ.recurringId);
     if (!mounted) return;
-    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(
+    await Navigator.of(context, rootNavigator: true).push<bool>(
       bottomUpRoute(ExpenseEntryScreen(
         seed: ExpenseSeed(
           type: occ.type,
@@ -132,11 +132,12 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
           eventId: occ.eventId,
           projectId: occ.projectId,
           tagIds: tagIds,
+          occurrence: occ,
         ),
       )),
     );
-    // The entry screen already created the expense; just clear the occurrence.
-    if (saved == true) await repo.skip(occ.id);
+    // Saving confirms the occurrence atomically (seed.occurrence), so there is
+    // nothing left to clear here.
   }
 
   Future<void> _skipOccurrence(RecurringOccurrence occ, String Function(String) tr) =>

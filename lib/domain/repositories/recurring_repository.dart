@@ -7,6 +7,35 @@ import '../../data/database.dart';
 
 const _uuid = Uuid();
 
+/// The values the user settled on in the "edit & confirm" flow, replacing the
+/// occurrence's snapshot (and the template's tags) when passed to
+/// [RecurringRepository.confirm].
+class OccurrenceEdits {
+  const OccurrenceEdits({
+    required this.amountCents,
+    required this.type,
+    required this.date,
+    this.description,
+    this.notes,
+    this.categoryId,
+    this.paymentMethodId,
+    this.eventId,
+    this.projectId,
+    this.tagIds = const [],
+  });
+
+  final int amountCents;
+  final String type;
+  final DateTime date;
+  final String? description;
+  final String? notes;
+  final String? categoryId;
+  final String? paymentMethodId;
+  final String? eventId;
+  final String? projectId;
+  final List<String> tagIds;
+}
+
 /// Recurring transactions (feature 3.13).
 ///
 /// A [Recurring] is a template + schedule. It never shows up in listings or
@@ -217,6 +246,10 @@ class RecurringRepository {
   /// confirm): the occurrence is claimed by deleting it first, so only the
   /// caller whose delete actually removed the row creates the expense.
   ///
+  /// With [edits] (the "edit & confirm" flow) the expense takes the user's
+  /// values instead of the snapshot, still atomically with clearing the
+  /// occurrence, so it can't end up both saved and still pending.
+  ///
   /// [RecurringOccurrence] stores its FK-shaped fields (category/payment
   /// method/event/project) as plain text without an actual FK constraint,
   /// unlike [Expense]. If the referenced row was deleted after this occurrence
@@ -224,27 +257,31 @@ class RecurringRepository {
   /// as-is into `expenses` (which DOES have a real FK) would violate the
   /// constraint and roll back the whole confirmation, permanently. So each
   /// dangling id is nulled out here, right before the insert.
-  Future<String?> confirm(RecurringOccurrence occ) async {
+  Future<String?> confirm(RecurringOccurrence occ, {OccurrenceEdits? edits}) async {
     final expenseId = _uuid.v4();
     final created = await _db.transaction(() async {
       final claimed =
           await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
       if (claimed != 1) return false;
-      final tagIds = await tagIdsOf(occ.recurringId);
-      final categoryId = await _existingOrNull(_db.categories, _db.categories.id, occ.categoryId);
-      final paymentMethodId =
-          await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id, occ.paymentMethodId);
-      final eventId = await _existingOrNull(_db.events, _db.events.id, occ.eventId);
-      final projectId = await _existingOrNull(_db.projects, _db.projects.id, occ.projectId);
+      // Dedup: `expense_tags` PK is {expenseId, tagId}.
+      final tagIds = edits?.tagIds.toSet() ?? await tagIdsOf(occ.recurringId);
+      final categoryId = await _existingOrNull(
+          _db.categories, _db.categories.id, edits == null ? occ.categoryId : edits.categoryId);
+      final paymentMethodId = await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id,
+          edits == null ? occ.paymentMethodId : edits.paymentMethodId);
+      final eventId =
+          await _existingOrNull(_db.events, _db.events.id, edits == null ? occ.eventId : edits.eventId);
+      final projectId = await _existingOrNull(
+          _db.projects, _db.projects.id, edits == null ? occ.projectId : edits.projectId);
       await _db.into(_db.expenses).insert(
             ExpensesCompanion.insert(
               id: expenseId,
-              amount: occ.amount,
+              amount: edits?.amountCents ?? occ.amount,
               currency: occ.currency,
-              type: occ.type,
-              date: occ.dueDate,
-              description: Value(occ.description),
-              notes: Value(occ.notes),
+              type: edits?.type ?? occ.type,
+              date: edits?.date ?? occ.dueDate,
+              description: Value(edits == null ? occ.description : edits.description),
+              notes: Value(edits == null ? occ.notes : edits.notes),
               categoryId: Value(categoryId),
               paymentMethodId: Value(paymentMethodId),
               eventId: Value(eventId),

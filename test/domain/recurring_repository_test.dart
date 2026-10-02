@@ -171,6 +171,43 @@ void main() {
     expect(await db.select(db.expenses).get(), isEmpty);
   });
 
+  test('confirm with edits saves the edited values and clears the occurrence', () async {
+    await addMonthly(start: DateTime(2026, 1, 1), amount: 1000);
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+
+    final expenseId = await recurring.confirm(
+      occ,
+      edits: OccurrenceEdits(
+        amountCents: 1234,
+        type: 'expense',
+        date: DateTime(2026, 1, 3),
+        description: 'Edited',
+      ),
+    );
+
+    final expense = await (db.select(db.expenses)..where((e) => e.id.equals(expenseId!))).getSingle();
+    expect(expense.amount, 1234);
+    expect(expense.date, DateTime(2026, 1, 3));
+    expect(expense.description, 'Edited');
+    expect(await recurring.listPending(), isEmpty);
+  });
+
+  test('confirm with edits on an already handled occurrence saves nothing', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+    await recurring.confirm(occ);
+
+    final second = await recurring.confirm(
+      occ,
+      edits: OccurrenceEdits(amountCents: 5, type: 'expense', date: DateTime(2026, 1, 1)),
+    );
+
+    expect(second, isNull);
+    expect((await db.select(db.expenses).get()).length, 1);
+  });
+
   test('skip discards an occurrence without creating an expense', () async {
     await addMonthly(start: DateTime(2026, 1, 1));
     await recurring.materializeDue(now: DateTime(2026, 1, 15));

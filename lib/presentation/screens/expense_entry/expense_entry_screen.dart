@@ -9,6 +9,7 @@ import '../../../core/haptics/haptics.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/recurring_repository.dart';
 import '../../widgets/amount_text.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/bottom_action_panel.dart';
@@ -39,6 +40,7 @@ class ExpenseSeed {
     this.eventId,
     this.projectId,
     this.tagIds = const [],
+    this.occurrence,
   });
 
   final String type;
@@ -51,6 +53,10 @@ class ExpenseSeed {
   final String? eventId;
   final String? projectId;
   final List<String> tagIds;
+
+  /// The pending occurrence this seed came from. Saving then confirms it with
+  /// the edited values in one transaction (see [RecurringRepository.confirm]).
+  final RecurringOccurrence? occurrence;
 }
 
 class ExpenseEntryScreen extends ConsumerStatefulWidget {
@@ -388,6 +394,30 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   Future<void> _doSave() async {
     final profile = await ref.read(profileRepositoryProvider).get();
     final repo = ref.read(expenseRepositoryProvider);
+    final occurrence = widget.seed?.occurrence;
+    if (widget.expenseId == null && occurrence != null) {
+      final expenseId = await ref.read(recurringRepositoryProvider).confirm(
+            occurrence,
+            edits: OccurrenceEdits(
+              amountCents: _amountCents,
+              type: _type,
+              date: _date!,
+              description:
+                  _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+              notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+              categoryId: _categoryId,
+              paymentMethodId: _paymentMethodId,
+              eventId: _eventId,
+              projectId: _projectId,
+              tagIds: _tagIds,
+            ),
+          );
+      if (!mounted) return;
+      // Null: the occurrence was already confirmed/skipped elsewhere, so
+      // nothing was saved here.
+      _close(expenseId != null);
+      return;
+    }
     if (widget.expenseId == null) {
       await repo.create(
         amountCents: _amountCents,
