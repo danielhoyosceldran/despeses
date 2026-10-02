@@ -76,6 +76,10 @@ class AppDatabase extends _$AppDatabase {
     return driftDatabase(name: 'despeses');
   }
 
+  /// Oldest schema version onUpgrade accepts. Every install starts at or
+  /// above it; see docs/database_baseline.md before changing it.
+  static const int baselineSchemaVersion = 9;
+
   @override
   int get schemaVersion => 9;
 
@@ -88,66 +92,38 @@ class AppDatabase extends _$AppDatabase {
           await _createRecurringIndexes(this);
         },
         onUpgrade: (m, from, to) async {
-          // Safety net first: copy the current DB (main file + WAL sidecars)
-          // before touching it, so a buggy migration step — or the dev reseed
-          // below — can never destroy data unrecoverably. Never throws.
+          // Auto-backup before any schema change — never throws.
           await _backupService.createAutoBackup();
 
           if (_devReseedOnUpgrade) {
-            // DEV-ONLY: wipe everything and reseed. Guarded by a const that is
-            // false in real builds (see _devReseedOnUpgrade).
             await _rebuildFromScratch(this, m);
             return;
           }
 
-          // Schemas older than v7 predate data-preserving migrations: back then
-          // every upgrade wiped and reseeded, so no install ever carried data
-          // forward across them. They are also not reachable additively — v1→v6
-          // dropped `budgets.months`, rewrote the `budget_type`/`type` CHECK
-          // constraints and changed `categories`' unique key, none of which
-          // SQLite's ALTER TABLE can express, and v2/v3/v5 added
-          // `categories.type` / `profile.haptics_enabled` /
-          // `profile.haptics_strength` that the steps below never add. Falling
-          // through would leave those columns missing and crash every query
-          // with "no such column". So rebuild instead — the auto-backup above
-          // already holds the pre-migration file.
-          if (from < 7) {
-            await _rebuildFromScratch(this, m);
-            return;
+          // BASELINE: v9 is the oldest schema any install carries (see
+          // docs/database_baseline.md). Earlier upgrade steps were removed on
+          // purpose, so a pre-baseline file cannot be migrated. Refuse it
+          // instead of guessing — the auto-backup above already holds it.
+          if (from < baselineSchemaVersion) {
+            throw UnsupportedError(
+                'Database schema v$from predates the v$baselineSchemaVersion '
+                'baseline and cannot be upgraded.');
           }
 
-          // Data-preserving migrations. Add one `if (from < N)` block per
-          // schema bump, e.g.:
-          //   if (from < 8) await m.addColumn(expenses, expenses.someColumn);
-          //   if (from < 9) await m.createTable(recurring);
+          // Add one `if (from < N)` block per schema bump, e.g.:
+          //   if (from < 10) await m.addColumn(expenses, expenses.someColumn);
           //
           // CRITICAL when adding a column to an EXISTING table (tables.dart):
-          //   1. The column MUST declare withDefault(...)/clientDefault in
-          //      tables.dart — SQLite's ALTER TABLE ADD COLUMN cannot add a
-          //      NOT NULL column without a default.
-          //   2. Bump schemaVersion above and add the matching
-          //      `if (from < N) await m.addColumn(table, table.column);`
-          //      step here in the SAME change. Drift's generated queries
-          //      SELECT the table's full explicit column list, so any
-          //      installed app that reaches the new schemaVersion via
-          //      onUpgrade WITHOUT this step will crash on next launch with
-          //      "no such column" — onCreate/createAll (fresh installs)
-          //      hides this because it always builds the full current
-          //      schema, so the bug only shows up on upgrade.
-          //   3. Steps must stay additive/idempotent and accumulate
-          //      (if (from < N)), never replace an earlier step.
-          //   4. v7 is the oldest schema these steps handle; anything older is
-          //      rebuilt above, so no step may assume a pre-v7 shape.
-          // v8 adds recurring-transaction tables (feature 3.13): template,
-          // its tags, and the pending-occurrence inbox. Additive only.
-          if (from < 8) {
-            await m.createTable(recurrings);
-            await m.createTable(recurringTags);
-            await m.createTable(recurringOccurrences);
-            await _createRecurringIndexes(this);
-          }
-          // v9 adds the savings-goals table (feature 3.14). Additive only.
-          if (from < 9) await m.createTable(savingsGoals);
+          //   1. The column MUST declare withDefault(...)/clientDefault —
+          //      SQLite's ALTER TABLE ADD COLUMN cannot add a NOT NULL column
+          //      without a default.
+          //   2. Bump schemaVersion above and add the matching step here IN THE
+          //      SAME change. Drift selects the full explicit column list, so
+          //      an installed app that skips this step crashes on launch with
+          //      "no such column" — onCreate hides this because it always
+          //      builds the full current schema.
+          //   3. Steps must accumulate (if (from < N)), never replace an
+          //      earlier step.
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -175,7 +151,7 @@ Future<void> _rebuildFromScratch(AppDatabase db, Migrator m) async {
 /// Indexes on the hottest `expenses` query paths (R3): every analytics/listing
 /// query filters by `date` and/or `category_id`, which were full table scans.
 /// Declared here (not via table annotations) so no codegen step is needed and
-/// the same statements serve both onCreate and the v7 migration.
+/// the same statements serve both onCreate and the dev rebuild.
 Future<void> _createIndexes(AppDatabase db) async {
   await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
   await db.customStatement(

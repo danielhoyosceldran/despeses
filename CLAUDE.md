@@ -37,6 +37,13 @@ features assuming real account balance reconciliation.
 Sign convention: gastos (expenses) and ahorros (savings) subtract; ingresos
 (income) and reembolsos (refunds) add.
 
+## Database schema baseline
+
+Schema **v9** is the baseline every install starts from
+(`AppDatabase.baselineSchemaVersion`). `onUpgrade` has no steps below it and
+refuses older files. Read **[docs/database_baseline.md](docs/database_baseline.md)**
+before touching `schemaVersion`, `onUpgrade` or `tables.dart`.
+
 ## Haptics
 
 The user's **Haptics** setting (`profile.hapticsEnabled`, editable on Account ›
