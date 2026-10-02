@@ -16,6 +16,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
 import '../../domain/repositories/analytics/analytics_math.dart';
 import '../../domain/repositories/expense_repository.dart';
+import '../../domain/search/transaction_search.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/app_toast.dart';
@@ -55,6 +56,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
+  /// Search mode: the header swaps to a search field and every month page
+  /// filters its transactions by [_query] (see [TransactionQuery]).
+  bool _searching = false;
+  final TextEditingController _searchController = TextEditingController();
+  TransactionQuery? _query;
+
+  void _openSearch() {
+    ref.read(hapticsProvider).selection();
+    setState(() => _searching = true);
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _searching = false;
+      _query = null;
+    });
+  }
+
+  void _onQueryChanged(String text) {
+    final query = TransactionQuery.parse(text);
+    setState(() => _query = query.isEmpty ? null : query);
+  }
+
   void _toggleSelection(Expense expense) {
     setState(() {
       if (_selectedIds.contains(expense.id)) {
@@ -88,6 +114,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -202,7 +229,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
     final colors = context.appColors;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       floatingActionButton: DragUpAction(
         pageBuilder: (_, close) => ExpenseEntryScreen(onClose: close),
         onResult: (saved) {
@@ -233,23 +260,37 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       body: Column(
         children: [
-          AppTopBar(
-            month: _month,
-            onChangeMonth: _changeMonth,
-            pageController: _pageController,
-            monthForPage: _monthForPage,
-            fallbackPage: _kInitialPage,
-            selectionCount: _selectedIds.length,
-            onClearSelection: () => setState(() => _selectedIds.clear()),
-            onDeleteSelection: _deleteSelected,
-            actions: [
-              TopBarCircleButton(
-                icon: LucideIcons.refreshCw300,
-                onTap: _onRefresh,
-                semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh',
-              ),
-            ],
-          ),
+          if (_searching && !_selectionMode)
+            _SearchBar(
+              controller: _searchController,
+              month: _month,
+              translations: translations,
+              onChanged: _onQueryChanged,
+              onClose: _closeSearch,
+            )
+          else
+            AppTopBar(
+              month: _month,
+              onChangeMonth: _changeMonth,
+              pageController: _pageController,
+              monthForPage: _monthForPage,
+              fallbackPage: _kInitialPage,
+              selectionCount: _selectedIds.length,
+              onClearSelection: () => setState(() => _selectedIds.clear()),
+              onDeleteSelection: _deleteSelected,
+              actions: [
+                TopBarCircleButton(
+                  icon: LucideIcons.search300,
+                  onTap: _openSearch,
+                  semanticLabel: translations?.t('a11y.search') ?? 'Search',
+                ),
+                TopBarCircleButton(
+                  icon: LucideIcons.refreshCw300,
+                  onTap: _onRefresh,
+                  semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh',
+                ),
+              ],
+            ),
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -269,11 +310,119 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
                   onToggleSelection: _toggleSelection,
+                  query: _query,
                 );
               },
             ),
           ),
         ],
+      ),
+    );
+    // System back closes the search instead of reaching the shell's exit guard.
+    // BackButtonListener needs a Router ancestor (go_router provides one).
+    // Keep the listener mounted even when not searching: toggling the wrapper
+    // would change the tree depth and remount the Scaffold, briefly attaching
+    // two PageViews to [_pageController] (breaks the month label).
+    if (Router.maybeOf(context) == null) return scaffold;
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (!_searching) return false;
+        if (_selectionMode) {
+          setState(() => _selectedIds.clear());
+        } else {
+          _closeSearch();
+        }
+        return true;
+      },
+      child: scaffold,
+    );
+  }
+}
+
+/// Header shown in search mode, in place of [AppTopBar]: close (X) · search
+/// field (hint names the month being searched) · clear. Same footprint as the
+/// top bar so the hero below doesn't jump.
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({
+    required this.controller,
+    required this.month,
+    required this.translations,
+    required this.onChanged,
+    required this.onClose,
+  });
+
+  final TextEditingController controller;
+  final DateTime month;
+  final Translations? translations;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final monthLabel = toBeginningOfSentenceCase(DateFormat.yMMMM().format(month));
+    final hint = (translations?.t('dashboard.search_hint') ?? 'Search {{month}}').replaceAll('{{month}}', monthLabel);
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md),
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              TopBarCircleButton(
+                icon: LucideIcons.x300,
+                onTap: onClose,
+                semanticLabel: translations?.t('a11y.close_search') ?? 'Close search',
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  autofocus: true,
+                  onChanged: onChanged,
+                  textInputAction: TextInputAction.search,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintMaxLines: 1,
+                    isDense: true,
+                    filled: true,
+                    fillColor: colors.mutedFill(0.5),
+                    prefixIcon: Icon(LucideIcons.search300, size: 16, color: colors.textMuted),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    suffixIcon: ListenableBuilder(
+                      listenable: controller,
+                      builder: (context, _) => controller.text.isEmpty
+                          ? const SizedBox.shrink()
+                          : IconButton(
+                              icon: Icon(LucideIcons.circleX300, size: 18, color: colors.textMuted),
+                              tooltip: translations?.t('a11y.clear_search') ?? 'Clear search',
+                              onPressed: () {
+                                controller.clear();
+                                onChanged('');
+                              },
+                            ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+                      borderSide: BorderSide(color: colors.accent, width: 1),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -780,6 +929,7 @@ class _MonthPage extends ConsumerWidget {
     required this.selectionMode,
     required this.selectedIds,
     required this.onToggleSelection,
+    this.query,
   });
 
   final DateTime month;
@@ -794,6 +944,10 @@ class _MonthPage extends ConsumerWidget {
   final Set<String> selectedIds;
   final void Function(Expense expense) onToggleSelection;
 
+  /// Active search; when set, only matching transactions are listed and the
+  /// budgets / recurring-due sections are hidden. Hero totals stay monthly.
+  final TransactionQuery? query;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return StreamBuilder<List<Expense>>(
@@ -806,16 +960,20 @@ class _MonthPage extends ConsumerWidget {
           );
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final expenses = snapshot.data!;
+        final monthExpenses = snapshot.data!;
+        final searching = query != null;
+        final expenses = searching ? monthExpenses.where(query!.matches).toList() : monthExpenses;
         final colors = context.appColors;
         final budgetRepo = ref.read(budgetRepositoryProvider);
         final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
         final active = allBudgets.where((b) => budgetRepo.isActiveForMonth(b, monthKey)).toList();
         final days = _groupByDay(expenses, currency, translations);
-        final totals = _Totals.of(expenses, currency);
+        final totals = _Totals.of(monthExpenses, currency);
 
         final content = <Widget>[
-          if (active.isNotEmpty) ...[
+          if (searching)
+            _SearchSummary(expenses: expenses, currency: currency, translations: translations)
+          else if (active.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
               child: Text(
@@ -826,14 +984,20 @@ class _MonthPage extends ConsumerWidget {
             _BudgetGrid(budgets: active.take(4).toList(), progress: budgetProgress),
             const SizedBox(height: AppSpacing.lg),
           ],
-          if (!selectionMode) ...[
+          if (!selectionMode && !searching) ...[
             _RecurringDueSection(translations: translations),
             const SizedBox(height: AppSpacing.lg),
           ],
           if (expenses.isEmpty)
             Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Center(child: Text(translations?.t('dashboard.no_transactions') ?? 'No transactions')),
+              child: Center(
+                child: Text(
+                  searching
+                      ? translations?.t('dashboard.search_no_results') ?? 'No matching transactions'
+                      : translations?.t('dashboard.no_transactions') ?? 'No transactions',
+                ),
+              ),
             )
           else
             for (final group in days) ...[
@@ -884,6 +1048,45 @@ class _MonthPage extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Search results header: uppercase result count (left) + the signed net of
+/// the matches in the profile currency (right), styled like a day header.
+class _SearchSummary extends StatelessWidget {
+  const _SearchSummary({required this.expenses, required this.currency, required this.translations});
+
+  final List<Expense> expenses;
+  final String currency;
+  final Translations? translations;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final net = expenses.where((e) => e.currency == currency).fold<int>(0, (sum, e) => sum + _signedCents(e));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            (translations?.t('dashboard.search_results') ?? '{{count}} results')
+                .replaceAll('{{count}}', '${expenses.length}')
+                .toUpperCase(),
+            style: appHeaderStyle(colors),
+          ),
+          if (expenses.isNotEmpty)
+            Text(
+              _signed(net, currency),
+              style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                    color: net >= 0 ? context.semanticColors.income : colors.textMuted,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+            ),
+        ],
+      ),
     );
   }
 }

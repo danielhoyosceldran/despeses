@@ -40,7 +40,8 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 ## Screens
 
 ### Dashboard (`dashboard_screen.dart`)
-- **Header**: `AppTopBar` in month mode (month pager left, settings gear right). Selection mode (long-press a transaction): "N selected", X (clear), trash (delete-confirm).
+- **Header**: `AppTopBar` in month mode (month pager left; trailing: search · refresh · settings gear). Selection mode (long-press a transaction): "N selected", X (clear), trash (delete-confirm).
+- **Search mode** (search action): the header is replaced by `_SearchBar` — X (close) + a search pill (leading search icon, hint "Search {month}…", trailing clear button when non-empty). Filters the month pages live; swiping still changes month and the search applies to the shown month. Query syntax (`TransactionQuery`, `domain/search/transaction_search.dart`): space-separated terms, all must match; plain text matches title or notes (case/accent-insensitive); `>`, `<`, `>=`, `<=`, `=`, `!=` + number compare the amount; a bare number matches the exact amount or the text. While searching the budgets and recurring-due sections are hidden, a results header ("N results" + signed net) leads the list, empty state reads "No matching transactions", and the hero keeps the full-month totals. System back closes the search (or clears a selection first). Selection mode temporarily shows the selection header.
 - **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body** Column, top→bottom:
   1. `AppTopBar` — month/year chevron nav + settings gear (shared across months).

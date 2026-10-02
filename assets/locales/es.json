@@ -315,7 +315,10 @@
     "no_transactions": "Sin transacciones",
     "delete_title": "Eliminar transacciones",
     "delete_message": "¿Eliminar {{count}} transacción(es) seleccionada(s)?",
-    "error_load_month": "No se pudo cargar este mes."
+    "error_load_month": "No se pudo cargar este mes.",
+    "search_hint": "Buscar en {{month}} (texto, >50, <20…)",
+    "search_results": "{{count}} resultados",
+    "search_no_results": "No hay transacciones que coincidan"
   },
   "backup": {
     "export_title": "Exportar copia",
@@ -507,6 +510,9 @@
     "clear_selection": "Deseleccionar",
     "delete_selection": "Eliminar seleccionados",
     "archive_toggle": "Mostrar/ocultar archivados",
-    "color_swatch": "Color {{n}}"
+    "color_swatch": "Color {{n}}",
+    "search": "Buscar",
+    "close_search": "Cerrar búsqueda",
+    "clear_search": "Borrar búsqueda"
   }
 }

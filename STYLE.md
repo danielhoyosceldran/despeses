@@ -214,7 +214,9 @@ All use `colors.shadow` (pre-baked opacity per theme).
 - **Search pill** (budgets `_SearchPill`) — `TextField`, `mutedFill(0.5)` fill,
   `radiusPill`, leading `search` icon 16 muted, `bodyMedium` text, focus 1px
   `accent` ring. Paired with a ghost `archive` `TopBarCircleButton` (accent tint
-  when showing archived/expired).
+  when showing archived/expired). The Dashboard search header (`_SearchBar`)
+  uses the same pill treatment (clear button: ghost `circleX` icon 18 muted),
+  inside the `AppTopBar` footprint (`px = lg`, height 44).
 - **`ThinProgressBar`** (`thin_progress_bar.dart`) — 6px tall, track
   `surfaceAlt`, solid `fillColor` (data color / `over` when over budget),
   rounded-full.
