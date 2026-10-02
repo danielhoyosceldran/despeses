@@ -257,45 +257,61 @@ class RecurringRepository {
   /// as-is into `expenses` (which DOES have a real FK) would violate the
   /// constraint and roll back the whole confirmation, permanently. So each
   /// dangling id is nulled out here, right before the insert.
-  Future<String?> confirm(RecurringOccurrence occ, {OccurrenceEdits? edits}) async {
-    final expenseId = _uuid.v4();
-    final created = await _db.transaction(() async {
-      final claimed =
-          await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
-      if (claimed != 1) return false;
-      // Dedup: `expense_tags` PK is {expenseId, tagId}.
-      final tagIds = edits?.tagIds.toSet() ?? await tagIdsOf(occ.recurringId);
-      final categoryId = await _existingOrNull(
-          _db.categories, _db.categories.id, edits == null ? occ.categoryId : edits.categoryId);
-      final paymentMethodId = await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id,
-          edits == null ? occ.paymentMethodId : edits.paymentMethodId);
-      final eventId =
-          await _existingOrNull(_db.events, _db.events.id, edits == null ? occ.eventId : edits.eventId);
-      final projectId = await _existingOrNull(
-          _db.projects, _db.projects.id, edits == null ? occ.projectId : edits.projectId);
-      await _db.into(_db.expenses).insert(
-            ExpensesCompanion.insert(
-              id: expenseId,
-              amount: edits?.amountCents ?? occ.amount,
-              currency: occ.currency,
-              type: edits?.type ?? occ.type,
-              date: edits?.date ?? occ.dueDate,
-              description: Value(edits == null ? occ.description : edits.description),
-              notes: Value(edits == null ? occ.notes : edits.notes),
-              categoryId: Value(categoryId),
-              paymentMethodId: Value(paymentMethodId),
-              eventId: Value(eventId),
-              projectId: Value(projectId),
-            ),
-          );
-      for (final tagId in tagIds) {
-        await _db.into(_db.expenseTags).insert(
-              ExpenseTagsCompanion.insert(expenseId: expenseId, tagId: tagId),
-            );
+  Future<String?> confirm(RecurringOccurrence occ, {OccurrenceEdits? edits}) {
+    return _db.transaction(() => _confirmInTransaction(occ, edits));
+  }
+
+  /// Confirms every occurrence in [occurrences] all-or-nothing: they share one
+  /// transaction, so if any insert fails none is confirmed and the error
+  /// propagates. Occurrences already confirmed/skipped are left out. Returns
+  /// how many expenses were created.
+  Future<int> confirmAll(List<RecurringOccurrence> occurrences) {
+    return _db.transaction(() async {
+      var created = 0;
+      for (final occ in occurrences) {
+        if (await _confirmInTransaction(occ, null) != null) created++;
       }
-      return true;
+      return created;
     });
-    return created ? expenseId : null;
+  }
+
+  /// Body of [confirm]; must run inside a transaction.
+  Future<String?> _confirmInTransaction(RecurringOccurrence occ, OccurrenceEdits? edits) async {
+    final expenseId = _uuid.v4();
+    final claimed =
+        await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
+    if (claimed != 1) return null;
+    // Dedup: `expense_tags` PK is {expenseId, tagId}.
+    final tagIds = edits?.tagIds.toSet() ?? await tagIdsOf(occ.recurringId);
+    final categoryId = await _existingOrNull(
+        _db.categories, _db.categories.id, edits == null ? occ.categoryId : edits.categoryId);
+    final paymentMethodId = await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id,
+        edits == null ? occ.paymentMethodId : edits.paymentMethodId);
+    final eventId =
+        await _existingOrNull(_db.events, _db.events.id, edits == null ? occ.eventId : edits.eventId);
+    final projectId = await _existingOrNull(
+        _db.projects, _db.projects.id, edits == null ? occ.projectId : edits.projectId);
+    await _db.into(_db.expenses).insert(
+          ExpensesCompanion.insert(
+            id: expenseId,
+            amount: edits?.amountCents ?? occ.amount,
+            currency: occ.currency,
+            type: edits?.type ?? occ.type,
+            date: edits?.date ?? occ.dueDate,
+            description: Value(edits == null ? occ.description : edits.description),
+            notes: Value(edits == null ? occ.notes : edits.notes),
+            categoryId: Value(categoryId),
+            paymentMethodId: Value(paymentMethodId),
+            eventId: Value(eventId),
+            projectId: Value(projectId),
+          ),
+        );
+    for (final tagId in tagIds) {
+      await _db.into(_db.expenseTags).insert(
+            ExpenseTagsCompanion.insert(expenseId: expenseId, tagId: tagId),
+          );
+    }
+    return expenseId;
   }
 
   /// Returns [id] if a row with that primary key still exists in [table],

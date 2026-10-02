@@ -264,6 +264,7 @@
     "confirm": "Conferma",
     "skip": "Salta",
     "confirmed": "Aggiunto alle tue transazioni.",
+    "confirm_all_failed": "Impossibile confermare. Nessuna transazione è stata aggiunta.",
     "skipped": "Saltato.",
     "delete_title": "Elimina ricorrente",
     "delete_message": "Eliminare {{count}} modello/i ricorrente/i? Anche gli elementi in sospeso verranno rimossi.",

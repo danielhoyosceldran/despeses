@@ -264,6 +264,7 @@
     "confirm": "Confirma",
     "skip": "Omet",
     "confirmed": "Afegit als teus moviments.",
+    "confirm_all_failed": "No s'ha pogut confirmar. No s'ha afegit cap moviment.",
     "skipped": "Omès.",
     "delete_title": "Elimina recurrent",
     "delete_message": "Vols eliminar {{count}} plantilla/es recurrent(s)? També s'eliminaran els pendents.",

@@ -264,6 +264,7 @@
     "confirm": "Confirmer",
     "skip": "Ignorer",
     "confirmed": "Ajouté à vos transactions.",
+    "confirm_all_failed": "Impossible de confirmer. Aucune transaction n'a été ajoutée.",
     "skipped": "Ignoré.",
     "delete_title": "Supprimer le récurrent",
     "delete_message": "Supprimer {{count}} modèle(s) récurrent(s) ? Les éléments en attente seront aussi supprimés.",

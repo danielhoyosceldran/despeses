@@ -208,6 +208,46 @@ void main() {
     expect((await db.select(db.expenses).get()).length, 1);
   });
 
+  test('confirmAll confirms every occurrence in one go', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15));
+    final pending = await recurring.listPending();
+
+    final created = await recurring.confirmAll(pending);
+
+    expect(created, 3);
+    expect((await db.select(db.expenses).get()).length, 3);
+    expect(await recurring.listPending(), isEmpty);
+  });
+
+  test('confirmAll is all-or-nothing when one confirmation fails', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15));
+    final pending = await recurring.listPending();
+    // Force a failure on the last one: amount 0 violates CHECK (amount > 0).
+    final broken = pending.last.copyWith(amount: 0);
+
+    await expectLater(
+      recurring.confirmAll([...pending.take(2), broken]),
+      throwsA(anything),
+    );
+
+    expect(await db.select(db.expenses).get(), isEmpty);
+    expect((await recurring.listPending()).length, 3);
+  });
+
+  test('confirmAll leaves out occurrences already confirmed', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 2, 15));
+    final pending = await recurring.listPending();
+    await recurring.confirm(pending.first);
+
+    final created = await recurring.confirmAll(pending);
+
+    expect(created, 1);
+    expect((await db.select(db.expenses).get()).length, 2);
+  });
+
   test('skip discards an occurrence without creating an expense', () async {
     await addMonthly(start: DateTime(2026, 1, 1));
     await recurring.materializeDue(now: DateTime(2026, 1, 15));

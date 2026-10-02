@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,13 +152,14 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
     if (_confirmingAll) return;
     setState(() => _confirmingAll = true);
     try {
-      final repo = ref.read(recurringRepositoryProvider);
-      for (final occ in pending) {
-        // Skip ones a single confirm/edit/skip is already handling.
-        if (_busyOccIds.contains(occ.id)) continue;
-        await repo.confirm(occ);
-      }
-      if (mounted) _showToast(tr('recurring.confirmed'));
+      // Leave out ones a single confirm/edit/skip is already handling.
+      final batch = pending.where((o) => !_busyOccIds.contains(o.id)).toList();
+      // All-or-nothing: one failure rolls the whole batch back.
+      final created = await ref.read(recurringRepositoryProvider).confirmAll(batch);
+      if (created > 0 && mounted) _showToast(tr('recurring.confirmed'));
+    } catch (e, st) {
+      developer.log('confirmAll failed', name: 'RecurringScreen', error: e, stackTrace: st);
+      if (mounted) _showToast(tr('recurring.confirm_all_failed'));
     } finally {
       if (mounted) setState(() => _confirmingAll = false);
     }
