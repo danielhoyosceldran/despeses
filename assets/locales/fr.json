@@ -257,6 +257,8 @@
     "details": "Détails",
     "next": "Prochain",
     "paused": "En pause",
+    "finished": "Terminé",
+    "reactivate": "Réactiver",
     "pending": "En attente",
     "confirm_all": "Tout confirmer",
     "templates": "Modèles",

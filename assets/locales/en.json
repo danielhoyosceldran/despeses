@@ -261,6 +261,8 @@
     "details": "Details",
     "next": "Next",
     "paused": "Paused",
+    "finished": "Finished",
+    "reactivate": "Reactivate",
     "pending": "Pending",
     "confirm_all": "Confirm all",
     "templates": "Templates",

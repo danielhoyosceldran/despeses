@@ -257,6 +257,8 @@
     "details": "Detalls",
     "next": "Següent",
     "paused": "En pausa",
+    "finished": "Finalitzat",
+    "reactivate": "Reactiva",
     "pending": "Pendents",
     "confirm_all": "Confirma-ho tot",
     "templates": "Plantilles",

@@ -257,6 +257,8 @@
     "details": "Dettagli",
     "next": "Prossimo",
     "paused": "In pausa",
+    "finished": "Terminato",
+    "reactivate": "Riattiva",
     "pending": "In sospeso",
     "confirm_all": "Conferma tutti",
     "templates": "Modelli",

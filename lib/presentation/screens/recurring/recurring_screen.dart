@@ -10,6 +10,7 @@ import '../../../core/navigation/bottom_up_route.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/recurring_repository.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_switch.dart';
 import '../../widgets/app_top_bar.dart';
@@ -260,6 +261,9 @@ class _RecurringScreenState extends ConsumerState<RecurringScreen> {
                             frequencyLabel: tr('recurring.freq_${r.frequency}'),
                             nextLabel: tr('recurring.next'),
                             pausedLabel: tr('recurring.paused'),
+                            finishedLabel: tr('recurring.finished'),
+                            reactivateLabel: tr('recurring.reactivate'),
+                            onReactivate: () => _openEntry(recurring: r),
                             onTap: () => _selectionMode
                                 ? _toggleSelection(r)
                                 : _openEntry(recurring: r),
@@ -389,6 +393,9 @@ class _TemplateCard extends StatelessWidget {
     required this.frequencyLabel,
     required this.nextLabel,
     required this.pausedLabel,
+    required this.finishedLabel,
+    required this.reactivateLabel,
+    required this.onReactivate,
     required this.onTap,
     required this.onLongPress,
     required this.onToggleActive,
@@ -403,6 +410,11 @@ class _TemplateCard extends StatelessWidget {
   final String frequencyLabel;
   final String nextLabel;
   final String pausedLabel;
+  final String finishedLabel;
+  final String reactivateLabel;
+  // Opens the editor so the user can extend the end date (see
+  // RecurringRepository.update), which reactivates a finished template.
+  final VoidCallback onReactivate;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final ValueChanged<bool> onToggleActive;
@@ -411,9 +423,12 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final subtitle = recurring.active
-        ? '$frequencyLabel · $nextLabel ${DateFormat.yMMMd().format(recurring.nextDate)}'
-        : pausedLabel;
+    final finished = RecurringRepository.isFinished(recurring);
+    final subtitle = finished
+        ? finishedLabel
+        : recurring.active
+            ? '$frequencyLabel · $nextLabel ${DateFormat.yMMMd().format(recurring.nextDate)}'
+            : pausedLabel;
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: EdgeInsets.zero,
@@ -441,7 +456,10 @@ class _TemplateCard extends StatelessWidget {
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
             ),
-            if (!selectionMode) ...[
+            if (!selectionMode && finished) ...[
+              const SizedBox(width: AppSpacing.xs),
+              TextButton(onPressed: onReactivate, child: Text(reactivateLabel)),
+            ] else if (!selectionMode) ...[
               const SizedBox(width: AppSpacing.md),
               AppSwitch(
                 value: recurring.active,

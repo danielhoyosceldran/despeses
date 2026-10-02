@@ -342,6 +342,56 @@ void main() {
     expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 6, 1));
   });
 
+  test('a template past its end date is finished', () async {
+    await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(RecurringRepository.isFinished(template), isTrue);
+  });
+
+  test('extending the end date of a finished template reactivates it from today', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1)); // Jan, Feb; nextDate Mar 1
+
+    await recurring.update(id, endDate: DateTime(2026, 12, 31), now: DateTime(2026, 10, 15));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isTrue);
+    expect(template.nextDate, DateTime(2026, 11, 1)); // Mar–Oct skipped
+    expect(RecurringRepository.isFinished(template), isFalse);
+  });
+
+  test('clearing the end date of a finished template reactivates it', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1));
+
+    await recurring.update(id, clearEndDate: true, now: DateTime(2026, 6, 1));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isTrue);
+    expect(template.nextDate, DateTime(2026, 6, 1));
+  });
+
+  test('an end date still behind the schedule keeps the template finished', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1));
+
+    await recurring.update(id, endDate: DateTime(2026, 5, 31), now: DateTime(2026, 6, 15));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isFalse);
+  });
+
+  test('extending the end date of a paused template does not resume it', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 12, 31));
+    await recurring.setActive(id, false);
+
+    await recurring.update(id, endDate: DateTime(2027, 12, 31), now: DateTime(2026, 3, 1));
+
+    expect((await recurring.listTemplates()).single.active, isFalse);
+  });
+
   test('deleting a template cascades to its pending occurrences', () async {
     final id = await addMonthly(start: DateTime(2026, 1, 1));
     await recurring.materializeDue(now: DateTime(2026, 3, 15));

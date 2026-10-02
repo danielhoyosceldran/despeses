@@ -261,6 +261,8 @@
     "details": "Detalles",
     "next": "Próximo",
     "paused": "Pausado",
+    "finished": "Finalizado",
+    "reactivate": "Reactivar",
     "pending": "Pendientes",
     "confirm_all": "Confirmar todos",
     "templates": "Plantillas",

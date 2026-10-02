@@ -130,6 +130,11 @@ class RecurringRepository {
   /// protection), so rewinding it would let `materializeDue` regenerate
   /// already-confirmed dates as fresh, re-confirmable duplicates.
   ///
+  /// A finished template (see [isFinished]) whose end date is extended past
+  /// its schedule (or cleared) is reactivated, skipping the dates between its
+  /// end and today exactly like resuming a paused one ([setActive]). [now] is
+  /// injectable for tests.
+  ///
   /// Changing [frequency] recomputes [nextDate] as the first date of the new
   /// schedule after the last materialized date (one old-frequency period
   /// before the current [nextDate]), never before the start date — otherwise
@@ -149,9 +154,11 @@ class RecurringRepository {
     String? eventId,
     String? projectId,
     List<String>? tagIds,
+    DateTime? now,
   }) async {
     await _db.transaction(() async {
       Value<DateTime> nextDateValue = const Value.absent();
+      Value<bool> activeValue = const Value.absent();
       final current = await templateById(id);
       final frequencyChanged =
           current != null && frequency != null && frequency != current.frequency;
@@ -170,6 +177,18 @@ class RecurringRepository {
           candidate != null && newStartDate.isBefore(candidate) ? candidate : newStartDate,
         );
       }
+      if (current != null && isFinished(current)) {
+        final newEnd = clearEndDate ? null : (endDate ?? current.endDate);
+        var resumed = nextDateValue.present ? nextDateValue.value : _dateOnly(current.nextDate);
+        final today = _dateOnly(now ?? DateTime.now());
+        while (resumed.isBefore(today)) {
+          resumed = _advance(resumed, frequency ?? current.frequency, startDate ?? current.startDate);
+        }
+        if (newEnd == null || !resumed.isAfter(_dateOnly(newEnd))) {
+          nextDateValue = Value(resumed);
+          activeValue = const Value(true);
+        }
+      }
       await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
         RecurringsCompanion(
           amount: amountCents == null ? const Value.absent() : Value(amountCents),
@@ -177,6 +196,7 @@ class RecurringRepository {
           frequency: frequency == null ? const Value.absent() : Value(frequency),
           startDate: startDate == null ? const Value.absent() : Value(startDate),
           nextDate: nextDateValue,
+          active: activeValue,
           endDate: clearEndDate ? const Value(null) : (endDate == null ? const Value.absent() : Value(endDate)),
           description: Value(description),
           notes: Value(notes),
@@ -226,6 +246,12 @@ class RecurringRepository {
       );
     });
   }
+
+  /// Whether [r] has run past its end date: its next scheduled date is after
+  /// [Recurring.endDate], so it can never fire again until the end date is
+  /// extended (see [update]). The materializer deactivates such templates.
+  static bool isFinished(Recurring r) =>
+      r.endDate != null && _dateOnly(r.nextDate).isAfter(_dateOnly(r.endDate!));
 
   /// Deleting a template cascades to its tags and any pending occurrences.
   Future<void> delete(String id) async {

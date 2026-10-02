@@ -152,8 +152,8 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. 
 - **Header**: `AppTopBar` title "Recurring". Selection mode (long-press a template): "N selected", X (clear), trash (delete-confirm).
 - **FAB**: "+" → RecurringEntryScreen (new). Tap, or drag up to interactively pull it up from the bottom.
 - **Body** `ListView`, two stacked sections:
-  - **Pending** (only when occurrences await confirmation): uppercase "PENDING" header with a "Confirm all" TextButton when >1, then one `_PendingCard` per occurrence — description + due date + amount, with Skip / Edit / Confirm actions. Confirm → creates the real transaction; Edit → opens the seeded `ExpenseEntryScreen`; Skip → discards. Actions show a toast.
-  - **Templates**: uppercase "TEMPLATES" header, then one `_TemplateCard` per template (name, subtitle = frequency + next date, or "Paused"; trailing amount + active `Switch`). Tap = edit; long-press = select. `EmptyState` when none.
+  - **Pending** (only when occurrences await confirmation): uppercase "PENDING" header with a "Confirm all" TextButton when >1, then one `_PendingCard` per occurrence — description + due date + amount, with Skip / Edit / Confirm actions. Confirm → creates the real transaction; Edit → opens the seeded `ExpenseEntryScreen` (saving there confirms the occurrence); Skip → discards. Actions show a toast; a card's actions (and "Confirm all") are disabled while one is in progress. "Confirm all" is all-or-nothing and shows an error toast on failure.
+  - **Templates**: uppercase "TEMPLATES" header, then one `_TemplateCard` per template (name, subtitle = frequency + next date, "Paused", or "Finished" once past its end date; trailing amount + active `Switch` — for a finished template the switch is replaced by a "Reactivate" TextButton that opens the editor to extend the end date). Tap = edit; long-press = select. `EmptyState` when none.
 
 ### Account › Backup (`settings/backup_screen.dart`)
 - **AppBar**: empty.
