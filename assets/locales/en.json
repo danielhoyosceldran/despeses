@@ -42,7 +42,16 @@
     "budget_projected_close": "Projected close:",
     "budget_over_pace": "⚠ over pace",
     "total_label": "TOTAL",
-    "tags_label": "TAGS"
+    "tags_label": "TAGS",
+    "transactions": "Transactions",
+    "transactions_one": "{{count}} transaction",
+    "transactions_other": "{{count}} transactions",
+    "average_ticket": "avg {{amount}}",
+    "subcategories": "Subcategories",
+    "by_category": "By category",
+    "empty_transactions": "No transactions in this period.",
+    "spent_label": "Spent",
+    "no_category": "Uncategorized"
   },
   "analytics_info": {
     "spend_timeline": "How the cost of this event built up over its duration, so you can see if spending was spread evenly or concentrated on a few days.",

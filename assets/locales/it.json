@@ -42,7 +42,16 @@
     "budget_projected_close": "Chiusura prevista:",
     "budget_over_pace": "⚠ oltre il ritmo",
     "total_label": "TOTALE",
-    "tags_label": "ETICHETTE"
+    "tags_label": "ETICHETTE",
+    "transactions": "Movimenti",
+    "transactions_one": "{{count}} movimento",
+    "transactions_other": "{{count}} movimenti",
+    "average_ticket": "media {{amount}}",
+    "subcategories": "Sottocategorie",
+    "by_category": "Per categoria",
+    "empty_transactions": "Nessun movimento in questo periodo.",
+    "spent_label": "Speso",
+    "no_category": "Senza categoria"
   },
   "analytics_info": {
     "spend_timeline": "Come si è accumulato il costo di questo evento nel corso della sua durata, per vedere se la spesa è stata distribuita o concentrata in pochi giorni.",

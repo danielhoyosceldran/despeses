@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:drift/drift.dart' show BooleanExpressionOperators;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
@@ -9,6 +10,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/analytics/analytics_category.dart';
 import '../../../domain/repositories/analytics/analytics_math.dart';
+import '../../../domain/repositories/analytics/analytics_query.dart';
 import '../../../domain/repositories/analytics/analytics_tags.dart';
 import '../../../domain/repositories/budget_repository.dart';
 
@@ -43,6 +45,8 @@ void _keepAliveFor(Ref ref, [Duration ttl = _sectionCacheTtl]) {
 
 typedef MonthCurrency = ({DateTime month, String currency});
 typedef CategoryArgs = ({DateTime month, String currency, String? parentId});
+typedef CategoryDetailArgs = ({DateTime month, String currency, String categoryId});
+typedef TagDetailArgs = ({DateTime month, String currency, String tagId});
 typedef EventArgs = ({String eventId, DateTime? startsAt, DateTime? endsAt, String currency});
 
 /// Every section family provider, so the screen can drop cached results in one
@@ -51,6 +55,8 @@ void invalidateAnalyticsSections(WidgetRef ref) {
   developer.log('invalidating all analytics section providers', name: 'Analytics');
   ref.invalidate(categorySectionProvider);
   ref.invalidate(tagSectionProvider);
+  ref.invalidate(categoryTransactionsProvider);
+  ref.invalidate(tagDetailProvider);
   ref.invalidate(budgetSectionProvider);
   ref.invalidate(eventListProvider);
   ref.invalidate(eventSectionProvider);
@@ -78,7 +84,8 @@ final categorySectionProvider =
     parentId: a.parentId,
     type: 'expense',
     currency: a.currency,
-  );
+  )
+    ..sort((x, y) => y.amountCents.compareTo(x.amountCents));
   final byId = {for (final c in allCategories) c.id: c};
   final labels = <String, String>{};
   final hasChildren = <String, bool>{};
@@ -106,7 +113,8 @@ final tagSectionProvider =
   final analytics = ref.watch(tagAnalyticsProvider);
   final translations = await ref.watch(translationsProvider.future);
   final allTags = await ref.watch(referenceDataCacheProvider).tags();
-  final slices = await analytics.byTag(DateRange.month(a.month), a.currency);
+  final slices = await analytics.byTag(DateRange.month(a.month), a.currency)
+    ..sort((x, y) => y.amountCents.compareTo(x.amountCents));
   final byId = {for (final t in allTags) t.id: t};
   final labels = {
     for (final s in slices)
@@ -114,6 +122,88 @@ final tagSectionProvider =
         s.tagId: displayNameFor(translations, name: byId[s.tagId]!.name, isDefault: byId[s.tagId]!.isDefault),
   };
   return TagSectionData(slices, labels, translations);
+});
+
+/// Detail drill-downs ---------------------------------------------------------
+
+/// Newest first, with a stable tie-break (many rows share a date).
+int _newestFirst(Expense a, Expense b) {
+  final byDate = b.date.compareTo(a.date);
+  return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
+}
+
+/// [rootId] plus every descendant id in [all].
+Set<String> _subtreeIds(String rootId, List<Category> all) {
+  final ids = {rootId};
+  var frontier = {rootId};
+  while (frontier.isNotEmpty) {
+    frontier = {for (final c in all) if (c.parentId != null && frontier.contains(c.parentId)) c.id}..removeAll(ids);
+    ids.addAll(frontier);
+  }
+  return ids;
+}
+
+/// The month's counted transactions in a category's whole subtree (the same
+/// rows the category slice aggregates), newest first.
+final categoryTransactionsProvider =
+    FutureProvider.autoDispose.family<List<Expense>, CategoryDetailArgs>((ref, a) async {
+  _keepAliveFor(ref);
+  final db = ref.watch(databaseProvider);
+  final ids = _subtreeIds(a.categoryId, await ref.watch(referenceDataCacheProvider).categories());
+  final all = await expensesInRange(db, DateRange.month(a.month), a.currency);
+  return all.where((e) => e.categoryId != null && ids.contains(e.categoryId)).toList()..sort(_newestFirst);
+});
+
+class TagDetailData {
+  TagDetailData(this.expenses, this.byCategory, this.labels, this.spent, this.savings);
+
+  /// Every counted transaction carrying the tag (any type), newest first.
+  final List<Expense> expenses;
+
+  /// Expense-type spend under the tag per category, largest first. The key is
+  /// the category id, or '' for uncategorized rows.
+  final List<CategorySlice> byCategory;
+  final Map<String, String> labels;
+  final int spent;
+  final int savings;
+}
+
+final tagDetailProvider = FutureProvider.autoDispose.family<TagDetailData, TagDetailArgs>((ref, a) async {
+  _keepAliveFor(ref);
+  final db = ref.watch(databaseProvider);
+  final translations = await ref.watch(translationsProvider.future);
+  final categories = await ref.watch(referenceDataCacheProvider).categories();
+  final all = await expensesInRange(db, DateRange.month(a.month), a.currency);
+  final ids = all.map((e) => e.id).toSet();
+  final tagged = ids.isEmpty
+      ? <String>{}
+      : (await (db.select(db.expenseTags)
+                ..where((t) => t.tagId.equals(a.tagId) & t.expenseId.isIn(ids)))
+              .get())
+          .map((l) => l.expenseId)
+          .toSet();
+  final expenses = all.where((e) => tagged.contains(e.id)).toList()..sort(_newestFirst);
+
+  final amounts = <String, int>{};
+  final counts = <String, int>{};
+  for (final e in expenses.where((e) => e.type == 'expense')) {
+    final key = e.categoryId ?? '';
+    amounts[key] = (amounts[key] ?? 0) + e.amount;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  final byCategory = [
+    for (final entry in amounts.entries)
+      CategorySlice(categoryId: entry.key, amountCents: entry.value, count: counts[entry.key] ?? 0),
+  ]..sort((x, y) => y.amountCents.compareTo(x.amountCents));
+
+  final byId = {for (final c in categories) c.id: c};
+  final labels = {
+    for (final key in amounts.keys)
+      key: byId[key] == null
+          ? translations.t('analytics.no_category')
+          : displayNameFor(translations, name: byId[key]!.name, isDefault: byId[key]!.isDefault),
+  };
+  return TagDetailData(expenses, byCategory, labels, expenseOutflow(expenses), savingsSetAside(expenses));
 });
 
 /// Budgets -------------------------------------------------------------------
@@ -163,7 +253,7 @@ final eventListProvider = FutureProvider<List<Event>>(
     (ref) => ref.watch(referenceDataCacheProvider).events());
 
 class EventSectionData {
-  EventSectionData(this.total, this.savings, this.perDay, this.timeline, this.outOfRange);
+  EventSectionData(this.total, this.savings, this.perDay, this.timeline, this.outOfRange, this.expenses);
   final int total;
 
   /// Savings set aside under the event — shown apart from [total].
@@ -171,6 +261,9 @@ class EventSectionData {
   final double? perDay;
   final List<(DateTime, int)> timeline;
   final int outOfRange;
+
+  /// The event's counted transactions, newest first.
+  final List<Expense> expenses;
 }
 
 final eventSectionProvider =
@@ -182,5 +275,6 @@ final eventSectionProvider =
   final perDay = await ev.costPerDay(startsAt: a.startsAt, endsAt: a.endsAt, eventId: a.eventId);
   final timeline = await ev.timeline(eventId: a.eventId);
   final oor = await ev.outOfRange(eventId: a.eventId, startsAt: a.startsAt, endsAt: a.endsAt);
-  return EventSectionData(total, savings, perDay, timeline, oor.length);
+  final expenses = await ev.transactions(eventId: a.eventId);
+  return EventSectionData(total, savings, perDay, timeline, oor.length, expenses);
 });

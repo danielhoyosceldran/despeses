@@ -3,8 +3,11 @@ import 'analytics_math.dart';
 import 'analytics_query.dart';
 
 class TagSlice {
-  const TagSlice({required this.tagId, required this.amountCents, this.savingsCents = 0});
+  const TagSlice({required this.tagId, required this.amountCents, this.savingsCents = 0, this.count = 0});
   final String tagId;
+
+  /// Number of transactions carrying the tag (any type).
+  final int count;
 
   /// Spent under the tag ([expenseOutflow]).
   final int amountCents;
@@ -47,6 +50,7 @@ class TagAnalytics {
             tagId: entry.key,
             amountCents: expenseOutflow(entry.value),
             savingsCents: savingsSetAside(entry.value),
+            count: entry.value.length,
           ),
     ];
   }

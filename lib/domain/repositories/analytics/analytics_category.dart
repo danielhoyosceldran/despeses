@@ -8,10 +8,13 @@ import 'analytics_query.dart';
 /// plus every descendant). Since categorization is leaf-only, there is no
 /// separate "direct" bucket anymore.
 class CategorySlice {
-  const CategorySlice({required this.categoryId, required this.amountCents});
+  const CategorySlice({required this.categoryId, required this.amountCents, this.count = 0});
 
   final String categoryId;
   final int amountCents;
+
+  /// Number of transactions aggregated into [amountCents].
+  final int count;
 }
 
 /// A ranked category with its share of the total and the average ticket.
@@ -60,10 +63,11 @@ class CategoryAnalytics {
     final slices = <CategorySlice>[];
     for (final child in children) {
       final ids = {child.id, ...?descendants[child.id]};
-      final amount = expenses
-          .where((e) => e.categoryId != null && ids.contains(e.categoryId))
-          .fold<int>(0, (sum, e) => sum + e.amount);
-      if (amount != 0) slices.add(CategorySlice(categoryId: child.id, amountCents: amount));
+      final matching = expenses.where((e) => e.categoryId != null && ids.contains(e.categoryId)).toList();
+      final amount = matching.fold<int>(0, (sum, e) => sum + e.amount);
+      if (amount != 0) {
+        slices.add(CategorySlice(categoryId: child.id, amountCents: amount, count: matching.length));
+      }
     }
     return slices;
   }

@@ -214,7 +214,8 @@ All use `colors.shadow` (pre-baked opacity per theme).
 - **`ThinProgressBar`** (`thin_progress_bar.dart`) — 6px tall, track
   `surfaceAlt`, solid `fillColor` (data color / `over` when over budget),
   rounded-full.
-- **Transaction row** (dashboard `_ExpenseRow`, expenses `_ExpenseTile`) —
+- **Transaction row** (shared `ExpenseRow` in `widgets/expense_row.dart`, used by
+  the dashboard and the analytics details; expenses list `_ExpenseTile`) —
   hairline card radius 16 on `surface` (`mutedFill(0.5)` when selected). Left
   column: uppercase category line (Inter 11 w500, `letterSpacing 0.5`, muted) +
   title (`labelLarge`). Right: signed amount in Clash 18 via
@@ -224,8 +225,6 @@ All use `colors.shadow` (pre-baked opacity per theme).
   `labelSmall` label (1 line, ellipsis), then a Clash 20 value scaled down to
   fit (`FittedBox`). Income = emerald `arrowDownRight`, Spent = rose
   `arrowUpRight`, Savings = savings color `coins`. Tiles are 12 apart.
-- **Legend row detail** (`LegendRow.detail`) — optional second line under the
-  label in `bodySmall`, `textMuted`.
 - **Budget tile** — name `labelLarge`, `ThinProgressBar`, `spent / limit` in
   `bodySmall` tabular (`over` color when exceeded).
 - **Recurring-due tile** (`_RecurringDueTile`) — hairline card radius 16 on
@@ -260,7 +259,18 @@ stay ink/neutral.
 - **`TrendLines`** — lines 2.5px, curved, no dots, `accent` (or a semantic/data
   color). Keeps ~12% vertical headroom and a small horizontal margin and sets
   `preventCurveOverShooting`, so the curve/stroke never clip at the box edges.
-- **`LegendRow`** — color-dot rows; amounts in tabular figures.
+- **`BreakdownRow`** — 10px color dot; `labelLarge` name (1 line, ellipsis) and
+  tabular `labelLarge` amount; below, a 4px `ThinProgressBar` in the slice color
+  (share of total); then a `bodySmall` `textMuted` meta line (count / savings)
+  and the % (tabular, 1 decimal under 10%). 16px muted chevron when tappable.
+- **`BreakdownCard`** — `AppCard` (radius 16, hairline) wrapping `BreakdownRow`s
+  separated by 1px `borderSoft` dividers; optional `appHeaderStyle` uppercase
+  title.
+- **Detail screens** — `DetailSummaryCard` is an `AppCard.large` (padding 24):
+  `appHeaderStyle` label, Clash 32 total, muted `bodySmall` "count · avg" line,
+  savings line in the `savings` color. `DetailSectionHeader` and the per-day
+  headers of `TransactionsByDay` use `appHeaderStyle` uppercase. Subcategory
+  donut is 200px tall with the count in Clash 28.
 - **`StatInfoButton`** — compact `IconButton` (`info300`, 18px, `textMuted`,
   32×32 tap target) placed beside a stat's title. Opens `showStatInfoSheet`: a
   `showDragHandle`/`isScrollControlled` bottom sheet with `titleMedium` (bold)

@@ -42,7 +42,16 @@
     "budget_projected_close": "Tancament previst:",
     "budget_over_pace": "⚠ fora de ritme",
     "total_label": "TOTAL",
-    "tags_label": "ETIQUETES"
+    "tags_label": "ETIQUETES",
+    "transactions": "Moviments",
+    "transactions_one": "{{count}} moviment",
+    "transactions_other": "{{count}} moviments",
+    "average_ticket": "mitjana {{amount}}",
+    "subcategories": "Subcategories",
+    "by_category": "Per categoria",
+    "empty_transactions": "No hi ha moviments en aquest període.",
+    "spent_label": "Gastat",
+    "no_category": "Sense categoria"
   },
   "analytics_info": {
     "spend_timeline": "Com es va acumulant el cost d'aquest esdeveniment al llarg de la seva durada, per veure si el gasto es va repartir o concentrar en pocs dies.",

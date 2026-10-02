@@ -8,6 +8,7 @@ import '../../widgets/charts/analytics_widgets.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/error_retry.dart';
 import 'analytics_data_providers.dart';
+import 'analytics_detail.dart';
 
 /// Shared helpers -----------------------------------------------------------
 
@@ -249,6 +250,11 @@ class _EventBody extends ConsumerWidget {
                             .replaceAll('{{count}}', '${d.outOfRange}'),
                         style: TextStyle(color: context.semanticColors.over)),
                   ),
+                DetailSectionHeader(
+                  t?.t('analytics.transactions') ?? 'Transactions',
+                  trailing: '${d.expenses.length}',
+                ),
+                TransactionsByDay(expenses: d.expenses, translations: t),
               ],
             );
           },

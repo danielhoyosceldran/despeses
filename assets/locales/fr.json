@@ -42,7 +42,16 @@
     "budget_projected_close": "Clôture prévue :",
     "budget_over_pace": "⚠ hors rythme",
     "total_label": "TOTAL",
-    "tags_label": "ÉTIQUETTES"
+    "tags_label": "ÉTIQUETTES",
+    "transactions": "Opérations",
+    "transactions_one": "{{count}} opération",
+    "transactions_other": "{{count}} opérations",
+    "average_ticket": "moy. {{amount}}",
+    "subcategories": "Sous-catégories",
+    "by_category": "Par catégorie",
+    "empty_transactions": "Aucune opération sur cette période.",
+    "spent_label": "Dépensé",
+    "no_category": "Sans catégorie"
   },
   "analytics_info": {
     "spend_timeline": "Comment le coût de cet événement s'est accumulé sur sa durée, pour voir si les dépenses étaient réparties ou concentrées sur quelques jours.",

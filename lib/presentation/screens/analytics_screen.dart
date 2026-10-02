@@ -1,14 +1,11 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/haptics/haptics.dart';
-import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
-import '../../data/database.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_card.dart';
 import '../widgets/app_top_bar.dart';
@@ -17,6 +14,7 @@ import '../widgets/charts/donut_chart.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_retry.dart';
 import 'analytics/analytics_data_providers.dart';
+import 'analytics/analytics_detail.dart';
 import 'analytics/analytics_sections.dart';
 
 /// The Analytics sections, in tab-strip order. Category and Tags are the
@@ -114,16 +112,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   void _selectSection(AnalyticsSection s) {
     if (s == _section) return;
     setState(() => _section = s);
-  }
-
-  /// Pushes a real navigation-stack route for one level of category drill-down,
-  /// so the OS back gesture/button steps back up the tree (R2 — was setState).
-  void _pushCategoryDrill(DateTime month, String currency, List<Category> breadcrumb) {
-    Navigator.of(context).push(
-      CupertinoPageRoute(
-        builder: (_) => _CategoryDrillScreen(month: month, currency: currency, breadcrumb: breadcrumb),
-      ),
-    );
   }
 
   void _onPreview(AnalyticsSection? s) => _preview.value = s;
@@ -227,13 +215,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   Widget _buildSection(DateTime month, String currency, Translations? translations) {
     switch (_section) {
       case AnalyticsSection.category:
-        return _CategorySection(
-          month: month,
-          currency: currency,
-          breadcrumb: const [],
-          onDrillInto: (c) => _pushCategoryDrill(month, currency, [c]),
-          onPop: () {}, // unreachable at root: breadcrumb is empty, no back row shown
-        );
+        return _CategorySection(month: month, currency: currency);
       case AnalyticsSection.tags:
         return _TagsSection(month: month, currency: currency);
       case AnalyticsSection.budgets:
@@ -509,25 +491,18 @@ class _SectionMenuRow extends StatelessWidget {
 // Preferred views: Category + Tags (ported from Analytics v1 onto the v2 engine)
 // ---------------------------------------------------------------------------
 
+/// Root category level: donut of the root categories with the month total in
+/// the hole, then a breakdown card. Any slice or row opens its detail
+/// ([CategoryDetailScreen]: subcategories + transactions).
 class _CategorySection extends ConsumerWidget {
-  const _CategorySection({
-    required this.month,
-    required this.currency,
-    required this.breadcrumb,
-    required this.onDrillInto,
-    required this.onPop,
-  });
+  const _CategorySection({required this.month, required this.currency});
 
   final DateTime month;
   final String currency;
-  final List<Category> breadcrumb;
-  final ValueChanged<Category> onDrillInto;
-  final VoidCallback onPop;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final parentId = breadcrumb.isEmpty ? null : breadcrumb.last.id;
-    final args = (month: month, currency: currency, parentId: parentId);
+    final args = (month: month, currency: currency, parentId: null);
     return ref.watch(categorySectionProvider(args)).when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, _) => ErrorRetry(
@@ -536,72 +511,73 @@ class _CategorySection extends ConsumerWidget {
       ),
       data: (data) {
         final colors = context.appColors;
+        final t = data.translations;
         final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents);
+        final count = data.slices.fold<int>(0, (s, e) => s + e.count);
 
         if (data.slices.isEmpty) {
-          return EmptyState(data.translations.t('analytics.empty_category'));
+          return EmptyState(t.t('analytics.empty_category'));
+        }
+
+        void open(int i) {
+          final c = data.categoryById[data.slices[i].categoryId];
+          if (c != null) CategoryDetailScreen.push(context, month: month, currency: currency, breadcrumb: [c]);
         }
 
         return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
           children: [
             AppCard.large(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Stack(
                 children: [
-                  Column(
-                children: [
-                  if (breadcrumb.isNotEmpty) ...[
-                    _BreadcrumbRow(breadcrumb: breadcrumb, translations: data.translations, onPop: onPop),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
                   DonutChart(
                     slices: [
                       for (var i = 0; i < data.slices.length; i++)
                         DonutSlice(
                           color: AppDataColors.cycle[i % AppDataColors.cycle.length],
                           value: data.slices[i].amountCents.toDouble(),
-                          drillable: data.hasChildren[data.slices[i].categoryId] ?? false,
+                          drillable: true,
                         ),
                     ],
                     center: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(data.translations.t('analytics.total_label'), style: appHeaderStyle(colors)),
+                        Text(t.t('analytics.total_label'), style: appHeaderStyle(colors)),
                         const SizedBox(height: 2),
                         AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 24)),
+                        const SizedBox(height: 2),
+                        Text(
+                          transactionCountLabel(t, count),
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(color: colors.textMuted),
+                        ),
                       ],
                     ),
-                    onTap: (i) {
-                      final c = data.categoryById[data.slices[i].categoryId];
-                      if (c != null) onDrillInto(c);
-                    },
-                  ),
-                ],
+                    onTap: open,
                   ),
                   Positioned(
                     top: 0,
                     right: 0,
                     child: StatInfoButton(
-                      title: data.translations.t(AnalyticsSection.category.labelKey()),
-                      body: data.translations.t('analytics_info.category_donut'),
+                      title: t.t(AnalyticsSection.category.labelKey()),
+                      body: t.t('analytics_info.category_donut'),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            for (var i = 0; i < data.slices.length; i++)
-              LegendRow(
-                color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-                label: data.labels[data.slices[i].categoryId] ?? '',
-                trailing: formatAmount(data.slices[i].amountCents, currency),
-                canDrill: data.hasChildren[data.slices[i].categoryId] ?? false,
-                onTap: () {
-                  final c = data.categoryById[data.slices[i].categoryId];
-                  if (c != null) onDrillInto(c);
-                },
-              ),
+            const SizedBox(height: AppSpacing.smMd),
+            BreakdownCard(rows: [
+              for (var i = 0; i < data.slices.length; i++)
+                BreakdownRow(
+                  color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                  label: data.labels[data.slices[i].categoryId] ?? '',
+                  amount: formatAmount(data.slices[i].amountCents, currency),
+                  share: total == 0 ? 0 : data.slices[i].amountCents / total,
+                  meta: transactionCountLabel(t, data.slices[i].count),
+                  onTap: () => open(i),
+                ),
+            ]),
           ],
         );
       },
@@ -609,84 +585,7 @@ class _CategorySection extends ConsumerWidget {
   }
 }
 
-/// One level of the Category drill-down, pushed as a real route (see
-/// [_AnalyticsScreenState._pushCategoryDrill]) so the OS back gesture/button
-/// pops it. Drilling further pushes another instance of this same screen.
-class _CategoryDrillScreen extends ConsumerWidget {
-  const _CategoryDrillScreen({required this.month, required this.currency, required this.breadcrumb});
-
-  final DateTime month;
-  final String currency;
-  final List<Category> breadcrumb;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final translations = ref.watch(translationsProvider).asData?.value;
-    final last = breadcrumb.last;
-    final title = translations != null ? displayNameFor(translations, name: last.name, isDefault: last.isDefault) : last.name;
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            AppTopBar(title: title),
-            Expanded(
-              child: _CategorySection(
-                month: month,
-                currency: currency,
-                breadcrumb: breadcrumb,
-                onDrillInto: (c) => Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (_) => _CategoryDrillScreen(month: month, currency: currency, breadcrumb: [...breadcrumb, c]),
-                  ),
-                ),
-                onPop: () => Navigator.of(context).pop(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BreadcrumbRow extends StatelessWidget {
-  const _BreadcrumbRow({required this.breadcrumb, required this.translations, required this.onPop});
-
-  final List<Category> breadcrumb;
-  final Translations translations;
-  final VoidCallback onPop;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Row(
-      children: [
-        Material(
-          color: colors.surfaceAlt,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPop,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Icon(LucideIcons.arrowLeft300, size: 18, color: colors.text),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.smMd),
-        Expanded(
-          child: Text(
-            breadcrumb.map((c) => displayNameFor(translations, name: c.name, isDefault: c.isDefault)).join('  ›  '),
-            style: Theme.of(context).textTheme.labelLarge,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
+/// Tag donut + breakdown card; any slice or row opens its [TagDetailScreen].
 class _TagsSection extends ConsumerWidget {
   const _TagsSection({required this.month, required this.currency});
 
@@ -704,12 +603,19 @@ class _TagsSection extends ConsumerWidget {
       ),
       data: (data) {
         final colors = context.appColors;
+        final t = data.translations;
         if (data.slices.isEmpty) {
-          return EmptyState(data.translations.t('analytics.empty_tag'));
+          return EmptyState(t.t('analytics.empty_tag'));
         }
         final total = data.slices.fold<int>(0, (s, e) => s + e.amountCents.abs());
+
+        void open(int i) {
+          final slice = data.slices[i];
+          TagDetailScreen.push(context, month: month, currency: currency, tagId: slice.tagId, label: data.labels[slice.tagId] ?? '');
+        }
+
         return ListView(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xxl),
           children: [
             AppCard.large(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -721,44 +627,52 @@ class _TagsSection extends ConsumerWidget {
                         DonutSlice(
                           color: AppDataColors.cycle[i % AppDataColors.cycle.length],
                           value: data.slices[i].amountCents.toDouble(),
+                          drillable: true,
                         ),
                     ],
                     center: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(data.translations.t('analytics.tags_label'), style: appHeaderStyle(colors)),
+                        Text(t.t('analytics.tags_label'), style: appHeaderStyle(colors)),
                         const SizedBox(height: 2),
                         AmountText(amountCents: total, currency: currency, style: appDisplay(colors, fontSize: 22)),
                       ],
                     ),
+                    onTap: open,
                   ),
                   Positioned(
                     top: 0,
                     right: 0,
                     child: StatInfoButton(
-                      title: data.translations.t(AnalyticsSection.tags.labelKey()),
-                      body: data.translations.t('analytics_info.tags_donut'),
+                      title: t.t(AnalyticsSection.tags.labelKey()),
+                      body: t.t('analytics_info.tags_donut'),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            for (var i = 0; i < data.slices.length; i++)
-              LegendRow(
-                color: AppDataColors.cycle[i % AppDataColors.cycle.length],
-                label: data.labels[data.slices[i].tagId] ?? '',
-                trailing: formatAmount(data.slices[i].amountCents, currency),
-                // Savings aren't spending: shown apart, outside the donut.
-                detail: data.slices[i].savingsCents == 0
-                    ? null
-                    : '${data.translations.t('expenses.type_ahorro')}: ${formatAmount(data.slices[i].savingsCents, currency)}',
-              ),
+            const SizedBox(height: AppSpacing.smMd),
+            BreakdownCard(rows: [
+              for (var i = 0; i < data.slices.length; i++)
+                BreakdownRow(
+                  color: AppDataColors.cycle[i % AppDataColors.cycle.length],
+                  label: data.labels[data.slices[i].tagId] ?? '',
+                  amount: formatAmount(data.slices[i].amountCents, currency),
+                  share: total == 0 ? 0 : data.slices[i].amountCents.abs() / total,
+                  // Savings aren't spending: shown apart, outside the donut.
+                  meta: [
+                    transactionCountLabel(t, data.slices[i].count),
+                    if (data.slices[i].savingsCents != 0)
+                      '${t.t('expenses.type_ahorro')}: ${formatAmount(data.slices[i].savingsCents, currency)}',
+                  ].join('  ·  '),
+                  onTap: () => open(i),
+                ),
+            ]),
             Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.smMd, AppSpacing.xs, 0),
               child: Text(
-                data.translations.t('analytics.tag_disclaimer'),
-                style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic),
+                t.t('analytics.tag_disclaimer'),
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(fontStyle: FontStyle.italic, color: colors.textMuted),
               ),
             ),
           ],
