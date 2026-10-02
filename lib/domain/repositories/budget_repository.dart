@@ -94,12 +94,14 @@ class BudgetRepository {
     await (_db.delete(_db.budgets)..where((b) => b.id.equals(id))).go();
   }
 
-  /// `monthly` budgets recur every month, so they are active in any month.
-  /// `range` budgets are active only within their [start, end] month window.
+  /// `monthly` budgets recur every month from the month they were created in
+  /// (they didn't exist before, so past months must not show them, let alone
+  /// as exceeded). `range` budgets are active only within their [start, end]
+  /// month window.
   bool isActiveForMonth(Budget budget, String monthKey) {
     switch (budget.budgetType) {
       case 'monthly':
-        return true;
+        return _monthOrdinal(monthKey) >= _monthOrdinal(monthKeyOf(budget.createdAt));
       case 'range':
         final ordinal = _monthOrdinal(monthKey);
         final afterStart = ordinal >= _monthOrdinal(budget.startsMonth!);
