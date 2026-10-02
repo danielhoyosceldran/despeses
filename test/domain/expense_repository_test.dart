@@ -113,4 +113,19 @@ void main() {
     expect(seen.length, total);
     expect(seen.toSet().length, total);
   });
+
+  test('filtering by a parent category matches its whole subtree', () async {
+    final all = await db.select(db.categories).get();
+    final parent = all.firstWhere((c) => c.parentId == null && all.any((x) => x.parentId == c.id));
+    final child = all.firstWhere((c) => c.parentId == parent.id);
+    final other = all.firstWhere((c) => c.parentId == null && c.id != parent.id);
+    await repo.create(amountCents: 100, currency: 'EUR', type: parent.type, date: DateTime(2026, 3, 1), categoryId: child.id);
+    await repo.create(amountCents: 200, currency: 'EUR', type: other.type, date: DateTime(2026, 3, 1), categoryId: other.id);
+
+    final byParent = await repo.listAll(filters: ExpenseFilters(categoryId: parent.id));
+    final byChild = await repo.listAll(filters: ExpenseFilters(categoryId: child.id));
+
+    expect(byParent.map((e) => e.amount), [100]);
+    expect(byChild.map((e) => e.amount), [100]);
+  });
 }

@@ -78,7 +78,7 @@ class ExpenseRepository {
     final conditions = <Expression<bool>>[];
     if (filters.type != null) conditions.add(_db.expenses.type.equals(filters.type!));
     if (filters.categoryId != null) {
-      conditions.add(_db.expenses.categoryId.equals(filters.categoryId!));
+      conditions.add(_inCategorySubtree(filters.categoryId!));
     }
     if (filters.paymentMethodId != null) {
       conditions.add(_db.expenses.paymentMethodId.equals(filters.paymentMethodId!));
@@ -101,6 +101,23 @@ class ExpenseRepository {
       query.where(c);
     }
     return query;
+  }
+
+  /// `category_id IN {categoryId + all its descendants}`. Only leaves are
+  /// assigned to transactions, so filtering by a parent must match its whole
+  /// subtree. Resolved in SQL (recursive CTE) to keep the query synchronous and
+  /// fully DB-side; the id is inlined as an escaped string literal because
+  /// [CustomExpression] has no bind variables.
+  Expression<bool> _inCategorySubtree(String categoryId) {
+    final literal = "'${categoryId.replaceAll("'", "''")}'";
+    return CustomExpression<bool>(
+      'expenses.category_id IN ('
+      'WITH RECURSIVE subtree(id) AS ('
+      'SELECT $literal '
+      'UNION ALL SELECT c.id FROM categories c JOIN subtree s ON c.parent_id = s.id'
+      ') SELECT id FROM subtree)',
+      watchedTables: [_db.categories],
+    );
   }
 
   /// Paginated, most-recent-first, filtered entirely in SQL (no client-side

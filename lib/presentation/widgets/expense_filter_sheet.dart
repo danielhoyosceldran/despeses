@@ -74,6 +74,64 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
         isDefault: entity.isDefault as bool,
       );
 
+  static const _typeOrder = ['expense', 'income', 'refund', 'ahorro'];
+
+  /// Values of the non-selectable type header rows; never a category id.
+  static const _headerPrefix = '__type_header:';
+
+  /// Category filter as a tree grouped by transaction type: a disabled header
+  /// per type, then each root followed by its descendants, indented by depth.
+  /// Picking a parent filters its whole subtree (see `ExpenseRepository`).
+  Widget _categoryDropdown(BuildContext context) {
+    final t = widget.translations;
+    final byParent = <String?, List<Category>>{};
+    // widget.categories is already ordered by position.
+    for (final c in widget.categories) {
+      (byParent[c.parentId] ??= []).add(c);
+    }
+    final items = <DropdownMenuItem<String?>>[
+      DropdownMenuItem(value: null, child: Text(t.t('common.any'))),
+    ];
+    final selectedLabels = <Widget>[Text(t.t('common.any'))];
+    void addSubtree(Category c, int depth) {
+      items.add(DropdownMenuItem(
+        value: c.id,
+        child: Padding(
+          padding: EdgeInsets.only(left: AppSpacing.md * depth),
+          child: Text(_label(c)),
+        ),
+      ));
+      selectedLabels.add(Text(_label(c)));
+      for (final child in byParent[c.id] ?? const <Category>[]) {
+        addSubtree(child, depth + 1);
+      }
+    }
+
+    for (final type in _typeOrder) {
+      final roots = (byParent[null] ?? const <Category>[]).where((c) => c.type == type).toList();
+      if (roots.isEmpty) continue;
+      items.add(DropdownMenuItem(
+        value: '$_headerPrefix$type',
+        enabled: false,
+        child: Text(t.t('expenses.type_$type').toUpperCase(), style: appHeaderStyle(context.appColors)),
+      ));
+      selectedLabels.add(const SizedBox.shrink());
+      for (final root in roots) {
+        addSubtree(root, 1);
+      }
+    }
+
+    return DropdownButtonFormField<String?>(
+      initialValue: _categoryId,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: t.t('expenses.category')),
+      items: items,
+      // The closed field shows the plain name, without the tree indent.
+      selectedItemBuilder: (_) => selectedLabels,
+      onChanged: (v) => setState(() => _categoryId = v),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -97,15 +155,7 @@ class _ExpenseFilterSheetState extends State<_ExpenseFilterSheet> {
               onChanged: (v) => setState(() => _type = v),
             ),
             const SizedBox(height: AppSpacing.smMd),
-            DropdownButtonFormField<String?>(
-              initialValue: _categoryId,
-              decoration: InputDecoration(labelText: widget.translations.t('expenses.category')),
-              items: [
-                DropdownMenuItem(value: null, child: Text(widget.translations.t('common.any'))),
-                for (final c in widget.categories) DropdownMenuItem(value: c.id, child: Text(_label(c))),
-              ],
-              onChanged: (v) => setState(() => _categoryId = v),
-            ),
+            _categoryDropdown(context),
             const SizedBox(height: AppSpacing.smMd),
             DropdownButtonFormField<String?>(
               initialValue: _tagId,
