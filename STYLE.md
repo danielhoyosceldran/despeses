@@ -256,21 +256,11 @@ stay ink/neutral.
 - **`StatCard`** — `AppCard` (hairline, `radiusCard`) with a `labelLarge` title,
   optional muted `bodySmall` subtitle (the stat's Excel ref), then the chart.
 - **`KpiTile`** — `mutedFill(0.30)` fill, hairline, `radiusCard`; `appHeaderStyle`
-  label + `appDisplay` 22 value (accent color for at-risk/emphasis). Laid out by
-  `KpiTileGrid` as paired `IntrinsicHeight` rows (content-driven height, both
-  tiles in a row matched), not a fixed-aspect grid.
-- **`MonthlyBars` / `TrendLines`** — bars use `accent` (or a semantic/data color);
-  lines 2.5px, curved, no dots; moving-average line uses `savings` blue.
-  `TrendLines` keeps ~12% vertical headroom and a small horizontal margin and sets
+  label + `appDisplay` 22 value (optional accent color for emphasis).
+- **`TrendLines`** — lines 2.5px, curved, no dots, `accent` (or a semantic/data
+  color). Keeps ~12% vertical headroom and a small horizontal margin and sets
   `preventCurveOverShooting`, so the curve/stroke never clip at the box edges.
-- **`RingGauge`** — `CircularProgressIndicator` 10px on `surfaceAlt` track,
-  fill `accent` or a semantic color; percent centered in `appDisplay`. Stroke uses
-  `strokeAlignInside` (drawn inside the 96px box) so it isn't clipped/flattened at
-  the edges; the wrapping `Stack` is `Clip.none`.
-- **`CalendarHeatmap`** — 7-col grid; empty day = `surfaceAlt`, else base color at
-  `0.15 + 0.85·intensity` alpha; `radius 4` cells.
-- **`RankedList` / `LegendRow`** — proportional `LinearProgressIndicator` /
-  color-dot rows; amounts in tabular figures.
+- **`LegendRow`** — color-dot rows; amounts in tabular figures.
 - **`StatInfoButton`** — compact `IconButton` (`info300`, 18px, `textMuted`,
   32×32 tap target) placed beside a stat's title. Opens `showStatInfoSheet`: a
   `showDragHandle`/`isScrollControlled` bottom sheet with `titleMedium` (bold)

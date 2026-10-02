@@ -24,12 +24,6 @@ import 'analytics/analytics_sections.dart';
 enum AnalyticsSection {
   category,
   tags,
-  health,
-  trend,
-  cashflow,
-  payment,
-  behavior,
-  quality,
   budgets,
   events,
 }
@@ -41,19 +35,12 @@ extension AnalyticsSectionMeta on AnalyticsSection {
   /// pager). Time-series sections (window selector) and Events (event selector)
   /// are not, so they hide the month pager and show a plain title instead.
   bool get monthScoped => switch (this) {
-        AnalyticsSection.trend || AnalyticsSection.cashflow || AnalyticsSection.events => false,
         _ => true,
       };
 
   String labelKey() => switch (this) {
         AnalyticsSection.category => 'analytics.section_category',
         AnalyticsSection.tags => 'analytics.section_tags',
-        AnalyticsSection.health => 'analytics.section_health',
-        AnalyticsSection.trend => 'analytics.section_trend',
-        AnalyticsSection.cashflow => 'analytics.section_cashflow',
-        AnalyticsSection.payment => 'analytics.section_payment',
-        AnalyticsSection.behavior => 'analytics.section_behavior',
-        AnalyticsSection.quality => 'analytics.section_quality',
         AnalyticsSection.budgets => 'analytics.section_budgets',
         AnalyticsSection.events => 'analytics.section_events',
       };
@@ -61,12 +48,6 @@ extension AnalyticsSectionMeta on AnalyticsSection {
   IconData get icon => switch (this) {
         AnalyticsSection.category => LucideIcons.chartPie300,
         AnalyticsSection.tags => LucideIcons.tag300,
-        AnalyticsSection.health => LucideIcons.heartPulse300,
-        AnalyticsSection.trend => LucideIcons.trendingUp300,
-        AnalyticsSection.cashflow => LucideIcons.arrowLeftRight300,
-        AnalyticsSection.payment => LucideIcons.creditCard300,
-        AnalyticsSection.behavior => LucideIcons.activity300,
-        AnalyticsSection.quality => LucideIcons.badgeCheck300,
         AnalyticsSection.budgets => LucideIcons.target300,
         AnalyticsSection.events => LucideIcons.calendar300,
       };
@@ -74,20 +55,14 @@ extension AnalyticsSectionMeta on AnalyticsSection {
   String fallbackLabel() => switch (this) {
         AnalyticsSection.category => 'Categories',
         AnalyticsSection.tags => 'Tags',
-        AnalyticsSection.health => 'Health',
-        AnalyticsSection.trend => 'Trend',
-        AnalyticsSection.cashflow => 'Cash flow',
-        AnalyticsSection.payment => 'Payment',
-        AnalyticsSection.behavior => 'Behavior',
-        AnalyticsSection.quality => 'Quality',
         AnalyticsSection.budgets => 'Budgets',
         AnalyticsSection.events => 'Events',
       };
 }
 
 /// Analytics v2: a sectioned screen navigated by a horizontal tab strip.
-/// Month-scoped sections use the [AppTopBar] month pager; time-series sections
-/// use a rolling window selector rendered inside the section.
+/// Month-scoped sections use the [AppTopBar] month pager; Events uses its own
+/// event selector rendered inside the section.
 class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
 
@@ -104,9 +79,6 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   late final DateTime _baseMonth;
   late final PageController _pageController;
-
-  /// Rolling window (months) for time-series sections.
-  int _window = 12;
 
   /// Section the in-progress FAB drag would switch to (drives the centred
   /// preview overlay); null when not dragging / below the arm threshold. A
@@ -210,7 +182,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
               Expanded(
                 // Month-scoped sections live in a swipeable [PageView] (swipe
                 // left/right = prev/next month, tracked by the header label).
-                // Non-month sections (window/event selectors) disable the swipe
+                // Non-month sections (event selector) disable the swipe
                 // and ignore the page index.
                 child: PageView.builder(
                   controller: _pageController,
@@ -264,26 +236,12 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
         );
       case AnalyticsSection.tags:
         return _TagsSection(month: month, currency: currency);
-      case AnalyticsSection.health:
-        return HealthSection(month: month, currency: currency);
-      case AnalyticsSection.trend:
-        return TrendSection(month: month, currency: currency, window: _window, onWindow: _setWindow);
-      case AnalyticsSection.cashflow:
-        return CashflowSection(month: month, currency: currency, window: _window, onWindow: _setWindow);
-      case AnalyticsSection.payment:
-        return PaymentSection(month: month, currency: currency);
-      case AnalyticsSection.behavior:
-        return BehaviorSection(month: month, currency: currency);
-      case AnalyticsSection.quality:
-        return QualitySection(month: month, currency: currency);
       case AnalyticsSection.budgets:
         return BudgetsSection(month: month, currency: currency);
       case AnalyticsSection.events:
         return EventsSection(currency: currency);
     }
   }
-
-  void _setWindow(int w) => setState(() => _window = w);
 
   Future<void> _onRefresh() async {
     ref.read(hapticsProvider).light();

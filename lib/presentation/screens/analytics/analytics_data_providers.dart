@@ -7,20 +7,17 @@ import '../../../core/i18n/display_name.dart';
 import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../data/database.dart';
-import '../../../domain/repositories/analytics/analytics_behavior.dart';
-import '../../../domain/repositories/analytics/analytics_cashflow.dart';
 import '../../../domain/repositories/analytics/analytics_category.dart';
-import '../../../domain/repositories/analytics/analytics_dashboard.dart';
 import '../../../domain/repositories/analytics/analytics_math.dart';
 import '../../../domain/repositories/analytics/analytics_tags.dart';
 import '../../../domain/repositories/budget_repository.dart';
 
-/// Analytics section data, keyed by the section's inputs (month/currency/window
-/// /…). Moving the per-section `_load` off `build` and into a `FutureProvider
-/// .family` (R1) means Riverpod caches each result by its arguments: a rebuild
+/// Analytics section data, keyed by the section's inputs (month/currency/…).
+/// Moving the per-section `_load` off `build` and into a `FutureProvider.family`
+/// (R1) means Riverpod caches each result by its arguments: a rebuild
 /// with the same arguments — e.g. the ~60fps rebuilds while dragging the
 /// section FAB — is a cache hit, not a fresh query. Only a real input change
-/// (month swipe, drill, window switch) runs a query, exactly once.
+/// (month swipe, drill, event switch) runs a query, exactly once.
 ///
 /// These are `autoDispose` + [_keepAliveFor] rather than plain `autoDispose`:
 /// the Analytics screen stays mounted across tabs (IndexedStack), and the
@@ -46,7 +43,6 @@ void _keepAliveFor(Ref ref, [Duration ttl = _sectionCacheTtl]) {
 
 typedef MonthCurrency = ({DateTime month, String currency});
 typedef CategoryArgs = ({DateTime month, String currency, String? parentId});
-typedef WindowArgs = ({DateTime month, String currency, int window});
 typedef EventArgs = ({String eventId, DateTime? startsAt, DateTime? endsAt, String currency});
 
 /// Every section family provider, so the screen can drop cached results in one
@@ -55,13 +51,6 @@ void invalidateAnalyticsSections(WidgetRef ref) {
   developer.log('invalidating all analytics section providers', name: 'Analytics');
   ref.invalidate(categorySectionProvider);
   ref.invalidate(tagSectionProvider);
-  ref.invalidate(healthSectionProvider);
-  ref.invalidate(burnUpProvider);
-  ref.invalidate(trendSectionProvider);
-  ref.invalidate(cashflowSectionProvider);
-  ref.invalidate(paymentSectionProvider);
-  ref.invalidate(behaviorSectionProvider);
-  ref.invalidate(qualitySectionProvider);
   ref.invalidate(budgetSectionProvider);
   ref.invalidate(eventListProvider);
   ref.invalidate(eventSectionProvider);
@@ -125,123 +114,6 @@ final tagSectionProvider =
         s.tagId: displayNameFor(translations, name: byId[s.tagId]!.name, isDefault: byId[s.tagId]!.isDefault),
   };
   return TagSectionData(slices, labels, translations);
-});
-
-/// Health --------------------------------------------------------------------
-
-final healthSectionProvider =
-    FutureProvider.autoDispose.family<(FinancialHealth, String?), MonthCurrency>((ref, a) async {
-  _keepAliveFor(ref);
-  final health = await ref.watch(dashboardAnalyticsProvider).summary(a.month, a.currency);
-  String? topLabel;
-  if (health.topCategoryId != null) {
-    final t = await ref.watch(translationsProvider.future);
-    final cats = await ref.watch(referenceDataCacheProvider).categories();
-    final matches = cats.where((c) => c.id == health.topCategoryId);
-    if (matches.isNotEmpty) {
-      topLabel = displayNameFor(t, name: matches.first.name, isDefault: matches.first.isDefault);
-    }
-  }
-  return (health, topLabel);
-});
-
-final burnUpProvider = FutureProvider.autoDispose
-    .family<({List<(int, int)> current, List<(int, int)> previous}), MonthCurrency>((ref, a) {
-  _keepAliveFor(ref);
-  return ref.watch(timeseriesAnalyticsProvider).burnUp(a.month, a.currency);
-});
-
-/// Trend ---------------------------------------------------------------------
-
-class TrendSectionData {
-  TrendSectionData(this.totals, this.movingAvg, this.mom, this.yoy, this.weekday, this.heat);
-  final List<(DateTime, int)> totals;
-  final List<(DateTime, double)> movingAvg;
-  final double? mom;
-  final double? yoy;
-  final Map<int, double> weekday;
-  final Map<int, int> heat;
-}
-
-final trendSectionProvider =
-    FutureProvider.autoDispose.family<TrendSectionData, WindowArgs>((ref, a) async {
-  _keepAliveFor(ref);
-  final ts = ref.watch(timeseriesAnalyticsProvider);
-  final range = DateRange.trailingMonths(a.month, a.window);
-  final totals = await ts.monthlyTotals(range, a.currency);
-  final movingAvg = await ts.movingAverage(range, a.currency);
-  final mm = await ts.momYoY(a.month, a.currency);
-  final weekday = await ts.averageByWeekday(range, a.currency);
-  final heat = await ts.calendarHeat(a.month, a.currency);
-  return TrendSectionData(totals, movingAvg, mm.mom.fraction, mm.yoy.fraction, weekday, heat);
-});
-
-/// Cash flow -----------------------------------------------------------------
-
-class CashflowSectionData {
-  CashflowSectionData(this.months, this.balance, this.savings);
-  final List<MonthlyCashflow> months;
-  final List<(DateTime, int)> balance;
-  final List<(DateTime, int)> savings;
-}
-
-final cashflowSectionProvider =
-    FutureProvider.autoDispose.family<CashflowSectionData, WindowArgs>((ref, a) async {
-  _keepAliveFor(ref);
-  final cf = ref.watch(cashflowAnalyticsProvider);
-  final range = DateRange.trailingMonths(a.month, a.window);
-  return CashflowSectionData(
-    await cf.monthly(range, a.currency),
-    await cf.cumulativeBalance(range, a.currency),
-    await cf.cumulativeSavings(range, a.currency),
-  );
-});
-
-/// Payment -------------------------------------------------------------------
-
-class PaymentSectionData {
-  PaymentSectionData(this.byMethod, this.labels);
-  final Map<String?, int> byMethod;
-  final Map<String, String> labels;
-}
-
-final paymentSectionProvider =
-    FutureProvider.autoDispose.family<PaymentSectionData, MonthCurrency>((ref, a) async {
-  _keepAliveFor(ref);
-  final by = await ref.watch(paymentAnalyticsProvider).byMethod(DateRange.month(a.month), a.currency);
-  final t = await ref.watch(translationsProvider.future);
-  final methods = await ref.watch(referenceDataCacheProvider).paymentMethods();
-  final labels = {for (final m in methods) m.id: displayNameFor(t, name: m.name, isDefault: m.isDefault)};
-  return PaymentSectionData(by, labels);
-});
-
-/// Behavior ------------------------------------------------------------------
-
-class BehaviorSectionData {
-  BehaviorSectionData(this.stats, this.histogram, this.ant, this.refundRatio);
-  final TicketStats stats;
-  final List<int> histogram;
-  final ({int total, int count}) ant;
-  final double refundRatio;
-}
-
-final behaviorSectionProvider =
-    FutureProvider.autoDispose.family<BehaviorSectionData, MonthCurrency>((ref, a) async {
-  _keepAliveFor(ref);
-  final b = ref.watch(behaviorAnalyticsProvider);
-  final range = DateRange.month(a.month);
-  final stats = await b.ticketStats(range, a.currency);
-  final histogram = await b.histogram(range, a.currency, const [500, 1000, 2500, 5000, 10000]);
-  final ant = await b.antSpend(range, a.currency, 500);
-  final refunds = await b.refunds(range, a.currency);
-  return BehaviorSectionData(stats, histogram, ant, refunds.ratio);
-});
-
-/// Quality -------------------------------------------------------------------
-
-final qualitySectionProvider = FutureProvider.autoDispose.family<double, MonthCurrency>((ref, a) {
-  _keepAliveFor(ref);
-  return ref.watch(tagAnalyticsProvider).coverageGap(DateRange.month(a.month), a.currency);
 });
 
 /// Budgets -------------------------------------------------------------------
