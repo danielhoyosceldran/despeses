@@ -37,6 +37,14 @@ Tablas: `profile`, `tag_groups`, `tags`, `categories`, `payment_methods`,
 
 La fuente de verdad de las columnas es `lib/data/tables.dart`.
 
+### Columnas sin uso conservadas a propósito
+
+- `profile.haptics_strength`: guardaba la intensidad de la vibración
+  (0 suave, 1 media, 2 fuerte). La opción se retiró de la UI porque
+  `HapticFeedback` no permite ajustar la intensidad, pero la columna **se
+  conserva** (decisión 2026-10-02, BL-047): no se descarta recuperar esa
+  configuración. **No** la elimines en una migración.
+
 ## Reglas para futuras migraciones
 
 1. Cada cambio de esquema sube `schemaVersion` y añade en el mismo cambio un

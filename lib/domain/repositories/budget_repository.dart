@@ -114,6 +114,11 @@ class BudgetRepository {
   /// `income` is ignored. Recurses into category descendants so a budget on a
   /// parent category also counts its subcategories' expenses.
   ///
+  /// Category budgets effectively ignore refunds: categories are per
+  /// transaction type, so a refund never carries an expense category and never
+  /// matches the filter. This is by design (backlog BL-009, option b) — refunds
+  /// do count on tag/project/event budgets, whose dimensions span all types.
+  ///
   /// For `monthly` budgets the period is a single month — the month of
   /// [inMonth] (defaults to the current month). `range` budgets ignore
   /// [inMonth] and sum across their whole window.
