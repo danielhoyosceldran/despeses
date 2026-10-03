@@ -45,6 +45,35 @@ La fuente de verdad de las columnas es `lib/data/tables.dart`.
   conserva** (decisión 2026-10-02, BL-047): no se descarta recuperar esa
   configuración. **No** la elimines en una migración.
 
+## Migraciones posteriores a la baseline
+
+| Versión | Cambio |
+|---|---|
+| v10 | `profile.favorite_payment_method_id` (BL-024). Columna nueva, declarada en `columnsAddedInVersion`. |
+| v11 | Fechas contables como fecha/hora civil (BL-042). Sin columnas nuevas: paso de datos `_convertToCivilDates`. |
+
+### Fechas contables (v11, BL-042)
+
+Las columnas de `AppDatabase.civilDateColumns` (`expenses.date`,
+`recurrings.start_date/next_date/end_date`, `recurring_occurrences.due_date`,
+`events`/`projects.starts_at/ends_at`, `savings_goals.deadline`) usan
+`CivilDateTimeType` (`lib/data/civil_date_time.dart`): siguen siendo INTEGER en
+segundos, pero guardan los componentes de reloj local (año…segundo)
+codificados como si fueran UTC, y se leen como un `DateTime` local con esos
+mismos componentes. Así un movimiento de las 00:30 en Madrid sigue siendo de
+ese día (y mes) aunque el móvil esté en otra zona horaria.
+
+- El paso v11 reescribe los valores antiguos (instantes) con la hora de pared
+  que tenían en la zona del dispositivo al migrar. Lo precede el auto-backup
+  `pre_migration`, como toda migración.
+- `created_at`, `updated_at` y `recurrings.last_posted_at` son instantes y
+  mantienen el `dateTime()` de drift.
+- Las consultas del query builder (`isBiggerOrEqualValue`, `equals`…) ya
+  vinculan los valores con el tipo civil. En SQL crudo (`customSelect`) hay que
+  usar `civilVariable(fecha)`, **nunca** `Variable<DateTime>(fecha)`.
+- Una columna de fecha contable nueva se declara con
+  `customType(civilDateTimeType)` y se añade a `civilDateColumns`.
+
 ## Reglas para futuras migraciones
 
 1. Cada cambio de esquema sube `schemaVersion` y añade en el mismo cambio un

@@ -6,7 +6,10 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../domain/backup/backup_service.dart';
+import 'civil_date_time.dart';
 import 'tables.dart';
+
+export 'civil_date_time.dart' show civilVariable;
 
 part 'database.g.dart';
 
@@ -90,7 +93,19 @@ class AppDatabase extends _$AppDatabase {
 
   /// Schema version this build creates/migrates to. Static so code without a
   /// live connection (e.g. backup validation) can check a file against it.
-  static const int currentSchemaVersion = 10;
+  static const int currentSchemaVersion = 11;
+
+  /// Accounting-date columns (table → SQL column names), stored with
+  /// [CivilDateTimeType] since schema v11 (BL-042). Before v11 they held
+  /// instants; onUpgrade rewrites them with [_convertToCivilDates].
+  static const Map<String, List<String>> civilDateColumns = {
+    'expenses': ['date'],
+    'recurrings': ['start_date', 'next_date', 'end_date'],
+    'recurring_occurrences': ['due_date'],
+    'events': ['starts_at', 'ends_at'],
+    'projects': ['starts_at', 'ends_at'],
+    'savings_goals': ['deadline'],
+  };
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -172,6 +187,9 @@ class AppDatabase extends _$AppDatabase {
               }
             }
           }
+
+          // v11 (BL-042): accounting dates become civil date/times.
+          if (from < 11) await _convertToCivilDates(this);
           //
           // CRITICAL when adding a column to an EXISTING table (tables.dart):
           //   1. The column MUST declare withDefault(...)/clientDefault (or be
@@ -228,6 +246,42 @@ Future<void> _rebuildFromScratch(AppDatabase db, Migrator m) async {
   await _createIndexes(db);
   await _createRecurringIndexes(db);
   await db.customStatement('PRAGMA foreign_keys = ON');
+}
+
+/// v11 data step (BL-042): every [AppDatabase.civilDateColumns] value held an
+/// instant (unix seconds); rewrite it as the wall-clock date/time it had in
+/// the device's time zone at migration time, encoded by [CivilDateTimeType].
+/// Done in Dart because SQLite's 'localtime' depends on the platform's zone
+/// support. Rows are updated one by one, so forward-shifted values go from the
+/// latest down (and backward ones from the earliest up): a value never lands
+/// on one still waiting to move, which keeps
+/// `recurring_occurrences(recurring_id, due_date)` unique throughout.
+Future<void> _convertToCivilDates(AppDatabase db) async {
+  for (final entry in AppDatabase.civilDateColumns.entries) {
+    for (final column in entry.value) {
+      final rows = await db
+          .customSelect('SELECT rowid AS rid, "$column" AS v FROM "${entry.key}" WHERE "$column" IS NOT NULL')
+          .get();
+      final forward = <(int, int, int)>[];
+      final backward = <(int, int, int)>[];
+      for (final row in rows) {
+        final old = row.read<int>('v');
+        final converted = CivilDateTimeType.encode(DateTime.fromMillisecondsSinceEpoch(old * 1000));
+        if (converted > old) {
+          forward.add((row.read<int>('rid'), old, converted));
+        } else if (converted < old) {
+          backward.add((row.read<int>('rid'), old, converted));
+        }
+      }
+      forward.sort((a, b) => b.$2.compareTo(a.$2));
+      backward.sort((a, b) => a.$2.compareTo(b.$2));
+      await db.batch((batch) {
+        for (final (rid, _, converted) in [...forward, ...backward]) {
+          batch.customStatement('UPDATE "${entry.key}" SET "$column" = ? WHERE rowid = ?', [converted, rid]);
+        }
+      });
+    }
+  }
 }
 
 /// Indexes on the hottest `expenses` query paths (R3): every analytics/listing

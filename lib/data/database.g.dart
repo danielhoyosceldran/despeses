@@ -2594,7 +2594,7 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     'starts_at',
     aliasedName,
     true,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _endsAtMeta = const VerificationMeta('endsAt');
@@ -2603,7 +2603,7 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     'ends_at',
     aliasedName,
     true,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
@@ -2724,11 +2724,11 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
         data['${effectivePrefix}description'],
       ),
       startsAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}starts_at'],
       ),
       endsAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}ends_at'],
       ),
       createdAt: attachedDatabase.typeMapping.read(
@@ -2774,10 +2774,10 @@ class Event extends DataClass implements Insertable<Event> {
       map['description'] = Variable<String>(description);
     }
     if (!nullToAbsent || startsAt != null) {
-      map['starts_at'] = Variable<DateTime>(startsAt);
+      map['starts_at'] = Variable<DateTime>(startsAt, civilDateTimeType);
     }
     if (!nullToAbsent || endsAt != null) {
-      map['ends_at'] = Variable<DateTime>(endsAt);
+      map['ends_at'] = Variable<DateTime>(endsAt, civilDateTimeType);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2986,10 +2986,10 @@ class EventsCompanion extends UpdateCompanion<Event> {
       map['description'] = Variable<String>(description.value);
     }
     if (startsAt.present) {
-      map['starts_at'] = Variable<DateTime>(startsAt.value);
+      map['starts_at'] = Variable<DateTime>(startsAt.value, civilDateTimeType);
     }
     if (endsAt.present) {
-      map['ends_at'] = Variable<DateTime>(endsAt.value);
+      map['ends_at'] = Variable<DateTime>(endsAt.value, civilDateTimeType);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -3063,7 +3063,7 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
     'starts_at',
     aliasedName,
     true,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _endsAtMeta = const VerificationMeta('endsAt');
@@ -3072,7 +3072,7 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
     'ends_at',
     aliasedName,
     true,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
@@ -3193,11 +3193,11 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
         data['${effectivePrefix}description'],
       ),
       startsAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}starts_at'],
       ),
       endsAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}ends_at'],
       ),
       createdAt: attachedDatabase.typeMapping.read(
@@ -3243,10 +3243,10 @@ class Project extends DataClass implements Insertable<Project> {
       map['description'] = Variable<String>(description);
     }
     if (!nullToAbsent || startsAt != null) {
-      map['starts_at'] = Variable<DateTime>(startsAt);
+      map['starts_at'] = Variable<DateTime>(startsAt, civilDateTimeType);
     }
     if (!nullToAbsent || endsAt != null) {
-      map['ends_at'] = Variable<DateTime>(endsAt);
+      map['ends_at'] = Variable<DateTime>(endsAt, civilDateTimeType);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -3455,10 +3455,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
       map['description'] = Variable<String>(description.value);
     }
     if (startsAt.present) {
-      map['starts_at'] = Variable<DateTime>(startsAt.value);
+      map['starts_at'] = Variable<DateTime>(startsAt.value, civilDateTimeType);
     }
     if (endsAt.present) {
-      map['ends_at'] = Variable<DateTime>(endsAt.value);
+      map['ends_at'] = Variable<DateTime>(endsAt.value, civilDateTimeType);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -3544,7 +3544,7 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     'date',
     aliasedName,
     false,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
@@ -3786,7 +3786,7 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
         data['${effectivePrefix}type'],
       )!,
       date: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}date'],
       )!,
       description: attachedDatabase.typeMapping.read(
@@ -3866,7 +3866,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     map['amount'] = Variable<int>(amount);
     map['currency'] = Variable<String>(currency);
     map['type'] = Variable<String>(type);
-    map['date'] = Variable<DateTime>(date);
+    map['date'] = Variable<DateTime>(date, civilDateTimeType);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
@@ -4206,7 +4206,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       map['type'] = Variable<String>(type.value);
     }
     if (date.present) {
-      map['date'] = Variable<DateTime>(date.value);
+      map['date'] = Variable<DateTime>(date.value, civilDateTimeType);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -5387,7 +5387,7 @@ class $RecurringsTable extends Recurrings
     'start_date',
     aliasedName,
     false,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _nextDateMeta = const VerificationMeta(
@@ -5398,7 +5398,7 @@ class $RecurringsTable extends Recurrings
     'next_date',
     aliasedName,
     false,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _endDateMeta = const VerificationMeta(
@@ -5409,7 +5409,7 @@ class $RecurringsTable extends Recurrings
     'end_date',
     aliasedName,
     true,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _activeMeta = const VerificationMeta('active');
@@ -5675,15 +5675,15 @@ class $RecurringsTable extends Recurrings
         data['${effectivePrefix}frequency'],
       )!,
       startDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}start_date'],
       )!,
       nextDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}next_date'],
       )!,
       endDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}end_date'],
       ),
       active: attachedDatabase.typeMapping.read(
@@ -5776,10 +5776,10 @@ class Recurring extends DataClass implements Insertable<Recurring> {
       map['project_id'] = Variable<String>(projectId);
     }
     map['frequency'] = Variable<String>(frequency);
-    map['start_date'] = Variable<DateTime>(startDate);
-    map['next_date'] = Variable<DateTime>(nextDate);
+    map['start_date'] = Variable<DateTime>(startDate, civilDateTimeType);
+    map['next_date'] = Variable<DateTime>(nextDate, civilDateTimeType);
     if (!nullToAbsent || endDate != null) {
-      map['end_date'] = Variable<DateTime>(endDate);
+      map['end_date'] = Variable<DateTime>(endDate, civilDateTimeType);
     }
     map['active'] = Variable<bool>(active);
     if (!nullToAbsent || lastPostedAt != null) {
@@ -6215,13 +6215,16 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
       map['frequency'] = Variable<String>(frequency.value);
     }
     if (startDate.present) {
-      map['start_date'] = Variable<DateTime>(startDate.value);
+      map['start_date'] = Variable<DateTime>(
+        startDate.value,
+        civilDateTimeType,
+      );
     }
     if (nextDate.present) {
-      map['next_date'] = Variable<DateTime>(nextDate.value);
+      map['next_date'] = Variable<DateTime>(nextDate.value, civilDateTimeType);
     }
     if (endDate.present) {
-      map['end_date'] = Variable<DateTime>(endDate.value);
+      map['end_date'] = Variable<DateTime>(endDate.value, civilDateTimeType);
     }
     if (active.present) {
       map['active'] = Variable<bool>(active.value);
@@ -6525,7 +6528,7 @@ class $RecurringOccurrencesTable extends RecurringOccurrences
     'due_date',
     aliasedName,
     false,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: true,
   );
   static const VerificationMeta _amountMeta = const VerificationMeta('amount');
@@ -6788,7 +6791,7 @@ class $RecurringOccurrencesTable extends RecurringOccurrences
         data['${effectivePrefix}recurring_id'],
       )!,
       dueDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}due_date'],
       )!,
       amount: attachedDatabase.typeMapping.read(
@@ -6875,7 +6878,7 @@ class RecurringOccurrence extends DataClass
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['recurring_id'] = Variable<String>(recurringId);
-    map['due_date'] = Variable<DateTime>(dueDate);
+    map['due_date'] = Variable<DateTime>(dueDate, civilDateTimeType);
     map['amount'] = Variable<int>(amount);
     map['currency'] = Variable<String>(currency);
     map['type'] = Variable<String>(type);
@@ -7215,7 +7218,7 @@ class RecurringOccurrencesCompanion
       map['recurring_id'] = Variable<String>(recurringId.value);
     }
     if (dueDate.present) {
-      map['due_date'] = Variable<DateTime>(dueDate.value);
+      map['due_date'] = Variable<DateTime>(dueDate.value, civilDateTimeType);
     }
     if (amount.present) {
       map['amount'] = Variable<int>(amount.value);
@@ -7347,7 +7350,7 @@ class $SavingsGoalsTable extends SavingsGoals
     'deadline',
     aliasedName,
     true,
-    type: DriftSqlType.dateTime,
+    type: civilDateTimeType,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
@@ -7485,7 +7488,7 @@ class $SavingsGoalsTable extends SavingsGoals
         data['${effectivePrefix}currency'],
       )!,
       deadline: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
+        civilDateTimeType,
         data['${effectivePrefix}deadline'],
       ),
       createdAt: attachedDatabase.typeMapping.read(
@@ -7533,7 +7536,7 @@ class SavingsGoal extends DataClass implements Insertable<SavingsGoal> {
     map['target_amount'] = Variable<int>(targetAmount);
     map['currency'] = Variable<String>(currency);
     if (!nullToAbsent || deadline != null) {
-      map['deadline'] = Variable<DateTime>(deadline);
+      map['deadline'] = Variable<DateTime>(deadline, civilDateTimeType);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -7765,7 +7768,7 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
       map['currency'] = Variable<String>(currency.value);
     }
     if (deadline.present) {
-      map['deadline'] = Variable<DateTime>(deadline.value);
+      map['deadline'] = Variable<DateTime>(deadline.value, civilDateTimeType);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);

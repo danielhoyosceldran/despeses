@@ -129,7 +129,7 @@ Future<List<AmountGroup>> aggregateExpenses(
     final sql = StringBuffer('CASE');
     for (var i = 1; i < starts.length; i++) {
       sql.write(' WHEN e.date < ? THEN ${i - 1}');
-      variables.add(Variable<DateTime>(starts[i]));
+      variables.add(civilVariable(starts[i]));
     }
     sql.write(' ELSE ${starts.length - 1} END');
     bucketSql = sql.toString();
@@ -140,15 +140,15 @@ Future<List<AmountGroup>> aggregateExpenses(
   final where = <String>['e.currency = ?', 'e.date >= ?', 'e.date < ?'];
   variables
     ..add(Variable<String>(currency))
-    ..add(Variable<DateTime>(from))
+    ..add(civilVariable(from))
     // Scheduled (future-dated) rows don't count until their day.
-    ..add(Variable<DateTime>(scheduledFrom()));
+    ..add(civilVariable(scheduledFrom()));
   if (to != null) {
     where.add('e.date <= ?');
-    variables.add(Variable<DateTime>(to));
+    variables.add(civilVariable(to));
   } else {
     where.add('e.date < ?');
-    variables.add(Variable<DateTime>(before!));
+    variables.add(civilVariable(before!));
   }
   void addIn(String column, Iterable<String> values) {
     final list = values.toList();

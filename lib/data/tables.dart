@@ -1,11 +1,18 @@
 import 'package:drift/drift.dart';
 
+import 'civil_date_time.dart';
+
 // CRITICAL: adding a column to any EXISTING table below? See database.dart's
 // onUpgrade (near `_devReseedOnUpgrade`) — you MUST also bump schemaVersion
 // and add a matching `if (from < N) await m.addColumn(table, table.column);`
 // step there in the SAME change, and the new column MUST declare
 // withDefault(...)/clientDefault. Skipping this crashes every existing
 // install with "no such column" on next launch after upgrade.
+//
+// Dates: accounting dates (when a transaction/occurrence happens, schedules,
+// spans, deadlines) use `customType(civilDateTimeType)` so they don't shift
+// with the device's time zone (BL-042, see civil_date_time.dart). Only
+// instants (createdAt, updatedAt, lastPostedAt) use `dateTime()`.
 
 class Profile extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
@@ -117,8 +124,8 @@ class Events extends Table {
   TextColumn get id => text()();
   TextColumn get name => text().withLength(max: 150)();
   TextColumn get description => text().withLength(max: 500).nullable()();
-  DateTimeColumn get startsAt => dateTime().nullable()();
-  DateTimeColumn get endsAt => dateTime().nullable()();
+  Column<DateTime> get startsAt => customType(civilDateTimeType).nullable()();
+  Column<DateTime> get endsAt => customType(civilDateTimeType).nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -135,8 +142,8 @@ class Projects extends Table {
   TextColumn get id => text()();
   TextColumn get name => text().withLength(max: 150)();
   TextColumn get description => text().withLength(max: 500).nullable()();
-  DateTimeColumn get startsAt => dateTime().nullable()();
-  DateTimeColumn get endsAt => dateTime().nullable()();
+  Column<DateTime> get startsAt => customType(civilDateTimeType).nullable()();
+  Column<DateTime> get endsAt => customType(civilDateTimeType).nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -155,7 +162,7 @@ class Expenses extends Table {
   TextColumn get currency => text().withLength(min: 3, max: 3)();
   TextColumn get type =>
       text().customConstraint("NOT NULL CHECK (type IN ('expense', 'income', 'refund', 'ahorro'))")();
-  DateTimeColumn get date => dateTime()();
+  Column<DateTime> get date => customType(civilDateTimeType)();
   TextColumn get description => text().withLength(max: 300).nullable()();
   TextColumn get notes => text().withLength(max: 1000).nullable()();
   TextColumn get categoryId => text()
@@ -216,12 +223,12 @@ class Recurrings extends Table {
       .customConstraint("NOT NULL CHECK (frequency IN ('monthly', 'weekly', 'yearly'))")();
   // First occurrence date; also the monthly day-of-month / yearly month+day
   // anchor used when advancing [nextDate].
-  DateTimeColumn get startDate => dateTime()();
+  Column<DateTime> get startDate => customType(civilDateTimeType)();
   // Next date this template is due to fire. Advanced by the materializer.
-  DateTimeColumn get nextDate => dateTime()();
+  Column<DateTime> get nextDate => customType(civilDateTimeType)();
   // Optional inclusive stop date. When [nextDate] passes it, the template is
   // deactivated.
-  DateTimeColumn get endDate => dateTime().nullable()();
+  Column<DateTime> get endDate => customType(civilDateTimeType).nullable()();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
   // Bookkeeping: when the materializer last produced an occurrence.
   DateTimeColumn get lastPostedAt => dateTime().nullable()();
@@ -252,7 +259,7 @@ class RecurringOccurrences extends Table {
   TextColumn get id => text()();
   TextColumn get recurringId =>
       text().customConstraint('NOT NULL REFERENCES recurrings(id) ON DELETE CASCADE')();
-  DateTimeColumn get dueDate => dateTime()();
+  Column<DateTime> get dueDate => customType(civilDateTimeType)();
   IntColumn get amount => integer().customConstraint('NOT NULL CHECK (amount > 0)')();
   TextColumn get currency => text().withLength(min: 3, max: 3)();
   TextColumn get type =>
@@ -318,7 +325,7 @@ class SavingsGoals extends Table {
       .customConstraint('NOT NULL REFERENCES categories(id) ON DELETE CASCADE')();
   IntColumn get targetAmount => integer().customConstraint('NOT NULL CHECK (target_amount > 0)')();
   TextColumn get currency => text().withLength(min: 3, max: 3)();
-  DateTimeColumn get deadline => dateTime().nullable()();
+  Column<DateTime> get deadline => customType(civilDateTimeType).nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

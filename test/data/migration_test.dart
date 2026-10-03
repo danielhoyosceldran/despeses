@@ -47,6 +47,8 @@ void main() {
     await db.customStatement('DROP TABLE profile_v10');
   }
 
+  final expenseDate = DateTime(2026, 7, 1, 0, 30);
+
   /// Creates a current-schema database with one expense, then stamps it with
   /// [version] (reshaping tables added to after it) so the next open goes
   /// through onUpgrade from there.
@@ -58,9 +60,14 @@ void main() {
           amount: 1250,
           currency: 'EUR',
           type: 'expense',
-          date: DateTime(2026, 7, 1),
+          date: expenseDate,
           categoryId: Value(leaf.id),
         ));
+    // Before v11 accounting dates held instants (BL-042).
+    if (version < 11) {
+      await db.customStatement(
+          'UPDATE expenses SET date = ?', [expenseDate.millisecondsSinceEpoch ~/ 1000]);
+    }
     if (version < 10) await stripProfileToV9(db);
     await db.customStatement('PRAGMA user_version = $version');
     await db.close();
@@ -99,6 +106,39 @@ void main() {
 
     await (db.delete(db.paymentMethods)..where((m) => m.id.equals(method.id))).go();
     expect((await db.select(db.profile).getSingle()).favoritePaymentMethodId, isNull);
+  });
+
+  test('v10 → v11 rewrites accounting dates as civil date/times', () async {
+    await writeDatabaseAt(10);
+    // A pending occurrence and an event span, stored as instants like v10 did.
+    final raw = sqlite3.open(dbPath());
+    final dueDate = DateTime(2026, 3, 29); // Europe's DST switch day
+    final eventEnd = DateTime(2026, 10, 25, 23, 59);
+    raw.execute("INSERT INTO recurrings (id, amount, currency, type, frequency, start_date, next_date) "
+        "VALUES ('r1', 500, 'EUR', 'expense', 'monthly', ?, ?)",
+        [dueDate.millisecondsSinceEpoch ~/ 1000, dueDate.millisecondsSinceEpoch ~/ 1000]);
+    raw.execute("INSERT INTO recurring_occurrences (id, recurring_id, due_date, amount, currency, type) "
+        "VALUES ('o1', 'r1', ?, 500, 'EUR', 'expense')", [dueDate.millisecondsSinceEpoch ~/ 1000]);
+    raw.execute("INSERT INTO events (id, name, starts_at, ends_at) VALUES ('ev1', 'Trip', NULL, ?)",
+        [eventEnd.millisecondsSinceEpoch ~/ 1000]);
+    raw.dispose();
+
+    final db = AppDatabase(NativeDatabase(File(dbPath())), service);
+    addTearDown(db.close);
+
+    final expense = await db.select(db.expenses).getSingle();
+    expect(expense.date, expenseDate);
+    expect((await db.select(db.recurringOccurrences).getSingle()).dueDate, dueDate);
+    final recurring = await db.select(db.recurrings).getSingle();
+    expect(recurring.startDate, dueDate);
+    expect(recurring.nextDate, dueDate);
+    final event = await db.select(db.events).getSingle();
+    expect(event.startsAt, isNull);
+    expect(event.endsAt, eventEnd);
+
+    // Stored as the wall-clock components encoded as UTC.
+    final stored = await db.customSelect('SELECT date FROM expenses').getSingle();
+    expect(stored.read<int>('date'), DateTime.utc(2026, 7, 1, 0, 30).millisecondsSinceEpoch ~/ 1000);
   });
 
   /// Columns of every app table in the file at [path], read raw.
