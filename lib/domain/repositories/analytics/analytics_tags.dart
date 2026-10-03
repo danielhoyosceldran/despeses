@@ -33,42 +33,44 @@ class TagAnalytics {
     return (expenses, links);
   }
 
+  /// Aggregated groups per tag id, summed in SQL (BL-062).
+  Future<Map<String, List<AmountGroup>>> _groupsByTag(DateRange range, String currency) async {
+    final groups = await aggregateInRange(_db, range, currency, groupBy: const {AggregateBy.tag});
+    final byTag = <String, List<AmountGroup>>{};
+    for (final g in groups) {
+      byTag.putIfAbsent(g.tagId!, () => []).add(g);
+    }
+    return byTag;
+  }
+
   /// A4 base — spent per tag, plus each tag's savings. Only tags with spending
   /// are returned (a tag with only savings has no slice).
   Future<List<TagSlice>> byTag(DateRange range, String currency) async {
-    final (expenses, links) = await _expensesAndLinks(range, currency);
-    final byId = {for (final e in expenses) e.id: e};
-    final grouped = <String, List<Expense>>{};
-    for (final link in links) {
-      final e = byId[link.expenseId];
-      if (e != null) grouped.putIfAbsent(link.tagId, () => []).add(e);
-    }
+    final grouped = await _groupsByTag(range, currency);
     return [
       for (final entry in grouped.entries)
-        if (expenseOutflow(entry.value) != 0)
+        if (entry.value.spent != 0)
           TagSlice(
             tagId: entry.key,
-            amountCents: expenseOutflow(entry.value),
-            savingsCents: savingsSetAside(entry.value),
-            count: entry.value.length,
+            amountCents: entry.value.spent,
+            savingsCents: entry.value.savings,
+            count: entry.value.count,
           ),
     ];
   }
 
   /// A4.1 — spent per tag group (`tagGroupId → cents`).
   Future<Map<String, int>> byGroup(DateRange range, String currency) async {
-    final (expenses, links) = await _expensesAndLinks(range, currency);
-    final byId = {for (final e in expenses) e.id: e};
+    final byTag = await _groupsByTag(range, currency);
     final tags = await _db.select(_db.tags).get();
     final groupOf = {for (final t in tags) t.id: t.tagGroupId};
 
-    final grouped = <String, List<Expense>>{};
-    for (final link in links) {
-      final e = byId[link.expenseId];
-      final group = groupOf[link.tagId];
-      if (e != null && group != null) grouped.putIfAbsent(group, () => []).add(e);
+    final result = <String, int>{};
+    for (final entry in byTag.entries) {
+      final group = groupOf[entry.key];
+      if (group != null) result[group] = (result[group] ?? 0) + entry.value.spent;
     }
-    return {for (final entry in grouped.entries) entry.key: expenseOutflow(entry.value)};
+    return result;
   }
 
   /// A4.3 — data quality: fraction of expense/refund transactions with no tag.
@@ -83,15 +85,17 @@ class TagAnalytics {
 
   /// A4.4 — heatmap tag × category: `tagId → (categoryId → signed cents)`.
   Future<Map<String, Map<String?, int>>> tagByCategory(DateRange range, String currency) async {
-    final (expenses, links) = await _expensesAndLinks(range, currency);
-    final byId = {for (final e in expenses) e.id: e};
+    final groups = await aggregateInRange(
+      _db,
+      range,
+      currency,
+      groupBy: const {AggregateBy.tag, AggregateBy.category},
+      types: spendTypes,
+    );
     final result = <String, Map<String?, int>>{};
-    for (final link in links) {
-      final e = byId[link.expenseId];
-      if (e == null || (e.type != 'expense' && e.type != 'refund')) continue;
-      final signed = signedAmountOf(e);
-      final row = result.putIfAbsent(link.tagId, () => {});
-      row[e.categoryId] = (row[e.categoryId] ?? 0) + signed;
+    for (final g in groups) {
+      final row = result.putIfAbsent(g.tagId!, () => {});
+      row[g.categoryId] = (row[g.categoryId] ?? 0) + spentContribution(g.type, g.total);
     }
     return result;
   }

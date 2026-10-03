@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/format/date.dart';
 import '../../core/format/money.dart';
 import '../../core/navigation/bottom_up_route.dart';
 import '../../core/providers/app_providers.dart';
@@ -30,7 +31,6 @@ class ExpensesScreen extends ConsumerStatefulWidget {
 class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   ExpenseFilters _filters = const ExpenseFilters();
   final List<Expense> _expenses = [];
-  int _page = 0;
   bool _hasMore = true;
   bool _loading = true;
   bool _loadingMore = false;
@@ -60,12 +60,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       _loading = true;
       _hasError = false;
       _expenses.clear();
-      _page = 0;
       _hasMore = true;
       _loadingMore = false;
     });
     try {
-      final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: 0);
+      final page = await ref.read(expenseRepositoryProvider).list(filters: _filters);
       if (!mounted) return;
       setState(() {
         _expenses.addAll(page);
@@ -84,12 +83,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore) return;
     setState(() => _loadingMore = true);
-    final nextPage = _page + 1;
     try {
-      final page = await ref.read(expenseRepositoryProvider).list(filters: _filters, page: nextPage);
+      final page = await ref
+          .read(expenseRepositoryProvider)
+          .list(filters: _filters, after: _expenses.isEmpty ? null : _expenses.last);
       if (!mounted) return;
       setState(() {
-        _page = nextPage;
         final existingIds = _expenses.map((e) => e.id).toSet();
         _expenses.addAll(page.where((e) => !existingIds.contains(e.id)));
         _hasMore = page.length == ExpenseRepository.pageSize;
@@ -277,8 +276,8 @@ class _ExpenseTile extends ConsumerWidget {
         leading: selectionMode ? Checkbox(value: selected, onChanged: (_) => onTap()) : null,
         title: Text(title),
         subtitle: Text(isScheduled(expense)
-            ? '${DateFormat.yMMMd().format(expense.date)} · ${scheduledLabel ?? 'Scheduled'}'
-            : DateFormat.yMMMd().format(expense.date)),
+            ? '${cachedDateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(expense.date)} · ${scheduledLabel ?? 'Scheduled'}'
+            : cachedDateFormat(DateFormat.YEAR_ABBR_MONTH_DAY).format(expense.date)),
         trailing: Text(
           '$sign${formatMoney(expense.amount, expense.currency)}',
           style: TextStyle(color: color, fontWeight: FontWeight.w600, fontFeatures: const [FontFeature.tabularFigures()]),

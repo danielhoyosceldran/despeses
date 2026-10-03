@@ -1,12 +1,12 @@
-import 'dart:async';
 import 'dart:developer' as developer;
 
-import 'package:drift/drift.dart' show BooleanExpressionOperators;
+import 'package:drift/drift.dart' show BooleanExpressionOperators, TableUpdateQuery;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/keep_alive.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/analytics/analytics_category.dart';
 import '../../../domain/repositories/analytics/analytics_math.dart';
@@ -25,23 +25,13 @@ import '../../../domain/repositories/budget_repository.dart';
 /// the Analytics screen stays mounted across tabs (IndexedStack), and the
 /// month PageView lets the user swipe through unlimited months (R26), so a
 /// bare non-autoDispose family would cache every visited month forever. Each
-/// entry instead survives for [_sectionCacheTtl] after its last watcher drops
+/// entry instead survives for [keepAliveTtl] after its last watcher drops
 /// (e.g. leaving the Analytics tab or swiping to another month) and is then
 /// evicted, capping memory while still surviving quick tab switches. Freshness
 /// after a mutation on another tab is handled by [invalidateAnalyticsSections],
 /// which the screen calls when the Analytics tab regains focus.
 
-const _sectionCacheTtl = Duration(minutes: 10);
-
-/// Keeps an `autoDispose` provider entry alive for [_sectionCacheTtl] after
-/// its last listener unsubscribes, instead of disposing immediately.
-void _keepAliveFor(Ref ref, [Duration ttl = _sectionCacheTtl]) {
-  final link = ref.keepAlive();
-  Timer? timer;
-  ref.onDispose(() => timer?.cancel());
-  ref.onCancel(() => timer = Timer(ttl, link.close));
-  ref.onResume(() => timer?.cancel());
-}
+void _keepAliveFor(Ref ref) => keepAliveFor(ref);
 
 typedef MonthCurrency = ({DateTime month, String currency});
 typedef CategoryArgs = ({DateTime month, String currency, String? parentId});
@@ -61,6 +51,40 @@ void invalidateAnalyticsSections(WidgetRef ref) {
   ref.invalidate(eventListProvider);
   ref.invalidate(eventSectionProvider);
 }
+
+/// Whether any table the analytics sections read from has been written since
+/// the sections were last refreshed. Returning to the Analytics tab used to
+/// invalidate (and recompute) every section unconditionally; now it only does
+/// so when this reports a write (BL-061).
+class AnalyticsStaleness {
+  bool _dirty = false;
+
+  /// Returns whether data changed since the last call, and resets the flag.
+  bool consume() {
+    final dirty = _dirty;
+    _dirty = false;
+    return dirty;
+  }
+}
+
+/// Kept alive for the app's lifetime once read (the Analytics screen reads it
+/// on first build), so writes made on other tabs are always recorded.
+final analyticsStalenessProvider = Provider<AnalyticsStaleness>((ref) {
+  final db = ref.watch(databaseProvider);
+  final staleness = AnalyticsStaleness();
+  final sub = db
+      .tableUpdates(TableUpdateQuery.onAllTables([
+        db.expenses,
+        db.expenseTags,
+        db.budgets,
+        db.categories,
+        db.tags,
+        db.events,
+      ]))
+      .listen((_) => staleness._dirty = true);
+  ref.onDispose(sub.cancel);
+  return staleness;
+});
 
 /// Category ------------------------------------------------------------------
 
@@ -231,10 +255,14 @@ final budgetSectionProvider =
   final repo = ref.watch(budgetRepositoryProvider);
   final analytics = ref.watch(budgetAnalyticsProvider);
   final monthKey = monthKeyOf(DateTime(a.month.year, a.month.month));
-  final active = (await repo.listAll()).where((b) => repo.isActiveForMonth(b, monthKey)).toList();
+  // Pace is measured as of today, so the spent figures are the current
+  // month's; the shared reactive provider recomputes them on every write.
+  final now = DateTime.now();
+  final progress = await ref.watch(budgetProgressProvider(DateTime(now.year, now.month)).future);
+  final active = progress.budgets.where((b) => repo.isActiveForMonth(b, monthKey)).toList();
   final rows = <BudgetRowData>[];
   for (final b in active) {
-    final pace = await analytics.pace(b);
+    final pace = analytics.paceOf(b, progress.spent[b.id] ?? 0, asOf: now);
     rows.add(BudgetRowData(
       name: b.name,
       spent: pace.spentCents,

@@ -33,7 +33,9 @@ class DonutChart extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          PieChart(
+          // Own layer for the (animated) chart painting (BL-070).
+          RepaintBoundary(
+            child: PieChart(
             PieChartData(
               centerSpaceRadius: 60,
               sectionsSpace: 5,
@@ -55,6 +57,7 @@ class DonutChart extends StatelessWidget {
                 },
               ),
             ),
+          ),
           ),
           ?center,
         ],

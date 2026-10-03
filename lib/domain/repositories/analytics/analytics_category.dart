@@ -1,8 +1,10 @@
 import '../../../data/database.dart';
-import '../budget_repository.dart';
 import '../category_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
+
+/// Aggregated amount and transaction count of one category.
+typedef CategoryTotal = ({int amount, int count});
 
 /// One category slice: the category and its aggregated amount (its own leaves
 /// plus every descendant). Since categorization is leaf-only, there is no
@@ -36,16 +38,44 @@ class CategoryRankEntry {
 
 /// Category analytics for one transaction-type forest (expense/income/refund/
 /// ahorro). Every method takes the [type] whose tree + transactions to use.
+/// Totals are aggregated per category in SQL (BL-062) and rolled up the
+/// category tree in Dart.
 class CategoryAnalytics {
   CategoryAnalytics(this._db, this._categories);
 
   final AppDatabase _db;
   final CategoryRepository _categories;
 
-  /// Transactions of [type] in [range] for [currency].
-  Future<List<Expense>> _typeExpenses(DateRange range, String type, String currency) async {
-    final all = await expensesInRange(_db, range, currency);
-    return all.where((e) => e.type == type).toList();
+  /// Amount and count per category of the [type] transactions in [range].
+  Future<Map<String, CategoryTotal>> _totals(DateRange range, String type, String currency) async {
+    final groups = await aggregateInRange(_db, range, currency, groupBy: const {AggregateBy.category}, types: [type]);
+    return totalsByCategory(groups);
+  }
+
+  /// Amount and count per category of [groups] (aggregated by category).
+  /// Uncategorized groups are dropped.
+  static Map<String, CategoryTotal> totalsByCategory(Iterable<AmountGroup> groups) {
+    final totals = <String, CategoryTotal>{};
+    for (final g in groups) {
+      final id = g.categoryId;
+      if (id == null) continue;
+      final prev = totals[id];
+      totals[id] = (amount: (prev?.amount ?? 0) + g.total, count: (prev?.count ?? 0) + g.count);
+    }
+    return totals;
+  }
+
+  /// Sum of [totals] over the category ids in [ids].
+  static CategoryTotal _sumOver(Map<String, CategoryTotal> totals, Set<String> ids) {
+    var amount = 0;
+    var count = 0;
+    for (final id in ids) {
+      final t = totals[id];
+      if (t == null) continue;
+      amount += t.amount;
+      count += t.count;
+    }
+    return (amount: amount, count: count);
   }
 
   /// One drill level: a slice per direct child of [parentId] (aggregating the
@@ -56,17 +86,15 @@ class CategoryAnalytics {
     required String type,
     required String currency,
   }) async {
-    final expenses = await _typeExpenses(range, type, currency);
+    final totals = await _totals(range, type, currency);
     final children = await _categories.listChildren(parentId, type: type);
     final descendants = await _categories.descendantMap();
 
     final slices = <CategorySlice>[];
     for (final child in children) {
-      final ids = {child.id, ...?descendants[child.id]};
-      final matching = expenses.where((e) => e.categoryId != null && ids.contains(e.categoryId)).toList();
-      final amount = matching.fold<int>(0, (sum, e) => sum + e.amount);
-      if (amount != 0) {
-        slices.add(CategorySlice(categoryId: child.id, amountCents: amount, count: matching.length));
+      final sum = _sumOver(totals, {child.id, ...?descendants[child.id]});
+      if (sum.amount != 0) {
+        slices.add(CategorySlice(categoryId: child.id, amountCents: sum.amount, count: sum.count));
       }
     }
     return slices;
@@ -79,24 +107,27 @@ class CategoryAnalytics {
     required String type,
     required String currency,
   }) async {
-    final expenses = await _typeExpenses(range, type, currency);
+    return rankingFrom(await _totals(range, type, currency), type: type);
+  }
+
+  /// [ranking] from already aggregated per-category [totals] of one [type].
+  Future<List<CategoryRankEntry>> rankingFrom(Map<String, CategoryTotal> totals, {required String type}) async {
     final roots = await _categories.listChildren(null, type: type);
     final descendants = await _categories.descendantMap();
 
     final entries = <CategoryRankEntry>[];
     var total = 0;
     for (final root in roots) {
-      final ids = {root.id, ...?descendants[root.id]};
-      final matching = expenses.where((e) => e.categoryId != null && ids.contains(e.categoryId)).toList();
-      final amount = matching.fold<int>(0, (sum, e) => sum + e.amount);
+      final sum = _sumOver(totals, {root.id, ...?descendants[root.id]});
+      final amount = sum.amount;
       if (amount == 0) continue;
       total += amount;
       entries.add(CategoryRankEntry(
         categoryId: root.id,
         amountCents: amount,
         share: 0, // filled below once total is known
-        averageTicketCents: matching.isEmpty ? 0 : amount / matching.length,
-        count: matching.length,
+        averageTicketCents: sum.count == 0 ? 0 : amount / sum.count,
+        count: sum.count,
       ));
     }
     entries.sort((a, b) => b.amountCents.compareTo(a.amountCents));
@@ -119,27 +150,31 @@ class CategoryAnalytics {
     required String type,
     required String currency,
   }) async {
-    final expenses = await _typeExpenses(range, type, currency);
+    final months = monthsIn(range);
+    final groups = await aggregateInRange(
+      _db,
+      range,
+      currency,
+      buckets: months,
+      groupBy: const {AggregateBy.category},
+      types: [type],
+    );
     final roots = await _categories.listChildren(null, type: type);
     final descendants = await _categories.descendantMap();
-    final rootIds = <String, Set<String>>{
-      for (final r in roots) r.id: {r.id, ...?descendants[r.id]},
-    };
-
-    final result = <DateTime, Map<String, int>>{
-      for (final m in monthsIn(range)) m: {},
-    };
-    for (final e in expenses) {
-      if (e.categoryId == null) continue;
-      final month = DateTime(e.date.year, e.date.month, 1);
-      final bucket = result[month];
-      if (bucket == null) continue;
-      for (final entry in rootIds.entries) {
-        if (entry.value.contains(e.categoryId)) {
-          bucket[entry.key] = (bucket[entry.key] ?? 0) + e.amount;
-          break;
-        }
+    // Category id → its root (the first root whose subtree contains it).
+    final rootOf = <String, String>{};
+    for (final r in roots) {
+      for (final id in {r.id, ...?descendants[r.id]}) {
+        rootOf.putIfAbsent(id, () => r.id);
       }
+    }
+
+    final result = <DateTime, Map<String, int>>{for (final m in months) m: {}};
+    for (final g in groups) {
+      final root = rootOf[g.categoryId];
+      if (root == null) continue;
+      final bucket = result[months[g.bucket]]!;
+      bucket[root] = (bucket[root] ?? 0) + g.total;
     }
     return result;
   }
@@ -151,17 +186,20 @@ class CategoryAnalytics {
     required String type,
     required String currency,
   }) async {
-    final expenses = await _typeExpenses(range, type, currency);
+    final months = monthsIn(range);
+    final groups = await aggregateInRange(
+      _db,
+      range,
+      currency,
+      buckets: months,
+      groupBy: const {AggregateBy.category},
+      types: [type],
+    );
     final ids = {categoryId, ...await _categories.descendantIds(categoryId)};
-    // (single-category trend: one descendantIds lookup is fine here)
-    final byMonth = <String, int>{};
-    for (final e in expenses) {
-      if (e.categoryId == null || !ids.contains(e.categoryId)) continue;
-      final key = monthKeyOf(e.date);
-      byMonth[key] = (byMonth[key] ?? 0) + e.amount;
+    final totals = List<int>.filled(months.length, 0);
+    for (final g in groups) {
+      if (ids.contains(g.categoryId)) totals[g.bucket] += g.total;
     }
-    return [
-      for (final m in monthsIn(range)) (m, byMonth[monthKeyOf(m)] ?? 0),
-    ];
+    return [for (var i = 0; i < months.length; i++) (months[i], totals[i])];
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -122,10 +124,26 @@ class ExpenseRepository {
 
   /// Paginated, most-recent-first, filtered entirely in SQL (no client-side
   /// partial filtering / "filtro parcial" warning like the web app has).
-  Future<List<Expense>> list({ExpenseFilters filters = const ExpenseFilters(), int page = 0}) {
+  ///
+  /// Keyset pagination (BL-065): pass the last row of the previous page as
+  /// [after] to get the next one. Unlike LIMIT/OFFSET, page N doesn't scan and
+  /// discard N×[pageSize] rows, and the `idx_expenses_order` index serves the
+  /// ORDER BY directly. The cursor follows the same total order as
+  /// [_newestFirst] (date, createdAt, id), so ties never repeat or skip rows.
+  Future<List<Expense>> list({ExpenseFilters filters = const ExpenseFilters(), Expense? after}) {
     final query = _filteredQuery(filters)
       ..orderBy(_newestFirst)
-      ..limit(pageSize, offset: page * pageSize);
+      ..limit(pageSize);
+    if (after != null) {
+      final e = _db.expenses;
+      // `date <= cursor` up front lets SQLite seek the index instead of
+      // filtering from the newest row.
+      query.where(e.date.isSmallerOrEqualValue(after.date) &
+          (e.date.isSmallerThanValue(after.date) |
+              (e.date.equals(after.date) &
+                  (e.createdAt.isSmallerThanValue(after.createdAt) |
+                      (e.createdAt.equals(after.createdAt) & e.id.isSmallerThanValue(after.id))))));
+    }
 
     return query.map((row) => row.readTable(_db.expenses)).get();
   }
@@ -157,6 +175,24 @@ class ExpenseRepository {
         .get();
     return rows.map((r) => r.tagId).toList();
   }
+
+  /// Tag ids of many expenses at once: expense id → its tag ids (expenses
+  /// without tags are absent). One query per [_inChunk] ids instead of one per
+  /// expense (BL-018); chunked to stay under SQLite's bound-variable limit.
+  Future<Map<String, List<String>>> tagIdsByExpense(Iterable<String> expenseIds) async {
+    final ids = expenseIds.toList();
+    final result = <String, List<String>>{};
+    for (var i = 0; i < ids.length; i += _inChunk) {
+      final chunk = ids.sublist(i, min(i + _inChunk, ids.length));
+      final rows = await (_db.select(_db.expenseTags)..where((t) => t.expenseId.isIn(chunk))).get();
+      for (final r in rows) {
+        (result[r.expenseId] ??= []).add(r.tagId);
+      }
+    }
+    return result;
+  }
+
+  static const _inChunk = 900;
 
   /// [amountCents] is always stored positive; the sign is derived from [type]
   /// at display/aggregation time, never in storage.

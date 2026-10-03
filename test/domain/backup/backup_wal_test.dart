@@ -56,4 +56,14 @@ void main() {
     expect(rows.map((e) => e.id), contains('e1'));
     expect(rows.firstWhere((e) => e.id == 'e1').amount, 4200);
   });
+
+  test('the database opens in WAL mode with synchronous=NORMAL (BL-064)', () async {
+    // Fresh connection without the manual pragma from setUp.
+    await db.close();
+    db = AppDatabase(NativeDatabase(File(dbPath())));
+    final journal = await db.customSelect('PRAGMA journal_mode').getSingle();
+    final sync = await db.customSelect('PRAGMA synchronous').getSingle();
+    expect(journal.data.values.single, 'wal');
+    expect(sync.data.values.single, 1); // NORMAL
+  });
 }

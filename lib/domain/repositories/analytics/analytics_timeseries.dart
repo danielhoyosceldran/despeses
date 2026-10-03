@@ -1,5 +1,4 @@
 import '../../../data/database.dart';
-import '../budget_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
 
@@ -24,15 +23,18 @@ class TimeseriesAnalytics {
 
   /// A1.1 — signed spend per month across [range].
   Future<List<(DateTime, int)>> monthlyTotals(DateRange range, String currency) async {
-    final expenses = await expensesInRange(_db, range, currency);
-    final byMonth = <String, List<Expense>>{};
-    for (final e in expenses) {
-      byMonth.putIfAbsent(monthKeyOf(e.date), () => []).add(e);
+    final months = monthsIn(range);
+    final groups = await aggregateInRange(_db, range, currency, buckets: months, types: spendTypes);
+    return spentPerBucket(months, groups);
+  }
+
+  /// Spent per bucket of [groups] (aggregated with [starts] as buckets).
+  static List<(DateTime, int)> spentPerBucket(List<DateTime> starts, Iterable<AmountGroup> groups) {
+    final totals = List<int>.filled(starts.length, 0);
+    for (final g in groups) {
+      totals[g.bucket] += spentContribution(g.type, g.total);
     }
-    return [
-      for (final m in monthsIn(range))
-        (m, expenseOutflow(byMonth[monthKeyOf(m)] ?? const [])),
-    ];
+    return [for (var i = 0; i < starts.length; i++) (starts[i], totals[i])];
   }
 
   /// A1.2 — trailing moving average of the monthly totals over [window] months.
@@ -54,10 +56,8 @@ class TimeseriesAnalytics {
 
   /// A1.3 — this month vs previous month, and vs the same month last year.
   Future<({Comparison mom, Comparison yoy})> momYoY(DateTime month, String currency) async {
-    Future<int> spendOf(DateTime m) async {
-      final list = await expensesInRange(_db, DateRange.month(m), currency);
-      return expenseOutflow(list);
-    }
+    Future<int> spendOf(DateTime m) async =>
+        (await aggregateInRange(_db, DateRange.month(m), currency, types: spendTypes)).spent;
 
     final current = await spendOf(month);
     final prevMonth = await spendOf(DateTime(month.year, month.month - 1, 1));
@@ -71,7 +71,7 @@ class TimeseriesAnalytics {
   /// A1.6 — average daily spend per weekday (Mon..Sun → indices 1..7 of the
   /// returned map) across [range].
   Future<Map<int, double>> averageByWeekday(DateRange range, String currency) async {
-    final expenses = await expensesInRange(_db, range, currency);
+    final expenses = await expensesInRange(_db, range, currency, types: spendTypes);
     final sums = <int, int>{};
     final days = <int, Set<String>>{};
     for (final e in expenses) {
@@ -89,12 +89,17 @@ class TimeseriesAnalytics {
 
   /// A1.7 — spend per calendar day of [month] (day-of-month → signed cents).
   Future<Map<int, int>> calendarHeat(DateTime month, String currency) async {
-    final expenses = await expensesInRange(_db, DateRange.month(month), currency);
+    final groups = await aggregateInRange(
+      _db,
+      DateRange.month(month),
+      currency,
+      buckets: daysOf(month),
+      types: spendTypes,
+    );
     final byDay = <int, int>{};
-    for (final e in expenses) {
-      if (e.type != 'expense' && e.type != 'refund') continue;
-      final signed = signedAmountOf(e);
-      byDay[e.date.day] = (byDay[e.date.day] ?? 0) + signed;
+    for (final g in groups) {
+      final day = g.bucket + 1;
+      byDay[day] = (byDay[day] ?? 0) + spentContribution(g.type, g.total);
     }
     return byDay;
   }
@@ -123,8 +128,14 @@ class TimeseriesAnalytics {
   /// A1.5 — end-of-month projection: extrapolate the current daily pace to the
   /// full month. When [asOf] is omitted, today is used.
   Future<int> endOfMonthProjection(DateTime month, String currency, {DateTime? asOf}) async {
+    final spentSoFar =
+        (await aggregateInRange(_db, DateRange.month(month), currency, types: spendTypes)).spent;
+    return projectEndOfMonth(spentSoFar, month, asOf: asOf);
+  }
+
+  /// [endOfMonthProjection] from an already computed [spentSoFar].
+  static int projectEndOfMonth(int spentSoFar, DateTime month, {DateTime? asOf}) {
     final now = asOf ?? DateTime.now();
-    final spentSoFar = expenseOutflow(await expensesInRange(_db, DateRange.month(month), currency));
     final lastDay = DateTime(month.year, month.month + 1, 0).day;
     final dayCursor = (now.year == month.year && now.month == month.month) ? now.day : lastDay;
     if (dayCursor <= 0) return spentSoFar;

@@ -21,8 +21,25 @@ void setMoneyLocale(String? locale) {
   if (locale != null && locale.isNotEmpty) _moneyLocale = locale;
 }
 
-NumberFormat _currencyFormat(String currency, String? locale) =>
-    NumberFormat.simpleCurrency(locale: locale ?? _moneyLocale, name: currency);
+/// Formatters are cached by locale (and currency): building a [NumberFormat]
+/// parses its pattern and symbols, and these helpers run per list row and per
+/// animation frame (BL-059). Keyed by locale, so no invalidation is needed when
+/// [setMoneyLocale] changes it. Reuse is safe: `format` is synchronous.
+final _currencyFormats = <String, NumberFormat>{};
+final _decimalFormats = <String, NumberFormat>{};
+
+/// Throws (and caches nothing) for a currency code `intl` doesn't know.
+NumberFormat _currencyFormat(String currency, String? locale) {
+  final loc = locale ?? _moneyLocale;
+  return _currencyFormats.putIfAbsent(
+      '$loc|$currency', () => NumberFormat.simpleCurrency(locale: loc, name: currency));
+}
+
+NumberFormat _decimalFormat(String? locale) {
+  final loc = locale ?? _moneyLocale;
+  return _decimalFormats.putIfAbsent(
+      loc, () => NumberFormat.decimalPatternDigits(locale: loc, decimalDigits: 2));
+}
 
 /// Cents → localized amount with the currency symbol.
 ///
@@ -40,13 +57,8 @@ String formatMoney(int cents, String currency, {String? locale}) {
 
 /// Cents → localized plain number (2 decimals, no currency symbol). Used where
 /// the symbol is shown separately (e.g. split-styled displays).
-String formatDecimal(int cents, {String? locale}) =>
-    NumberFormat.decimalPatternDigits(locale: locale ?? _moneyLocale, decimalDigits: 2)
-        .format(cents / 100);
+String formatDecimal(int cents, {String? locale}) => _decimalFormat(locale).format(cents / 100);
 
 /// The locale's decimal separator (`.` for en, `,` for es), so a split-styled
 /// renderer can find the fractional boundary of [formatMoney]'s output.
-String decimalSeparatorFor({String? locale}) =>
-    NumberFormat.decimalPatternDigits(locale: locale ?? _moneyLocale, decimalDigits: 2)
-        .symbols
-        .DECIMAL_SEP;
+String decimalSeparatorFor({String? locale}) => _decimalFormat(locale).symbols.DECIMAL_SEP;

@@ -32,7 +32,7 @@ String transactionCountLabel(Translations? t, int count) {
 
 /// Localized "month year" label, first letter capitalized.
 String _monthTitle(DateTime month) {
-  final s = DateFormat.yMMMM(dateLocale).format(month);
+  final s = cachedDateFormat(DateFormat.YEAR_MONTH, locale: dateLocale).format(month);
   return s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
@@ -154,7 +154,7 @@ class TransactionsByDay extends ConsumerWidget {
         day = d;
         children.add(Padding(
           padding: EdgeInsets.fromLTRB(AppSpacing.xs, children.isEmpty ? 0 : AppSpacing.smMd, AppSpacing.xs, AppSpacing.sm),
-          child: Text(DateFormat.MMMEd(dateLocale).format(d).toUpperCase(), style: appHeaderStyle(colors)),
+          child: Text(cachedDateFormat(DateFormat.ABBR_MONTH_WEEKDAY_DAY, locale: dateLocale).format(d).toUpperCase(), style: appHeaderStyle(colors)),
         ));
       }
       children.add(ExpenseRow(

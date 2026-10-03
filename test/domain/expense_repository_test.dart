@@ -41,6 +41,27 @@ void main() {
     expect(await repo.tagIdsOf(id), [otherTag.id]);
   });
 
+  test('tagIdsByExpense resolves many expenses at once, across chunks (BL-018)', () async {
+    final tags = await db.select(db.tags).get();
+    final ids = <String>[];
+    for (var i = 0; i < 1000; i++) {
+      ids.add(await repo.create(
+        amountCents: 100,
+        currency: 'EUR',
+        type: 'expense',
+        date: DateTime(2026, 1, 1),
+        tagIds: i.isEven ? [tags[0].id, tags[1].id] : const [],
+      ));
+    }
+
+    final byExpense = await repo.tagIdsByExpense(ids);
+
+    expect(byExpense.length, 500);
+    expect(byExpense[ids.first]!.toSet(), {tags[0].id, tags[1].id});
+    expect(byExpense.containsKey(ids[1]), isFalse);
+    expect(byExpense[ids[998]]!.length, 2); // second chunk (index ≥ 900)
+  });
+
   test('list filters by type entirely in SQL and orders most-recent-first', () async {
     await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 1));
     await repo.create(amountCents: 200, currency: 'EUR', type: 'income', date: DateTime(2026, 1, 2));
@@ -106,12 +127,26 @@ void main() {
     }
 
     final seen = <String>[];
+    Expense? cursor;
     for (var page = 0; page < 3; page++) {
-      seen.addAll((await repo.list(page: page)).map((e) => e.id));
+      final rows = await repo.list(after: cursor);
+      seen.addAll(rows.map((e) => e.id));
+      cursor = rows.last;
     }
+    expect(await repo.list(after: cursor), isEmpty);
 
     expect(seen.length, total);
     expect(seen.toSet().length, total);
+  });
+
+  test('the newest-first page order is served by an index, no temp sort (BL-065)', () async {
+    final plan = await db
+        .customSelect('EXPLAIN QUERY PLAN SELECT * FROM expenses '
+            'WHERE date <= 0 ORDER BY date DESC, created_at DESC, id DESC LIMIT 100')
+        .get();
+    final details = plan.map((r) => r.data['detail'] as String).join(' | ');
+    expect(details, contains('idx_expenses_order'));
+    expect(details, isNot(contains('TEMP B-TREE')));
   });
 
   test('filtering by a parent category matches its whole subtree', () async {

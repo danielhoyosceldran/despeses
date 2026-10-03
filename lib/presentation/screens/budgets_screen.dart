@@ -34,8 +34,6 @@ class BudgetsScreen extends ConsumerStatefulWidget {
 class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   _Tab _tab = _Tab.budgets;
 
-  List<Budget> _budgets = [];
-  Map<String, int> _progress = {};
   bool _showActiveOnly = true;
   String _query = '';
 
@@ -97,16 +95,10 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     });
   }
 
-  /// Loads both collections (budgets + goals) so either page renders instantly
-  /// when swiped. Cheap for a personal app's data volume.
+  /// Loads the goals. Budgets and their progress come live from
+  /// [budgetProgressProvider] (BL-063), so they need no reload.
   Future<void> _load() async {
     setState(() => _loading = true);
-    final budgetRepo = ref.read(budgetRepositoryProvider);
-    final budgets = await budgetRepo.listAll();
-    final progress = <String, int>{};
-    for (final b in budgets) {
-      progress[b.id] = await budgetRepo.calculateProgress(b);
-    }
     final goalRepo = ref.read(savingsGoalRepositoryProvider);
     final goals = await goalRepo.listAll();
     final goalProgress = <String, GoalProgress>{};
@@ -115,8 +107,6 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     }
     if (!mounted) return;
     setState(() {
-      _budgets = budgets;
-      _progress = progress;
       _goals = goals;
       _goalProgress = goalProgress;
       _loading = false;
@@ -261,9 +251,12 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   }
 
   Widget _buildBudgetList(String Function(String) tr) {
+    final now = DateTime.now();
+    final progress = ref.watch(budgetProgressProvider(DateTime(now.year, now.month))).valueOrNull;
+    if (progress == null) return const Center(child: CircularProgressIndicator());
     final repo = ref.read(budgetRepositoryProvider);
     final query = _query.trim().toLowerCase();
-    final visible = _budgets.where((b) {
+    final visible = progress.budgets.where((b) {
       final active = repo.isActiveForMonth(b, _currentMonthKey);
       if (_showActiveOnly ? !active : active) return false;
       return query.isEmpty || b.name.toLowerCase().contains(query);
@@ -277,7 +270,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       itemCount: visible.length,
       itemBuilder: (context, index) {
         final budget = visible[index];
-        final spent = _progress[budget.id] ?? 0;
+        final spent = progress.spent[budget.id] ?? 0;
         final ratio = budget.amount == 0 ? 0.0 : (spent / budget.amount).clamp(0.0, 1.0);
         final over = spent > budget.amount;
         final semantic = context.semanticColors;

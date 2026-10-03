@@ -329,9 +329,13 @@ Header gear `settings`.
 - **Dashboard balance collapse** (`dashboard_screen` `_HeroHeaderDelegate`) — a
   pinned `SliverPersistentHeader` whose `shrinkOffset` maps 1:1 to `t` (0→1)
   between `minExtent 88` and `maxExtent 244`. As `t` grows the balance shrinks
-  (Clash 60→30), the Income/Spent/Savings tiles fold away (`Align(heightFactor: 1-t)` +
-  `Opacity(1-t)`), padding tightens, and a hairline bottom border fades in. The
-  scroll **is** the animation clock — no timed controller.
+  (Clash 60→30) and the "Total balance" label 13→12 — both laid out once at
+  their full size and *scaled* from the top-center (`Transform.scale` 1→0.5 /
+  1→12/13, occupying the scaled height), never by animating `fontSize`. The
+  Income/Spent/Savings tiles fold away (`Align(heightFactor: 1-t)`) and fade
+  out over the first half of the collapse (`Opacity(1 − Interval(0, 0.5)(t))`,
+  fully transparent from `t = 0.5`); padding tightens, and a hairline bottom
+  border fades in. The scroll **is** the animation clock — no timed controller.
 - **FAB press** — `PressableScale` (see §5).
 - **Analytics section-FAB drag** (`analytics_screen` `_SectionFab`) — dragging
   the section FAB gives live feedback along the committed axis: the button

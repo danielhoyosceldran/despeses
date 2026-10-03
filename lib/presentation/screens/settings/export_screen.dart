@@ -70,10 +70,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     final projectsById = {for (final p in await cache.projects()) p.id: p};
     final tagsById = {for (final t in await cache.tags()) t.id: t};
 
-    final tagIdsByExpenseId = <String, List<String>>{};
-    for (final e in expenses) {
-      tagIdsByExpenseId[e.id] = await expenseRepo.tagIdsOf(e.id);
-    }
+    final tagIdsByExpenseId = await expenseRepo.tagIdsByExpense(expenses.map((e) => e.id));
 
     return buildExportRows(
       expenses: expenses,

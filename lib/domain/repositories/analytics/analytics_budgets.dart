@@ -32,7 +32,7 @@ class BudgetPace {
 }
 
 /// Budget analytics (Analytics › Presupuestos, section A7). Reuses
-/// [BudgetRepository.calculateProgress] for the spent figure and adds pacing,
+/// [BudgetRepository.progressFor] for the spent figure and adds pacing,
 /// projection and historical compliance on top.
 class BudgetAnalytics {
   BudgetAnalytics(this._budgets);
@@ -66,8 +66,13 @@ class BudgetAnalytics {
   /// A7.1–A7.3 — spent, limit, elapsed time fraction, over-pace flag, projection.
   Future<BudgetPace> pace(Budget budget, {DateTime? asOf}) async {
     final now = asOf ?? DateTime.now();
-    final spent = await _budgets.calculateProgress(budget, inMonth: now);
-    final timeFraction = _timeFraction(budget, now);
+    return paceOf(budget, await _budgets.calculateProgress(budget, inMonth: now), asOf: now);
+  }
+
+  /// [pace] from an already computed [spent] (e.g. one entry of
+  /// [BudgetRepository.progressFor], computed with the month of [asOf]).
+  BudgetPace paceOf(Budget budget, int spent, {DateTime? asOf}) {
+    final timeFraction = _timeFraction(budget, asOf ?? DateTime.now());
     return BudgetPace(spentCents: spent, limitCents: budget.amount, timeFraction: timeFraction);
   }
 
@@ -83,13 +88,15 @@ class BudgetAnalytics {
     var met = 0;
     var exceeded = 0;
     final overspends = <double>[];
-    for (final b in budgets) {
-      final ended = switch (b.budgetType) {
-        'range' => b.endsMonth!.compareTo(asOfKey) < 0,
-        _ => false, // monthly budgets recur forever, never "end"
-      };
-      if (!ended) continue;
-      final spent = await _budgets.calculateProgress(b);
+    final ended = budgets
+        .where((b) => switch (b.budgetType) {
+              'range' => b.endsMonth!.compareTo(asOfKey) < 0,
+              _ => false, // monthly budgets recur forever, never "end"
+            })
+        .toList();
+    final progress = await _budgets.progressFor(ended);
+    for (final b in ended) {
+      final spent = progress[b.id] ?? 0;
       if (spent <= b.amount) {
         met++;
       } else {

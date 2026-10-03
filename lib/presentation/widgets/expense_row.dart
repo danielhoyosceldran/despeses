@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/money.dart';
-import '../../core/i18n/display_name.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -112,11 +111,8 @@ class ExpenseRow extends ConsumerWidget {
   }
 
   String? _categoryLabel(WidgetRef ref) {
-    if (expense.categoryId == null || translations == null) return null;
-    final categories = ref.watch(categoriesListProvider).valueOrNull;
-    if (categories == null) return null;
-    final match = categories.where((c) => c.id == expense.categoryId);
-    if (match.isEmpty) return null;
-    return displayNameFor(translations!, name: match.first.name, isDefault: match.first.isDefault);
+    final categoryId = expense.categoryId;
+    if (categoryId == null || translations == null) return null;
+    return ref.watch(categoryLabelsProvider.select((labels) => labels[categoryId]));
   }
 }

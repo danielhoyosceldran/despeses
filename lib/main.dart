@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/format/date.dart';
 import 'core/format/money.dart';
@@ -15,9 +14,10 @@ import 'core/theme/app_theme.dart';
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    // Pre-load intl date symbols for every supported locale so `formatDate`
-    // (R16) never hits an unloaded-locale exception on first use.
-    await Future.wait(supportedDateLocales.map(initializeDateFormatting));
+    // Nothing is awaited before runApp (BL-066): the profile, its translations
+    // and its date symbols load while the native splash is still up, because
+    // the first frame is held back until they are ready (see _FirstFrame).
+    _FirstFrame.hold();
 
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
@@ -92,6 +92,28 @@ class _AppRestartScopeState extends State<AppRestartScope> {
   }
 }
 
+/// Holds the first frame back so the native splash stays up until the profile
+/// and its translations are loaded: the first frame the user sees is already
+/// in their language instead of flashing the English fallback texts (BL-066).
+/// Released once — also when loading fails, or after [_timeout] at the latest,
+/// so a broken load can never leave the app stuck on the splash.
+abstract final class _FirstFrame {
+  static const _timeout = Duration(seconds: 3);
+  static bool _held = false;
+
+  static void hold() {
+    _held = true;
+    WidgetsBinding.instance.deferFirstFrame();
+    Timer(_timeout, release);
+  }
+
+  static void release() {
+    if (!_held) return;
+    _held = false;
+    WidgetsBinding.instance.allowFirstFrame();
+  }
+}
+
 class DespesesApp extends ConsumerWidget {
   const DespesesApp({super.key});
 
@@ -99,9 +121,15 @@ class DespesesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileStreamProvider);
     final locale = profileAsync.asData?.value.language;
+    final translations = ref.watch(translationsProvider);
+    if (!translations.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _FirstFrame.release());
+    }
     // Keep money/date formatting in sync with the profile language (C1, R16).
+    // Dates switch with the loaded translations, whose provider has already
+    // loaded that locale's date symbols.
     setMoneyLocale(locale);
-    setDateLocale(locale);
+    setDateLocale(translations.valueOrNull?.locale);
     final themeMode = switch (profileAsync.asData?.value.theme) {
       'dark' => ThemeMode.dark,
       'light' => ThemeMode.light,

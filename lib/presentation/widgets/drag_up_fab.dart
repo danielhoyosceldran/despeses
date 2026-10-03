@@ -173,7 +173,11 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
     // Tap is left to the child button (keeps ripple/enabled state); this
     // detector only claims vertical drags, which win the arena once the finger
     // moves past slop.
-    return GestureDetector(
+    // Repaint boundaries (BL-070): the outer one keeps the per-frame drag
+    // translation from repainting the screen behind; the inner one lets the
+    // moving button reuse its recorded layer.
+    return RepaintBoundary(
+      child: GestureDetector(
       onVerticalDragStart: (_) => _start(),
       onVerticalDragUpdate: (d) => _update(d.delta.dy),
       onVerticalDragEnd: (d) => _end(d.primaryVelocity ?? 0),
@@ -188,7 +192,8 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
           offset: Offset(0, -offset),
           child: child,
         ),
-        child: widget.builder(context, _armed, _onTap),
+        child: RepaintBoundary(child: widget.builder(context, _armed, _onTap)),
+      ),
       ),
     );
   }

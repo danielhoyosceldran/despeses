@@ -10,9 +10,32 @@ import 'package:flutter/services.dart' show rootBundle;
 /// resolved at render time — this cannot be expressed with generated ARB/
 /// gen-l10n classes (plan §6).
 class Translations {
-  Translations(this._values);
+  /// [values] is the nested JSON map; it is flattened once into dotted keys
+  /// so [t] is a single hash lookup instead of a split + nested walk per call
+  /// (it runs hundreds of times per build — BL-069).
+  Translations(Map<String, dynamic> values, {this.locale = fallbackLocale}) : _flat = _flatten(values);
 
-  final Map<String, dynamic> _values;
+  final Map<String, String> _flat;
+
+  /// The locale these strings are in.
+  final String locale;
+
+  static Map<String, String> _flatten(Map<String, dynamic> values) {
+    final out = <String, String>{};
+    void walk(Map<String, dynamic> node, String prefix) {
+      node.forEach((key, value) {
+        final path = prefix.isEmpty ? key : '$prefix.$key';
+        if (value is String) {
+          out[path] = value;
+        } else if (value is Map<String, dynamic>) {
+          walk(value, path);
+        }
+      });
+    }
+
+    walk(values, '');
+    return out;
+  }
 
   static const supportedLocales = ['en', 'es', 'ca', 'fr', 'it'];
   static const fallbackLocale = 'en';
@@ -20,20 +43,10 @@ class Translations {
   static Future<Translations> load(String locale) async {
     final code = supportedLocales.contains(locale) ? locale : fallbackLocale;
     final raw = await rootBundle.loadString('assets/locales/$code.json');
-    return Translations(jsonDecode(raw) as Map<String, dynamic>);
+    return Translations(jsonDecode(raw) as Map<String, dynamic>, locale: code);
   }
 
   /// Resolves a dotted [key] (e.g. `category.food`); returns [key] itself if
   /// not found, so a missing translation is visible instead of crashing.
-  String t(String key) {
-    dynamic node = _values;
-    for (final part in key.split('.')) {
-      if (node is Map<String, dynamic> && node.containsKey(part)) {
-        node = node[part];
-      } else {
-        return key;
-      }
-    }
-    return node is String ? node : key;
-  }
+  String t(String key) => _flat[key] ?? key;
 }

@@ -132,7 +132,9 @@ class TrendLines extends StatelessWidget {
     final lastX = pointCount <= 1 ? 1.0 : (pointCount - 1).toDouble();
     return SizedBox(
       height: height,
-      child: LineChart(
+      // Own layer for the (animated) chart painting (BL-070).
+      child: RepaintBoundary(
+        child: LineChart(
         LineChartData(
           minX: -0.3,
           maxX: lastX + 0.3,
@@ -156,6 +158,7 @@ class TrendLines extends StatelessWidget {
               ),
           ],
         ),
+      ),
       ),
     );
   }

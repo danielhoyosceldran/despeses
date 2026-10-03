@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/feature_flags.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../dev/perf_seed.dart';
 import '../widgets/app_toast.dart';
 
 /// Bottom nav with 5 tabs: Dashboard · Expenses · Budgets · Analytics ·
@@ -31,6 +32,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _materializeDue();
+    if (kSeedPerfData) {
+      // Dev-only profiling dataset (BL-056); a no-op unless the db is empty.
+      seedPerfDatasetIfEmpty(ref.read(databaseProvider), ref.read(categoryRepositoryProvider));
+    }
   }
 
   @override
@@ -139,7 +144,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           if (targetIndex == 0) _materializeDue();
           navigationShell.goBranch(targetIndex);
         },
-        child: _NavBar(
+        // Own layer (BL-070): the sliding pill and tab changes repaint only
+        // the bar, and body repaints never re-record it.
+        child: RepaintBoundary(
+          child: _NavBar(
           activePos: _visibleIndices.indexOf(navigationShell.currentIndex),
           icons: [for (final i in _visibleIndices) _icons[i]],
           labels: [for (final i in _visibleIndices) t?.t(_keys[i]) ?? _labels[i]],
@@ -148,6 +156,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             if (index == 0) _materializeDue();
             navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
           },
+        ),
         ),
       ),
       ),
@@ -209,7 +218,9 @@ class _NavBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                Row(
+                // The tabs keep their layer while the pill slides beneath.
+                RepaintBoundary(
+                  child: Row(
                   children: [
                     for (var pos = 0; pos < n; pos++)
                       SizedBox(
@@ -222,6 +233,7 @@ class _NavBar extends StatelessWidget {
                         ),
                       ),
                   ],
+                ),
                 ),
               ],
             );

@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
 import 'analytics/analytics_math.dart';
+import 'analytics/analytics_query.dart';
 import 'category_repository.dart';
 
 const _uuid = Uuid();
@@ -15,6 +16,14 @@ String monthKeyOf(DateTime date) =>
 int _monthOrdinal(String key) {
   final parts = key.split('-');
   return int.parse(parts[0]) * 12 + int.parse(parts[1]);
+}
+
+/// Every budget and its spent figure (by budget id) for one month.
+class BudgetMonthProgress {
+  const BudgetMonthProgress(this.budgets, this.spent);
+
+  final List<Budget> budgets;
+  final Map<String, int> spent;
 }
 
 class BudgetRepository {
@@ -125,47 +134,117 @@ class BudgetRepository {
   /// [inMonth] (defaults to the current month). `range` budgets ignore
   /// [inMonth] and sum across their whole window.
   Future<int> calculateProgress(Budget budget, {DateTime? inMonth}) async {
-    // Half-open date window [start, end) of the budget's period, so the DB
-    // (not Dart) restricts rows — a `monthly` budget no longer loads the whole
-    // category history just to keep one month (R2).
-    final (start, end) = _periodBounds(budget, inMonth ?? DateTime.now());
+    return (await progressFor([budget], inMonth: inMonth))[budget.id] ?? 0;
+  }
 
-    final query = _db.select(_db.expenses)
-      ..where((e) => e.currency.equals(budget.currency))
-      ..where((e) => e.type.isIn(['expense', 'refund']))
-      ..where((e) => e.date.isBiggerOrEqualValue(start) & e.date.isSmallerThanValue(end))
-      // Scheduled (future-dated) rows don't count until their day.
-      ..where((e) => e.date.isSmallerThanValue(scheduledFrom()));
-
-    if (budget.categoryId != null) {
-      final ids = {budget.categoryId!, ...await _categories.descendantIds(budget.categoryId!)};
-      query.where((e) => e.categoryId.isIn(ids));
-    } else if (budget.projectId != null) {
-      query.where((e) => e.projectId.equals(budget.projectId!));
-    } else if (budget.eventId != null) {
-      query.where((e) => e.eventId.equals(budget.eventId!));
+  /// [calculateProgress] for many budgets at once, keyed by budget id (BL-063).
+  /// Instead of one query per budget, the spend of the union of every period
+  /// is aggregated in SQL per month and per category/project/event (plus one
+  /// query per month and tag for tag budgets, joined to `expense_tags` and
+  /// date-filtered), then each budget sums the months of its own window.
+  Future<Map<String, int>> progressFor(Iterable<Budget> budgets, {DateTime? inMonth}) async {
+    final month = inMonth ?? DateTime.now();
+    final result = <String, int>{};
+    final byCurrency = <String, List<Budget>>{};
+    for (final b in budgets) {
+      byCurrency.putIfAbsent(b.currency, () => []).add(b);
     }
-    // tagId dimension is filtered below via expense_tags, after loading rows,
-    // to keep this query shape uniform across dimensions.
-
-    final expenses = await query.get();
-
-    List<Expense> dimensionFiltered;
-    if (budget.tagId != null) {
-      final tagged = await (_db.select(_db.expenseTags)
-            ..where((t) => t.tagId.equals(budget.tagId!)))
-          .get();
-      final taggedIds = tagged.map((t) => t.expenseId).toSet();
-      dimensionFiltered = expenses.where((e) => taggedIds.contains(e.id)).toList();
-    } else {
-      dimensionFiltered = expenses;
+    for (final entry in byCurrency.entries) {
+      result.addAll(await _progressInCurrency(entry.key, entry.value, month));
     }
+    return result;
+  }
 
-    var total = 0;
-    for (final e in dimensionFiltered) {
-      total += signedAmountOf(e);
+  Future<Map<String, int>> _progressInCurrency(String currency, List<Budget> budgets, DateTime month) async {
+    final windows = {for (final b in budgets) b.id: _periodBounds(b, month)};
+    var from = windows.values.first.$1;
+    var before = windows.values.first.$2;
+    for (final (start, end) in windows.values) {
+      if (start.isBefore(from)) from = start;
+      if (end.isAfter(before)) before = end;
     }
-    return total;
+    // One bucket per month of the union window; budget windows are whole
+    // months, so each covers a contiguous run of buckets.
+    final months = <DateTime>[];
+    for (var m = from; m.isBefore(before); m = DateTime(m.year, m.month + 1)) {
+      months.add(m);
+    }
+    int bucketOf(DateTime d) => (d.year * 12 + d.month) - (from.year * 12 + from.month);
+
+    final hasDimension = budgets.any((b) => b.tagId == null);
+    final tagIds = {for (final b in budgets) if (b.tagId != null) b.tagId!};
+    final dimensionGroups = hasDimension
+        ? await aggregateExpenses(
+            _db,
+            currency: currency,
+            from: from,
+            before: before,
+            buckets: months,
+            groupBy: const {AggregateBy.category, AggregateBy.project, AggregateBy.event},
+            types: spendTypes,
+          )
+        : const <AmountGroup>[];
+    final tagGroups = tagIds.isEmpty
+        ? const <AmountGroup>[]
+        : await aggregateExpenses(
+            _db,
+            currency: currency,
+            from: from,
+            before: before,
+            buckets: months,
+            groupBy: const {AggregateBy.tag},
+            types: spendTypes,
+            tagIds: tagIds,
+          );
+    final descendants =
+        budgets.any((b) => b.categoryId != null) ? await _categories.descendantMap() : const <String, Set<String>>{};
+
+    final result = <String, int>{};
+    for (final b in budgets) {
+      final (start, end) = windows[b.id]!;
+      final first = bucketOf(start);
+      final last = bucketOf(end); // exclusive
+      final bool Function(AmountGroup) matches;
+      final Iterable<AmountGroup> source;
+      if (b.categoryId != null) {
+        final ids = {b.categoryId!, ...?descendants[b.categoryId!]};
+        matches = (g) => ids.contains(g.categoryId);
+        source = dimensionGroups;
+      } else if (b.projectId != null) {
+        matches = (g) => g.projectId == b.projectId;
+        source = dimensionGroups;
+      } else if (b.eventId != null) {
+        matches = (g) => g.eventId == b.eventId;
+        source = dimensionGroups;
+      } else {
+        matches = (g) => g.tagId == b.tagId;
+        source = tagGroups;
+      }
+      var total = 0;
+      for (final g in source) {
+        if (g.bucket >= first && g.bucket < last && matches(g)) {
+          total += spentContribution(g.type, g.total);
+        }
+      }
+      result[b.id] = total;
+    }
+    return result;
+  }
+
+  /// Every budget plus its progress for [month] (see [progressFor]), re-emitted
+  /// whenever a table it depends on changes, so screens stay in sync without
+  /// manual reloads (BL-063).
+  Stream<BudgetMonthProgress> watchMonthProgress(DateTime month) {
+    return _db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {_db.budgets, _db.expenses, _db.expenseTags, _db.categories},
+        )
+        .watch()
+        .asyncMap((_) async {
+      final budgets = await listAll();
+      return BudgetMonthProgress(budgets, await progressFor(budgets, inMonth: month));
+    });
   }
 
   /// Half-open `[start, end)` datetime window of a budget's period. `monthly`

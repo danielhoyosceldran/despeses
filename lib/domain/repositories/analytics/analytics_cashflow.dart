@@ -1,5 +1,4 @@
 import '../../../data/database.dart';
-import '../budget_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
 
@@ -34,21 +33,21 @@ class CashflowAnalytics {
 
   /// Per-month cash-flow across [range].
   Future<List<MonthlyCashflow>> monthly(DateRange range, String currency) async {
-    final expenses = await expensesInRange(_db, range, currency);
-    final byMonth = <String, List<Expense>>{};
-    for (final e in expenses) {
-      final key = monthKeyOf(e.date);
-      byMonth.putIfAbsent(key, () => []).add(e);
-    }
+    final months = monthsIn(range);
+    return fromGroups(months, await aggregateInRange(_db, range, currency, buckets: months));
+  }
+
+  /// Per-month cash-flow from [groups] aggregated with [months] as buckets.
+  static List<MonthlyCashflow> fromGroups(List<DateTime> months, Iterable<AmountGroup> groups) {
     return [
-      for (final month in monthsIn(range))
+      for (var i = 0; i < months.length; i++)
         () {
-          final group = byMonth[monthKeyOf(month)] ?? const [];
+          final group = groups.where((g) => g.bucket == i);
           return MonthlyCashflow(
-            month: month,
-            income: sumOfType(group, 'income'),
-            spend: expenseOutflow(group),
-            savings: sumOfType(group, 'ahorro'),
+            month: months[i],
+            income: group.ofType('income'),
+            spend: group.spent,
+            savings: group.savings,
           );
         }(),
     ];

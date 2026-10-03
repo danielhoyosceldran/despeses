@@ -1,5 +1,4 @@
 import '../../../data/database.dart';
-import '../budget_repository.dart';
 import 'analytics_math.dart';
 import 'analytics_query.dart';
 
@@ -32,21 +31,18 @@ class BehaviorAnalytics {
 
   final AppDatabase _db;
 
-  Future<List<Expense>> _spendTxns(DateRange range, String currency) async {
-    final all = await expensesInRange(_db, range, currency);
-    return all.where((e) => e.type == 'expense').toList();
-  }
+  Future<List<Expense>> _spendTxns(DateRange range, String currency) =>
+      expensesInRange(_db, range, currency, types: const ['expense']);
 
   /// A8.1 — number of expense transactions per month.
   Future<List<(DateTime, int)>> countByMonth(DateRange range, String currency) async {
-    final txns = await _spendTxns(range, currency);
-    final byMonth = <String, int>{};
-    for (final e in txns) {
-      byMonth[monthKeyOf(e.date)] = (byMonth[monthKeyOf(e.date)] ?? 0) + 1;
+    final months = monthsIn(range);
+    final groups = await aggregateInRange(_db, range, currency, buckets: months, types: const ['expense']);
+    final counts = List<int>.filled(months.length, 0);
+    for (final g in groups) {
+      counts[g.bucket] += g.count;
     }
-    return [
-      for (final m in monthsIn(range)) (m, byMonth[monthKeyOf(m)] ?? 0),
-    ];
+    return [for (var i = 0; i < months.length; i++) (months[i], counts[i])];
   }
 
   /// A8.2 — mean, median and max ticket over [range].
@@ -99,8 +95,22 @@ class BehaviorAnalytics {
     String currency, {
     DateTime? asOf,
   }) async {
-    final txns = await _spendTxns(DateRange.month(month), currency);
-    final spentDays = txns.map((e) => e.date.day).toSet();
+    final groups = await aggregateInRange(
+      _db,
+      DateRange.month(month),
+      currency,
+      buckets: daysOf(month),
+      types: const ['expense'],
+    );
+    return noSpendFrom({for (final g in groups) g.bucket + 1}, month, asOf: asOf);
+  }
+
+  /// [noSpendDays] from the set of days of [month] with at least one expense.
+  static ({int noSpendDays, int currentStreak}) noSpendFrom(
+    Set<int> spentDays,
+    DateTime month, {
+    DateTime? asOf,
+  }) {
     final now = asOf ?? DateTime.now();
     final lastDay = (now.year == month.year && now.month == month.month)
         ? now.day
@@ -120,10 +130,10 @@ class BehaviorAnalytics {
 
   /// A8.7 — refunds vs gross spend for the period.
   Future<RefundSummary> refunds(DateRange range, String currency) async {
-    final all = await expensesInRange(_db, range, currency);
+    final groups = await aggregateInRange(_db, range, currency, types: spendTypes);
     return RefundSummary(
-      totalRefunded: sumOfType(all, 'refund'),
-      grossSpend: sumOfType(all, 'expense'),
+      totalRefunded: groups.ofType('refund'),
+      grossSpend: groups.ofType('expense'),
     );
   }
 }

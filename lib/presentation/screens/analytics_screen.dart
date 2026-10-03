@@ -133,11 +133,15 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Reload section data when returning to the Analytics tab (it may have
-    // changed on another tab). The screen stays mounted across tabs, so
-    // invalidating the cached section providers is what forces the refetch.
+    // Reload section data when returning to the Analytics tab, but only if
+    // something was written meanwhile (BL-061): the screen stays mounted
+    // across tabs, so invalidating the cached section providers is what forces
+    // the refetch, and doing it unconditionally recomputed everything on every
+    // visit. Watching the staleness tracker here also creates it on first
+    // build, so it records writes from then on.
+    final staleness = ref.watch(analyticsStalenessProvider);
     ref.listen(currentTabIndexProvider, (_, next) {
-      if (next == 3) invalidateAnalyticsSections(ref);
+      if (next == 3 && staleness.consume()) invalidateAnalyticsSections(ref);
     });
     final translations = ref.watch(translationsProvider).asData?.value;
     final currency = ref.watch(profileStreamProvider).asData?.value.currency ?? 'EUR';
@@ -227,6 +231,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
 
   Future<void> _onRefresh() async {
     ref.read(hapticsProvider).light();
+    ref.read(analyticsStalenessProvider).consume();
     invalidateAnalyticsSections(ref);
   }
 }
@@ -338,7 +343,11 @@ class _SectionFabState extends ConsumerState<_SectionFab> {
     final clamped = _drag.clamp(-_kMaxFollow, _kMaxFollow);
     final follow = _axis == _DragAxis.horizontal ? Offset(clamped, 0) : Offset(0, clamped);
     final armed = _target != widget.section;
-    return GestureDetector(
+    // Repaint boundaries (BL-070): the outer one stops the per-frame drag
+    // translation from repainting the screen behind (charts included); the
+    // inner one lets the translated FAB reuse its recorded layer.
+    return RepaintBoundary(
+      child: GestureDetector(
       onVerticalDragStart: (_) => _start(_DragAxis.vertical),
       onVerticalDragUpdate: (d) => _update(d.delta.dy),
       onVerticalDragEnd: (_) => _end(),
@@ -353,7 +362,8 @@ class _SectionFabState extends ConsumerState<_SectionFab> {
         curve: Curves.easeOut,
         child: Transform.translate(
           offset: follow,
-          child: FloatingActionButton(
+          child: RepaintBoundary(
+            child: FloatingActionButton(
             onPressed: widget.onTap,
             // No hero: sibling tab FABs stay mounted at once (StatefulShell), so
             // a shared default hero tag collides on route transitions.
@@ -370,7 +380,9 @@ class _SectionFabState extends ConsumerState<_SectionFab> {
               ),
             ),
           ),
+          ),
         ),
+      ),
       ),
     );
   }

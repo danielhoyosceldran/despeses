@@ -59,16 +59,22 @@ bool isScheduled(Expense e, {DateTime? now}) => !e.date.isBefore(scheduledFrom(n
 int expenseOutflow(Iterable<Expense> expenses) {
   var total = 0;
   for (final e in expenses) {
-    switch (e.type) {
-      case 'expense':
-        total += e.amount;
-      case 'refund':
-        total -= e.amount;
-      // ahorro and income excluded.
-    }
+    total += spentContribution(e.type, e.amount);
   }
   return total;
 }
+
+/// What [amount] of a transaction [type] adds to the spent figure: `expense`
+/// positive, `refund` negative, `ahorro`/`income` nothing. The single rule
+/// behind [expenseOutflow] and the SQL aggregates (`AmountGroups.spent`).
+int spentContribution(String type, int amount) => switch (type) {
+      'expense' => amount,
+      'refund' => -amount,
+      _ => 0,
+    };
+
+/// Transaction types that make up the spent figure.
+const spendTypes = ['expense', 'refund'];
 
 /// Savings set aside: the sum of `ahorro` amounts. Shown next to (never inside)
 /// the spent figure.

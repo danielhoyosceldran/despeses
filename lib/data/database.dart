@@ -26,26 +26,31 @@ class _Cat {
 
 /// Inserts [node] and its subtree, assigning [position] among its siblings and
 /// linking children to their parent via parentId.
-Future<void> _insertCategoryNode(
-  AppDatabase db, {
+/// Queues [node] (and its subtree) for insertion in [batch]. Ids are
+/// generated client-side, so children can reference their parent without
+/// waiting for an insert to complete.
+void _insertCategoryNode(
+  AppDatabase db,
+  Batch batch, {
   required String type,
   String? parentId,
   required _Cat node,
   required int position,
-}) async {
+}) {
   final id = _uuid.v4();
-  await db.into(db.categories).insert(
-        CategoriesCompanion.insert(
-          id: id,
-          name: node.key,
-          type: Value(type),
-          parentId: Value(parentId),
-          isDefault: const Value(true),
-          position: Value(position),
-        ),
-      );
+  batch.insert(
+    db.categories,
+    CategoriesCompanion.insert(
+      id: id,
+      name: node.key,
+      type: Value(type),
+      parentId: Value(parentId),
+      isDefault: const Value(true),
+      position: Value(position),
+    ),
+  );
   for (var i = 0; i < node.children.length; i++) {
-    await _insertCategoryNode(db, type: type, parentId: id, node: node.children[i], position: i);
+    _insertCategoryNode(db, batch, type: type, parentId: id, node: node.children[i], position: i);
   }
 }
 
@@ -131,6 +136,19 @@ class AppDatabase extends _$AppDatabase {
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
+          // Performance (BL-064). Per-connection settings, so no schema bump.
+          // WAL: commits append to the -wal file instead of rewriting pages,
+          // and reads (the watch streams) don't block writes. synchronous =
+          // NORMAL is the recommended pairing: durable across app crashes, only
+          // the last commits can be lost on a power cut. Backups already
+          // checkpoint the WAL before copying (BackupService.createBackup), and
+          // auto-backups/restore carry the -wal/-shm sidecars.
+          await customStatement('PRAGMA journal_mode = WAL');
+          await customStatement('PRAGMA synchronous = NORMAL');
+          await customStatement('PRAGMA temp_store = MEMORY');
+          // Indexes added after an install was created (IF NOT EXISTS: no-op
+          // otherwise).
+          await _createIndexes(this);
         },
       );
 }
@@ -155,11 +173,18 @@ Future<void> _rebuildFromScratch(AppDatabase db, Migrator m) async {
 /// Indexes on the hottest `expenses` query paths (R3): every analytics/listing
 /// query filters by `date` and/or `category_id`, which were full table scans.
 /// Declared here (not via table annotations) so no codegen step is needed and
-/// the same statements serve both onCreate and the dev rebuild.
+/// the same statements serve onCreate, the dev rebuild and beforeOpen. All
+/// use IF NOT EXISTS, so adding one needs no schemaVersion bump: beforeOpen
+/// creates it on existing installs.
 Future<void> _createIndexes(AppDatabase db) async {
   await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
   await db.customStatement(
       'CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)');
+  // Matches ExpenseRepository's total order (date, created_at, id), so the
+  // paginated list reads it in index order with no temp B-tree sort and the
+  // keyset cursor seeks straight to the next page (BL-065).
+  await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_order '
+      'ON expenses(date DESC, created_at DESC, id DESC)');
 }
 
 /// Indexes on the recurring feature's hot paths (feature 3.13): the
@@ -172,8 +197,13 @@ Future<void> _createRecurringIndexes(AppDatabase db) async {
       'CREATE INDEX IF NOT EXISTS idx_recurring_occ_due ON recurring_occurrences(due_date)');
 }
 
-Future<void> _seedDefaults(AppDatabase db) async {
-  await db.into(db.profile).insert(const ProfileCompanion());
+/// Default rows of a fresh install, written in a single batch (one
+/// transaction, prepared statements reused) instead of ~90 sequential inserts
+/// (BL-066).
+Future<void> _seedDefaults(AppDatabase db) => db.batch((batch) => _queueDefaults(db, batch));
+
+void _queueDefaults(AppDatabase db, Batch batch) {
+  batch.insert(db.profile, const ProfileCompanion());
 
   final tagGroupIds = <String, String>{};
   const tagGroupKeys = [
@@ -185,9 +215,7 @@ Future<void> _seedDefaults(AppDatabase db) async {
   for (var i = 0; i < tagGroupKeys.length; i++) {
     final id = _uuid.v4();
     tagGroupIds[tagGroupKeys[i]] = id;
-    await db.into(db.tagGroups).insert(
-          TagGroupsCompanion.insert(id: id, name: tagGroupKeys[i], position: Value(i)),
-        );
+    batch.insert(db.tagGroups, TagGroupsCompanion.insert(id: id, name: tagGroupKeys[i], position: Value(i)));
   }
 
   const tagsByGroup = {
@@ -215,15 +243,16 @@ Future<void> _seedDefaults(AppDatabase db) async {
   for (final entry in tagsByGroup.entries) {
     final groupId = tagGroupIds[entry.key]!;
     for (var i = 0; i < entry.value.length; i++) {
-      await db.into(db.tags).insert(
-            TagsCompanion.insert(
-              id: _uuid.v4(),
-              tagGroupId: groupId,
-              name: entry.value[i],
-              isDefault: const Value(true),
-              position: Value(i),
-            ),
-          );
+      batch.insert(
+        db.tags,
+        TagsCompanion.insert(
+          id: _uuid.v4(),
+          tagGroupId: groupId,
+          name: entry.value[i],
+          isDefault: const Value(true),
+          position: Value(i),
+        ),
+      );
     }
   }
 
@@ -304,7 +333,7 @@ Future<void> _seedDefaults(AppDatabase db) async {
   };
   for (final entry in categoryForest.entries) {
     for (var i = 0; i < entry.value.length; i++) {
-      await _insertCategoryNode(db, type: entry.key, node: entry.value[i], position: i);
+      _insertCategoryNode(db, batch, type: entry.key, node: entry.value[i], position: i);
     }
   }
 
@@ -313,13 +342,14 @@ Future<void> _seedDefaults(AppDatabase db) async {
     'payment.cash',
   ];
   for (var i = 0; i < paymentMethods.length; i++) {
-    await db.into(db.paymentMethods).insert(
-          PaymentMethodsCompanion.insert(
-            id: _uuid.v4(),
-            name: paymentMethods[i],
-            isDefault: const Value(true),
-            position: Value(i),
-          ),
-        );
+    batch.insert(
+      db.paymentMethods,
+      PaymentMethodsCompanion.insert(
+        id: _uuid.v4(),
+        name: paymentMethods[i],
+        isDefault: const Value(true),
+        position: Value(i),
+      ),
+    );
   }
 }
