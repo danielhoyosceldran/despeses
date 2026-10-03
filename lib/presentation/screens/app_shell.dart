@@ -4,15 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/config/feature_flags.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../dev/perf_seed.dart';
 import '../widgets/app_toast.dart';
 
-/// Bottom nav with 5 tabs: Dashboard · Expenses · Budgets · Analytics ·
-/// Settings. The web app only routes 4 (Expenses is dead code there); here it
-/// gets its own tab (plan §6, §3.4). Export lives inside Settings.
+/// Bottom nav with 5 tabs: Dashboard · Transactions · Budgets · Analytics ·
+/// Settings. Export lives inside the Account hub.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -65,7 +63,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   static const _labels = [
     'Dashboard',
-    'Expenses',
+    'Transactions',
     'Budgets',
     'Analytics',
     'Manage',
@@ -85,13 +83,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     'nav.settings',
   ];
 
-  static final _visibleIndices = [
-    0,
-    if (FeatureFlags.showExpensesScreen) 1,
-    2,
-    3,
-    4,
-  ];
+  static const _visibleIndices = [0, 1, 2, 3, 4];
 
   @override
   Widget build(BuildContext context) {

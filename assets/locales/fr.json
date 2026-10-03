@@ -1,7 +1,7 @@
 {
   "nav": {
     "dashboard": "Tableau de bord",
-    "expenses": "Dépenses",
+    "expenses": "Transactions",
     "budgets": "Budgets",
     "analytics": "Analytiques",
     "settings": "Gestion",
@@ -119,7 +119,8 @@
     "any": "N'importe lequel",
     "icon_optional": "Icône (optionnel)",
     "description_optional": "Description (optionnel)",
-    "apply": "Appliquer"
+    "apply": "Appliquer",
+    "amounts_swapped": "Le montant minimum dépassait le maximum : ils ont été inversés."
   },
   "categories": {
     "add": "Ajouter une catégorie",
@@ -317,10 +318,7 @@
     "no_transactions": "Aucune transaction",
     "delete_title": "Supprimer les transactions",
     "delete_message": "Supprimer {{count}} transaction(s) sélectionnée(s) ?",
-    "error_load_month": "Impossible de charger ce mois.",
-    "search_hint": "Rechercher en {{month}} (texte, >50, <20…)",
-    "search_results": "{{count}} résultats",
-    "search_no_results": "Aucune transaction correspondante"
+    "error_load_month": "Impossible de charger ce mois."
   },
   "backup": {
     "export_title": "Exporter la sauvegarde",
@@ -378,7 +376,9 @@
     "no_results": "Aucune dépense ne correspond aux filtres actuels.",
     "showing": "Affichage de {{count}} sur {{total}}",
     "type_ahorro": "Épargne",
-    "tag": "Étiquette"
+    "tag": "Étiquette",
+    "amount_min": "Montant min.",
+    "amount_max": "Montant max."
   },
   "auth": {
     "title": "Gastos",
@@ -515,8 +515,12 @@
     "delete_selection": "Supprimer la sélection",
     "archive_toggle": "Basculer l'affichage des archives",
     "color_swatch": "Couleur {{n}}",
-    "search": "Rechercher",
-    "close_search": "Fermer la recherche",
     "clear_search": "Effacer la recherche"
+  },
+  "transactions": {
+    "search_hint": "Rechercher (texte, >50, <20…)",
+    "this_month": "Ce mois-ci",
+    "results": "{{count}} résultats",
+    "no_results": "Aucune transaction correspondante"
   }
 }

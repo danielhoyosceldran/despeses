@@ -214,14 +214,21 @@ All use `colors.shadow` (pre-baked opacity per theme).
 - **Search pill** (budgets `_SearchPill`) — `TextField`, `mutedFill(0.5)` fill,
   `radiusPill`, leading `search` icon 16 muted, `bodyMedium` text, focus 1px
   `accent` ring. Paired with a ghost `archive` `TopBarCircleButton` (accent tint
-  when showing archived/expired). The Dashboard search header (`_SearchBar`)
-  uses the same pill treatment (clear button: ghost `circleX` icon 18 muted),
-  inside the `AppTopBar` footprint (`px = lg`, height 44).
+  when showing archived/expired). The Transactions search field
+  (`_SearchField`) uses the same pill treatment (clear button: ghost `circleX`
+  icon 18 muted), paired with a default Material `FilterChip` ("This month",
+  selected when the range is the current month).
+- **Filter sheet** (`ExpenseFilterSheet`) — default Material modal sheet; each
+  dimension is an `ExpansionTile` with transparent dividers, its subtitle the
+  selection summary (`textMuted` when "Any", `accent` when something is
+  picked). Options are default Material `FilterChip`s; categories are dense
+  compact `CheckboxListTile`s under uppercase `appHeaderStyle` type headers.
+  Amount fields use the themed input decoration.
 - **`ThinProgressBar`** (`thin_progress_bar.dart`) — 6px tall, track
   `surfaceAlt`, solid `fillColor` (data color / `over` when over budget),
   rounded-full.
 - **Transaction row** (shared `ExpenseRow` in `widgets/expense_row.dart`, used by
-  the dashboard and the analytics details; expenses list `_ExpenseTile`) —
+  the dashboard, the transactions list and the analytics details) —
   hairline card radius 16 on `surface` (`mutedFill(0.5)` when selected). Left
   column: uppercase category line (Inter 11 w500, `letterSpacing 0.5`, muted) +
   title (`labelLarge`). Right: signed amount in Clash 18 via
@@ -286,7 +293,7 @@ stay ink/neutral.
 
 `lucide_icons_flutter`, thin-line weight (the `*300` variants). Sizes: nav 22,
 FAB 24, list/header icons 18–20, inline 16. Default tint `textMuted`; active /
-primary `accent` (or `text`). Bottom-nav: Dashboard `layoutDashboard`, Expenses
+primary `accent` (or `text`). Bottom-nav: Dashboard `layoutDashboard`, Transactions
 `receipt`, Budgets `pieChart`, Analytics `barChart2`, Settings/catalog `layers`.
 Header gear `settings`.
 

@@ -6,7 +6,7 @@ Structural reference for every screen: layout and UI elements only — **no visu
 
 ## Navigation shell
 
-`AppShell` — `NavigationBar` (bottom) with 5 tabs: **Dashboard · Expenses · Budgets · Analytics · Settings**. The Settings tab holds the data catalog (categories, tags, …). Expenses tab is behind a feature flag. Horizontal drag on the nav bar switches tabs. Tab change is instant (the shell's IndexedStack); no body transition — animating the shell itself duplicates its GlobalKey. Root route intercepts system back: requires a second back press within 2s to exit (toast on first press).
+`AppShell` — `NavigationBar` (bottom) with 5 tabs: **Dashboard · Transactions · Budgets · Analytics · Settings**. The Settings tab holds the data catalog (categories, tags, …). Horizontal drag on the nav bar switches tabs. Tab change is instant (the shell's IndexedStack); no body transition — animating the shell itself duplicates its GlobalKey. Root route intercepts system back: requires a second back press within 2s to exit (toast on first press).
 
 The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Export · Backup) pushed over the shell — distinct from the Settings tab.
 
@@ -21,7 +21,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 | `TopBarCircleButton` | Circular header action (ghost or filled chip); used for chevrons, gear, and per-screen actions (filter, active/expired eye). |
 | `BottomActionPanel` | In-screen animated bottom panel (not modal). Height 0→content, rounded top. Hosts pickers. |
 | `AmountInputField` | Centered amount hero as an editable text field using the device's numeric keyboard, with the currency symbol after it. Keyboard action key = "Next". Used as the amount hero on the expense/budget/goal/recurring entry screens. |
-| `ExpenseFilterSheet` | Modal sheet. Column: "Filters" title, 6 dropdowns (Type, Category, Tag, Payment method, Event, Project), From/To date Row, "Clear"/"Apply" Row. The Category dropdown is a tree grouped by transaction type: a non-selectable uppercase type header, then each root category followed by its subcategories, indented by depth (closed field shows the plain name). Choosing a parent filters its whole subtree. An inverted From/To range is swapped on Apply with a warning toast. |
+| `ExpenseFilterSheet` | Modal sheet. "Filters" title; scrolling body of collapsible multi-select sections (title + summary of the selection, or "Any"): Type (chips: expense, income, refund, savings), Category, Tags, Payment method, Event and Project (chips; Event/Project only when any exist); then a Min/Max amount Row and a From/To date Row. Pinned "Clear"/"Apply" Row. Within a section any selected value matches; sections combine. The Category section is a checkbox tree grouped by transaction type: an uppercase type header, then each root category followed by its subcategories, indented by depth; checking a parent filters its whole subtree. An inverted From/To or Min/Max range is swapped on Apply with a warning toast. |
 | `CategoryPickerSheet` / `...Content` | Drill-down picker (modal 70% or embedded). Optional breadcrumb back-row + ListView of grid rows (64px ancestor cells + wide candidate cell). Leaf selects; branch descends. |
 | `SimplePickerSheet` / `...Content` | Single-select (modal 60% or embedded). Title + ListView of ListTiles; tap selects & closes. |
 | `TagPickerSheet` / `...Content` | Grouped multi-select (modal 70% or embedded). Group label + Wrap of FilterChips per group. Confirmed via external "Next". |
@@ -40,8 +40,7 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 ## Screens
 
 ### Dashboard (`dashboard_screen.dart`)
-- **Header**: `AppTopBar` in month mode (month pager left; trailing: search · refresh · settings gear). Selection mode (long-press a transaction): "N selected", X (clear), trash (delete-confirm).
-- **Search mode** (search action): the header is replaced by `_SearchBar` — X (close) + a search pill (leading search icon, hint "Search {month}…", trailing clear button when non-empty). Filters the month pages live; swiping still changes month and the search applies to the shown month. Query syntax (`TransactionQuery`, `domain/search/transaction_search.dart`): space-separated terms, all must match; plain text matches title or notes (case/accent-insensitive); `>`, `<`, `>=`, `<=`, `=`, `!=` + number compare the amount; a bare number matches the exact amount or the text. While searching the budgets and recurring-due sections are hidden, a results header ("N results" + signed net) leads the list, empty state reads "No matching transactions", and the hero keeps the full-month totals. System back closes the search (or clears a selection first). Selection mode temporarily shows the selection header.
+- **Header**: `AppTopBar` in month mode (month pager left; trailing: refresh · settings gear). Selection mode (long-press a transaction): "N selected", X (clear), trash (delete-confirm).
 - **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
 - **Body** Column, top→bottom:
   1. `AppTopBar` — month/year chevron nav + settings gear (shared across months).
@@ -52,10 +51,11 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
      - Transactions **grouped by day**: per-day header (uppercase day label + signed day total) followed by transaction rows (optional selection Checkbox, uppercase category line, title, a muted "Scheduled" line for future-dated rows, method subtitle, signed amount). Future-dated rows are listed but left out of the hero totals until their day. "No transactions" text when empty. Tap = edit / toggle; long-press = select.
      - On load failure the page body shows `ErrorRetry` instead of the transaction list.
 
-### Expenses (`expenses_screen.dart`)
-- **Header**: `AppTopBar` title "Expenses", trailing filter action (tinted when active) → `ExpenseFilterSheet` + settings gear. Selection mode: "N selected", X, trash.
+### Transactions (`expenses_screen.dart`)
+- **Header**: `AppTopBar` title "Transactions", trailing filter action (tinted when any filter other than the "This month" range is active) → `ExpenseFilterSheet` + settings gear. Selection mode: "N selected", X, trash.
+- **Search row** (fixed, hidden in selection mode): search pill (leading search icon, hint with the query syntax, trailing clear button when non-empty) + trailing "This month" chip. The screen opens with the chip on (date range = current month); tapping it clears the date range, tapping again restores the current month. Picking another range in the filter sheet turns it off. Query syntax (`TransactionQuery`, `domain/search/transaction_search.dart`): space-separated terms, all must match; plain text matches title or notes (case/accent-insensitive); `>`, `<`, `>=`, `<=`, `=`, `!=` + number compare the amount; a bare number matches the exact amount or the text. The search applies on top of the filters.
 - **FAB**: "+" → ExpenseEntryScreen (new). Tap, or drag up to interactively pull the entry screen up from the bottom (finger is the animation motor).
-- **Body**: paginated `ListView` of expense card tiles (optional Checkbox, title, date subtitle — "date · Scheduled" for future-dated rows — signed amount). Trailing "Load more" TextButton when more pages. Empty/loading centered. Tap = edit/toggle; long-press = select.
+- **Body**: live, lazily built list: results header ("N results" + signed net) then transactions **grouped by day** like the Dashboard (per-day header with uppercase day label — with the year for days of another year — and signed day total, then shared `ExpenseRow`s). Empty state: "No matching transactions" when searching/filtering, otherwise "No transactions". Loading centered; `ErrorRetry` on failure. Tap = edit/toggle; long-press = select.
 
 ### Budgets & Goals (`budgets_screen.dart`)
 Two collections behind a `SegmentedButton` toggle (Budgets | Goals).
@@ -211,8 +211,8 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 ---
 
 ## Cross-screen patterns
-- Tab screens (Dashboard, Expenses, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
-- Selection mode (multi-delete) on Dashboard, Expenses, Budgets (both tabs), Recurring swaps `AppTopBar` contents (count + clear + delete).
-- Entry screens (expense/budget/goal/recurring) use the in-screen `BottomActionPanel` + embedded pickers (amount via `AmountInputField` + system keyboard), not modal sheets. The Expenses list uses a true modal filter sheet.
+- Tab screens (Dashboard, Transactions, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
+- Selection mode (multi-delete) on Dashboard, Transactions, Budgets (both tabs), Recurring swaps `AppTopBar` contents (count + clear + delete).
+- Entry screens (expense/budget/goal/recurring) use the in-screen `BottomActionPanel` + embedded pickers (amount via `AmountInputField` + system keyboard), not modal sheets. The Transactions list uses a true modal filter sheet.
 - Entry screens closing with unsaved changes (any field differing from its loaded/initial value) via the down-chevron, swipe down, or system back show a destructive "Discard changes?" confirm dialog (Cancel / Discard) first; without changes they close directly. A failed save shows an error toast and keeps the screen open.
 - Recurring (reached from the Settings hub, but not a `settings/*` list screen) renders an `AppTopBar` + FAB like a tab screen, rather than the `PageTitleHeader` used by the catalog list screens.

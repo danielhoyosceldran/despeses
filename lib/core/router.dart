@@ -1,6 +1,5 @@
 import 'package:go_router/go_router.dart';
 
-import 'config/feature_flags.dart';
 import 'navigation/slide_from_right_route.dart';
 import 'navigation/top_down_route.dart';
 import '../presentation/screens/account_screen.dart';
@@ -39,8 +38,6 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/expenses',
-              redirect: (context, state) =>
-                  FeatureFlags.showExpensesScreen ? null : '/dashboard',
               builder: (context, state) => const ExpensesScreen(),
             ),
           ],

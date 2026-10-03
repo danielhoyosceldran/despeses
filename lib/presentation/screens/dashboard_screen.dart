@@ -5,9 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
-import '../../core/format/date.dart';
 import '../../core/format/money.dart';
 import '../../core/haptics/haptics.dart';
 import '../../core/navigation/bottom_up_route.dart';
@@ -18,11 +16,11 @@ import '../../data/database.dart';
 import '../../domain/repositories/analytics/analytics_math.dart';
 import '../../domain/repositories/budget_repository.dart' show BudgetMonthProgress;
 import '../../domain/repositories/expense_repository.dart';
-import '../../domain/search/transaction_search.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/day_grouped_list.dart';
 import '../widgets/drag_up_fab.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/error_retry.dart';
@@ -56,31 +54,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
-  /// Search mode: the header swaps to a search field and every month page
-  /// filters its transactions by [_query] (see [TransactionQuery]).
-  bool _searching = false;
-  final TextEditingController _searchController = TextEditingController();
-  TransactionQuery? _query;
-
-  void _openSearch() {
-    ref.read(hapticsProvider).selection();
-    setState(() => _searching = true);
-  }
-
-  void _closeSearch() {
-    _searchController.clear();
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _searching = false;
-      _query = null;
-    });
-  }
-
-  void _onQueryChanged(String text) {
-    final query = TransactionQuery.parse(text);
-    setState(() => _query = query.isEmpty ? null : query);
-  }
-
   void _toggleSelection(Expense expense) {
     setState(() {
       if (_selectedIds.contains(expense.id)) {
@@ -113,7 +86,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -214,7 +186,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
     final colors = context.appColors;
 
-    final scaffold = Scaffold(
+    return Scaffold(
       floatingActionButton: DragUpAction(
         pageBuilder: (_, close) => ExpenseEntryScreen(onClose: close),
         builder: (context, armed, onTap) => Semantics(
@@ -240,37 +212,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       body: Column(
         children: [
-          if (_searching && !_selectionMode)
-            _SearchBar(
-              controller: _searchController,
-              month: _month,
-              translations: translations,
-              onChanged: _onQueryChanged,
-              onClose: _closeSearch,
-            )
-          else
-            AppTopBar(
-              month: _month,
-              onChangeMonth: _changeMonth,
-              pageController: _pageController,
-              monthForPage: _monthForPage,
-              fallbackPage: _kInitialPage,
-              selectionCount: _selectedIds.length,
-              onClearSelection: () => setState(() => _selectedIds.clear()),
-              onDeleteSelection: _deleteSelected,
-              actions: [
-                TopBarCircleButton(
-                  icon: LucideIcons.search300,
-                  onTap: _openSearch,
-                  semanticLabel: translations?.t('a11y.search') ?? 'Search',
-                ),
-                TopBarCircleButton(
-                  icon: LucideIcons.refreshCw300,
-                  onTap: _onRefresh,
-                  semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh',
-                ),
-              ],
-            ),
+          AppTopBar(
+            month: _month,
+            onChangeMonth: _changeMonth,
+            pageController: _pageController,
+            monthForPage: _monthForPage,
+            fallbackPage: _kInitialPage,
+            selectionCount: _selectedIds.length,
+            onClearSelection: () => setState(() => _selectedIds.clear()),
+            onDeleteSelection: _deleteSelected,
+            actions: [
+              TopBarCircleButton(
+                icon: LucideIcons.refreshCw300,
+                onTap: _onRefresh,
+                semanticLabel: translations?.t('a11y.refresh') ?? 'Refresh',
+              ),
+            ],
+          ),
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -289,119 +247,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   selectionMode: _selectionMode,
                   selectedIds: _selectedIds,
                   onToggleSelection: _toggleSelection,
-                  query: _query,
                 );
               },
             ),
           ),
         ],
-      ),
-    );
-    // System back closes the search instead of reaching the shell's exit guard.
-    // BackButtonListener needs a Router ancestor (go_router provides one).
-    // Keep the listener mounted even when not searching: toggling the wrapper
-    // would change the tree depth and remount the Scaffold, briefly attaching
-    // two PageViews to [_pageController] (breaks the month label).
-    if (Router.maybeOf(context) == null) return scaffold;
-    return BackButtonListener(
-      onBackButtonPressed: () async {
-        if (!_searching) return false;
-        if (_selectionMode) {
-          setState(() => _selectedIds.clear());
-        } else {
-          _closeSearch();
-        }
-        return true;
-      },
-      child: scaffold,
-    );
-  }
-}
-
-/// Header shown in search mode, in place of [AppTopBar]: close (X) · search
-/// field (hint names the month being searched) · clear. Same footprint as the
-/// top bar so the hero below doesn't jump.
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({
-    required this.controller,
-    required this.month,
-    required this.translations,
-    required this.onChanged,
-    required this.onClose,
-  });
-
-  final TextEditingController controller;
-  final DateTime month;
-  final Translations? translations;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final monthLabel = toBeginningOfSentenceCase(cachedDateFormat(DateFormat.YEAR_MONTH).format(month));
-    final hint = (translations?.t('dashboard.search_hint') ?? 'Search {{month}}').replaceAll('{{month}}', monthLabel);
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md),
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              TopBarCircleButton(
-                icon: LucideIcons.x300,
-                onTap: onClose,
-                semanticLabel: translations?.t('a11y.close_search') ?? 'Close search',
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  autofocus: true,
-                  onChanged: onChanged,
-                  textInputAction: TextInputAction.search,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintMaxLines: 1,
-                    isDense: true,
-                    filled: true,
-                    fillColor: colors.mutedFill(0.5),
-                    prefixIcon: Icon(LucideIcons.search300, size: 16, color: colors.textMuted),
-                    prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    suffixIcon: ListenableBuilder(
-                      listenable: controller,
-                      builder: (context, _) => controller.text.isEmpty
-                          ? const SizedBox.shrink()
-                          : IconButton(
-                              icon: Icon(LucideIcons.circleX300, size: 18, color: colors.textMuted),
-                              tooltip: translations?.t('a11y.clear_search') ?? 'Clear search',
-                              onPressed: () {
-                                controller.clear();
-                                onChanged('');
-                              },
-                            ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                      borderSide: BorderSide(color: colors.accent, width: 1),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -943,7 +793,6 @@ class _MonthPage extends ConsumerWidget {
     required this.selectionMode,
     required this.selectedIds,
     required this.onToggleSelection,
-    this.query,
   });
 
   final DateTime month;
@@ -960,10 +809,6 @@ class _MonthPage extends ConsumerWidget {
   final Set<String> selectedIds;
   final void Function(Expense expense) onToggleSelection;
 
-  /// Active search; when set, only matching transactions are listed and the
-  /// budgets / recurring-due sections are hidden. Hero totals stay monthly.
-  final TransactionQuery? query;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return StreamBuilder<List<Expense>>(
@@ -977,18 +822,13 @@ class _MonthPage extends ConsumerWidget {
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final monthExpenses = snapshot.data!;
-        final searching = query != null;
-        final derived = _MonthDerived.of(monthExpenses, query, currency, translations);
+        final derived = _MonthDerived.of(monthExpenses, currency, translations);
         final expenses = derived.expenses;
-        final colors = context.appColors;
 
         // Fixed sections above the transaction list (a handful of widgets).
         final header = <Widget>[
-          if (searching)
-            _SearchSummary(expenses: expenses, currency: currency, translations: translations)
-          else
-            _ActiveBudgets(month: month, active: active, translations: translations),
-          if (!selectionMode && !searching) ...[
+          _ActiveBudgets(month: month, active: active, translations: translations),
+          if (!selectionMode) ...[
             _RecurringDueSection(translations: translations),
             const SizedBox(height: AppSpacing.lg),
           ],
@@ -996,11 +836,7 @@ class _MonthPage extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
               child: Center(
-                child: Text(
-                  searching
-                      ? translations?.t('dashboard.search_no_results') ?? 'No matching transactions'
-                      : translations?.t('dashboard.no_transactions') ?? 'No transactions',
-                ),
+                child: Text(translations?.t('dashboard.no_transactions') ?? 'No transactions'),
               ),
             ),
         ];
@@ -1021,26 +857,8 @@ class _MonthPage extends ConsumerWidget {
               onLongPress: () => onToggleSelection(item),
             );
           }
-          if (item is _DayGroup) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.sm, AppSpacing.xs, AppSpacing.smMd),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(item.label, style: appHeaderStyle(colors)),
-                  Text(
-                    _signed(item.total, currency),
-                    style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                          color: item.total >= 0 ? context.semanticColors.income : colors.textMuted,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                  ),
-                ],
-              ),
-            );
-          }
-          // _groupGap: spacing after a day's last row.
+          if (item is DayGroup) return DayGroupHeader(group: item, currency: currency);
+          // dayGroupGap: spacing after a day's last row.
           return const SizedBox(height: AppSpacing.smMd);
         }
 
@@ -1070,18 +888,14 @@ class _MonthPage extends ConsumerWidget {
   }
 }
 
-/// Marker item: vertical gap after the last row of a day group.
-const _groupGap = Object();
-
-/// Everything [_MonthPage] derives from one stream snapshot: the (searched)
+/// Everything [_MonthPage] derives from one stream snapshot: the
 /// transactions, the flattened lazy-list items (day headers, rows, gaps) and
 /// the hero totals. Memoized per snapshot list (BL-057), so rebuilds that
 /// don't change the data — selection, budgets reload, tab switches — don't
 /// re-filter, re-group and re-total the whole month.
 class _MonthDerived {
-  _MonthDerived._(this.query, this.currency, this.translations, this.today, this.expenses, this.items, this.totals);
+  _MonthDerived._(this.currency, this.translations, this.today, this.expenses, this.items, this.totals);
 
-  final TransactionQuery? query;
   final String currency;
   final Translations? translations;
 
@@ -1089,7 +903,7 @@ class _MonthDerived {
   final DateTime today;
   final List<Expense> expenses;
 
-  /// [_DayGroup] header, then its [Expense] rows, then [_groupGap]; per day.
+  /// [DayGroup] header, then its [Expense] rows, then [dayGroupGap]; per day.
   final List<Object> items;
   final _Totals totals;
 
@@ -1097,7 +911,6 @@ class _MonthDerived {
 
   static _MonthDerived of(
     List<Expense> monthExpenses,
-    TransactionQuery? query,
     String currency,
     Translations? translations,
   ) {
@@ -1105,63 +918,16 @@ class _MonthDerived {
     final today = DateTime(now.year, now.month, now.day);
     final cached = _cache[monthExpenses];
     if (cached != null &&
-        identical(cached.query, query) &&
         cached.currency == currency &&
         identical(cached.translations, translations) &&
         cached.today == today) {
       return cached;
     }
-    final expenses = query != null ? monthExpenses.where(query.matches).toList() : monthExpenses;
-    final items = <Object>[];
-    for (final group in _groupByDay(expenses, currency, translations)) {
-      items
-        ..add(group)
-        ..addAll(group.items)
-        ..add(_groupGap);
-    }
+    final items = dayGroupedItems(monthExpenses, currency, translations);
     final derived = _MonthDerived._(
-        query, currency, translations, today, expenses, items, _Totals.of(monthExpenses, currency));
+        currency, translations, today, monthExpenses, items, _Totals.of(monthExpenses, currency));
     _cache[monthExpenses] = derived;
     return derived;
-  }
-}
-
-/// Search results header: uppercase result count (left) + the signed net of
-/// the matches in the profile currency (right), styled like a day header.
-class _SearchSummary extends StatelessWidget {
-  const _SearchSummary({required this.expenses, required this.currency, required this.translations});
-
-  final List<Expense> expenses;
-  final String currency;
-  final Translations? translations;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final net = expenses.where((e) => e.currency == currency).fold<int>(0, (sum, e) => sum + _signedCents(e));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            (translations?.t('dashboard.search_results') ?? '{{count}} results')
-                .replaceAll('{{count}}', '${expenses.length}')
-                .toUpperCase(),
-            style: appHeaderStyle(colors),
-          ),
-          if (expenses.isNotEmpty)
-            Text(
-              _signed(net, currency),
-              style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                    color: net >= 0 ? context.semanticColors.income : colors.textMuted,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-            ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1235,52 +1001,6 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
       old.totals.income != totals.income ||
       old.currency != currency ||
       old.translations != translations;
-}
-
-/// A day bucket of transactions in display order, with its signed total.
-class _DayGroup {
-  _DayGroup(this.label);
-  final String label;
-  final List<Expense> items = [];
-  int total = 0;
-}
-
-int _signedCents(Expense e) => switch (e.type) {
-      'income' => e.amount,
-      'refund' => e.amount,
-      _ => -e.amount,
-    };
-
-String _signed(int cents, String currency) {
-  final sign = cents > 0 ? '+' : '';
-  return '$sign${formatMoney(cents, currency)}';
-}
-
-String _dayLabel(DateTime date, Translations? translations) {
-  final now = DateTime.now();
-  final d = DateTime(date.year, date.month, date.day);
-  final today = DateTime(now.year, now.month, now.day);
-  final diff = today.difference(d).inDays;
-  if (diff == 0) return (translations?.t('dashboard.today') ?? 'Today').toUpperCase();
-  if (diff == 1) return (translations?.t('dashboard.yesterday') ?? 'Yesterday').toUpperCase();
-  return cachedDateFormat(DateFormat.ABBR_MONTH_WEEKDAY_DAY).format(date).toUpperCase();
-}
-
-List<_DayGroup> _groupByDay(List<Expense> expenses, String currency, Translations? translations) {
-  final groups = <_DayGroup>[];
-  final index = <String, int>{};
-  for (final e in expenses) {
-    final key = '${e.date.year}-${e.date.month}-${e.date.day}';
-    var i = index[key];
-    if (i == null) {
-      i = groups.length;
-      index[key] = i;
-      groups.add(_DayGroup(_dayLabel(e.date, translations)));
-    }
-    groups[i].items.add(e);
-    if (e.currency == currency) groups[i].total += _signedCents(e);
-  }
-  return groups;
 }
 
 /// The month's active budgets (title + [_BudgetGrid]), or nothing when there

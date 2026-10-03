@@ -1,7 +1,7 @@
 {
   "nav": {
     "dashboard": "Tauler",
-    "expenses": "Despeses",
+    "expenses": "Transaccions",
     "budgets": "Pressupostos",
     "analytics": "Analítiques",
     "settings": "Gestió",
@@ -119,7 +119,8 @@
     "any": "Qualsevol",
     "icon_optional": "Icona (opcional)",
     "description_optional": "Descripció (opcional)",
-    "apply": "Aplicar"
+    "apply": "Aplicar",
+    "amounts_swapped": "L'import mínim era més gran que el màxim: s'han intercanviat."
   },
   "categories": {
     "add": "Afegir categoria",
@@ -317,10 +318,7 @@
     "no_transactions": "Sense transaccions",
     "delete_title": "Eliminar transaccions",
     "delete_message": "Eliminar {{count}} transacció(ns) seleccionada(es)?",
-    "error_load_month": "No s'ha pogut carregar aquest mes.",
-    "search_hint": "Cerca a {{month}} (text, >50, <20…)",
-    "search_results": "{{count}} resultats",
-    "search_no_results": "Cap transacció coincideix"
+    "error_load_month": "No s'ha pogut carregar aquest mes."
   },
   "backup": {
     "export_title": "Exportar còpia",
@@ -378,7 +376,9 @@
     "no_results": "Cap despesa coincideix amb els filtres actuals.",
     "showing": "Mostrant {{count}} de {{total}}",
     "type_ahorro": "Estalvi",
-    "tag": "Etiqueta"
+    "tag": "Etiqueta",
+    "amount_min": "Import mínim",
+    "amount_max": "Import màxim"
   },
   "auth": {
     "title": "Gastos",
@@ -515,8 +515,12 @@
     "delete_selection": "Elimina seleccionats",
     "archive_toggle": "Mostra/amaga arxivats",
     "color_swatch": "Color {{n}}",
-    "search": "Cerca",
-    "close_search": "Tanca la cerca",
     "clear_search": "Esborra la cerca"
+  },
+  "transactions": {
+    "search_hint": "Cerca (text, >50, <20…)",
+    "this_month": "Aquest mes",
+    "results": "{{count}} resultats",
+    "no_results": "Cap transacció coincideix"
   }
 }

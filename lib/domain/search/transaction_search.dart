@@ -20,7 +20,7 @@ class AmountFilter {
   };
 }
 
-/// Parsed free-form transaction search (dashboard search).
+/// Parsed free-form transaction search (Transactions tab search box).
 ///
 /// Whitespace-separated tokens, all of which must match (AND):
 /// - `>50`, `<20`, `>=10`, `<=10`, `=12,5`, `!=3` → amount comparison. The

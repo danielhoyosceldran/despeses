@@ -1,7 +1,7 @@
 {
   "nav": {
     "dashboard": "Dashboard",
-    "expenses": "Expenses",
+    "expenses": "Transactions",
     "budgets": "Budgets",
     "analytics": "Analytics",
     "settings": "Manage",
@@ -119,7 +119,8 @@
     "any": "Any",
     "icon_optional": "Icon (optional)",
     "description_optional": "Description (optional)",
-    "apply": "Apply"
+    "apply": "Apply",
+    "amounts_swapped": "The minimum amount was above the maximum, so they were swapped."
   },
   "categories": {
     "add": "Add category",
@@ -317,10 +318,7 @@
     "no_transactions": "No transactions",
     "delete_title": "Delete transactions",
     "delete_message": "Delete {{count}} selected transaction(s)?",
-    "error_load_month": "Could not load this month.",
-    "search_hint": "Search {{month}} (text, >50, <20…)",
-    "search_results": "{{count}} results",
-    "search_no_results": "No matching transactions"
+    "error_load_month": "Could not load this month."
   },
   "backup": {
     "export_title": "Export backup",
@@ -378,7 +376,9 @@
     "no_results": "No expenses match the current filters.",
     "showing": "Showing {{count}} of {{total}}",
     "type_ahorro": "Savings",
-    "tag": "Tag"
+    "tag": "Tag",
+    "amount_min": "Min amount",
+    "amount_max": "Max amount"
   },
   "auth": {
     "title": "Gastos",
@@ -515,8 +515,12 @@
     "delete_selection": "Delete selected",
     "archive_toggle": "Toggle archive view",
     "color_swatch": "Color {{n}}",
-    "search": "Search",
-    "close_search": "Close search",
     "clear_search": "Clear search"
+  },
+  "transactions": {
+    "search_hint": "Search (text, >50, <20…)",
+    "this_month": "This month",
+    "results": "{{count}} results",
+    "no_results": "No matching transactions"
   }
 }

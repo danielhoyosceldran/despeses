@@ -67,7 +67,7 @@ void main() {
     await repo.create(amountCents: 200, currency: 'EUR', type: 'income', date: DateTime(2026, 1, 2));
     await repo.create(amountCents: 300, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 3));
 
-    final expenses = await repo.list(filters: const ExpenseFilters(type: 'expense'));
+    final expenses = await repo.list(filters: const ExpenseFilters(types: {'expense'}));
     expect(expenses.length, 2);
     expect(expenses.first.amount, 300); // most recent first
   });
@@ -108,7 +108,7 @@ void main() {
   });
 
   test('hasInvertedDates compares days and withSwappedDates exchanges them', () {
-    final inverted = ExpenseFilters(type: 'expense', dateFrom: DateTime(2026, 3, 10), dateTo: DateTime(2026, 3, 5));
+    final inverted = ExpenseFilters(types: {'expense'}, dateFrom: DateTime(2026, 3, 10), dateTo: DateTime(2026, 3, 5));
     final sameDay = ExpenseFilters(dateFrom: DateTime(2026, 3, 5, 18), dateTo: DateTime(2026, 3, 5));
 
     expect(inverted.hasInvertedDates, isTrue);
@@ -117,7 +117,7 @@ void main() {
     final swapped = inverted.withSwappedDates();
     expect(swapped.dateFrom, DateTime(2026, 3, 5));
     expect(swapped.dateTo, DateTime(2026, 3, 10));
-    expect(swapped.type, 'expense');
+    expect(swapped.types, {'expense'});
   });
 
   test('pagination over many same-date rows neither repeats nor skips', () async {
@@ -157,10 +157,69 @@ void main() {
     await repo.create(amountCents: 100, currency: 'EUR', type: parent.type, date: DateTime(2026, 3, 1), categoryId: child.id);
     await repo.create(amountCents: 200, currency: 'EUR', type: other.type, date: DateTime(2026, 3, 1), categoryId: other.id);
 
-    final byParent = await repo.listAll(filters: ExpenseFilters(categoryId: parent.id));
-    final byChild = await repo.listAll(filters: ExpenseFilters(categoryId: child.id));
+    final byParent = await repo.listAll(filters: ExpenseFilters(categoryIds: {parent.id}));
+    final byChild = await repo.listAll(filters: ExpenseFilters(categoryIds: {child.id}));
 
     expect(byParent.map((e) => e.amount), [100]);
     expect(byChild.map((e) => e.amount), [100]);
+  });
+
+  test('multi-select filters match any selected value per dimension, AND across them', () async {
+    final methods = await db.select(db.paymentMethods).get();
+    final a = methods[0].id, b = methods[1].id;
+    await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1), paymentMethodId: a);
+    await repo.create(amountCents: 200, currency: 'EUR', type: 'income', date: DateTime(2026, 3, 1), paymentMethodId: b);
+    await repo.create(amountCents: 300, currency: 'EUR', type: 'ahorro', date: DateTime(2026, 3, 1), paymentMethodId: a);
+    await repo.create(amountCents: 400, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+
+    Future<Set<int>> amounts(ExpenseFilters f) async => (await repo.listAll(filters: f)).map((e) => e.amount).toSet();
+
+    expect(await amounts(const ExpenseFilters(types: {'expense', 'ahorro'})), {100, 300, 400});
+    expect(await amounts(ExpenseFilters(paymentMethodIds: {a, b})), {100, 200, 300});
+    expect(await amounts(ExpenseFilters(types: const {'expense', 'income'}, paymentMethodIds: {a})), {100});
+  });
+
+  test('tag filter lists a transaction once even when several selected tags match', () async {
+    final tags = await db.select(db.tags).get();
+    final t1 = tags[0].id, t2 = tags[1].id, t3 = tags[2].id;
+    await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1), tagIds: [t1, t2]);
+    await repo.create(amountCents: 200, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1), tagIds: [t3]);
+    await repo.create(amountCents: 300, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+
+    final rows = await repo.listAll(filters: ExpenseFilters(tagIds: {t1, t2}));
+    expect(rows.map((e) => e.amount), [100]);
+    final either = await repo.listAll(filters: ExpenseFilters(tagIds: {t1, t3}));
+    expect(either.map((e) => e.amount).toSet(), {100, 200});
+  });
+
+  test('amount range bounds are inclusive and withSwappedAmounts fixes an inverted range', () async {
+    for (final cents in [999, 1000, 2500, 5000, 5001]) {
+      await repo.create(amountCents: cents, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+    }
+
+    final rows = await repo.listAll(filters: const ExpenseFilters(amountMin: 1000, amountMax: 5000));
+    expect(rows.map((e) => e.amount).toSet(), {1000, 2500, 5000});
+    final onlyMin = await repo.listAll(filters: const ExpenseFilters(amountMin: 5000));
+    expect(onlyMin.map((e) => e.amount).toSet(), {5000, 5001});
+
+    const inverted = ExpenseFilters(amountMin: 5000, amountMax: 1000);
+    expect(inverted.hasInvertedAmounts, isTrue);
+    expect(const ExpenseFilters(amountMin: 1000).hasInvertedAmounts, isFalse);
+    final swapped = inverted.withSwappedAmounts();
+    expect((swapped.amountMin, swapped.amountMax), (1000, 5000));
+  });
+
+  test('several parent categories match the union of their subtrees', () async {
+    final all = await db.select(db.categories).get();
+    final parents = all.where((c) => c.parentId == null && all.any((x) => x.parentId == c.id)).take(2).toList();
+    final children = [for (final p in parents) all.firstWhere((c) => c.parentId == p.id)];
+    for (var i = 0; i < children.length; i++) {
+      await repo.create(amountCents: 100 + i, currency: 'EUR', type: children[i].type, date: DateTime(2026, 3, 1), categoryId: children[i].id);
+    }
+    final other = all.firstWhere((c) => c.parentId == null && !parents.contains(c) && !all.any((x) => x.parentId == c.id));
+    await repo.create(amountCents: 999, currency: 'EUR', type: other.type, date: DateTime(2026, 3, 1), categoryId: other.id);
+
+    final rows = await repo.listAll(filters: ExpenseFilters(categoryIds: {for (final p in parents) p.id}));
+    expect(rows.map((e) => e.amount).toSet(), {for (var i = 0; i < children.length; i++) 100 + i});
   });
 }

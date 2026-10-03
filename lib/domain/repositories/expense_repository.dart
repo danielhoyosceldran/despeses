@@ -9,22 +9,35 @@ const _uuid = Uuid();
 
 class ExpenseFilters {
   const ExpenseFilters({
-    this.type,
-    this.categoryId,
-    this.tagId,
-    this.paymentMethodId,
-    this.eventId,
-    this.projectId,
+    this.types = const {},
+    this.categoryIds = const {},
+    this.tagIds = const {},
+    this.paymentMethodIds = const {},
+    this.eventIds = const {},
+    this.projectIds = const {},
+    this.amountMin,
+    this.amountMax,
     this.dateFrom,
     this.dateTo,
   });
 
-  final String? type;
-  final String? categoryId;
-  final String? tagId;
-  final String? paymentMethodId;
-  final String? eventId;
-  final String? projectId;
+  /// Each set is a multi-select: a transaction matches when it has *any* of
+  /// the selected values (OR within a dimension, AND across dimensions). An
+  /// empty set doesn't filter that dimension.
+  final Set<String> types;
+
+  /// Picking a parent category matches its whole subtree.
+  final Set<String> categoryIds;
+
+  /// Matches transactions carrying at least one of these tags.
+  final Set<String> tagIds;
+  final Set<String> paymentMethodIds;
+  final Set<String> eventIds;
+  final Set<String> projectIds;
+
+  /// Inclusive bounds on the (always positive) amount, in cents.
+  final int? amountMin;
+  final int? amountMax;
 
   /// Inclusive day bounds: only the calendar day counts, the time of day is
   /// ignored. A transaction at 18:00 on [dateTo]'s day is included.
@@ -38,17 +51,39 @@ class ExpenseFilters {
         .isAfter(DateTime(dateTo!.year, dateTo!.month, dateTo!.day));
   }
 
-  /// A copy with [dateFrom] and [dateTo] exchanged.
-  ExpenseFilters withSwappedDates() => ExpenseFilters(
-        type: type,
-        categoryId: categoryId,
-        tagId: tagId,
-        paymentMethodId: paymentMethodId,
-        eventId: eventId,
-        projectId: projectId,
-        dateFrom: dateTo,
-        dateTo: dateFrom,
+  /// Whether both amount bounds are set and [amountMin] exceeds [amountMax].
+  bool get hasInvertedAmounts => amountMin != null && amountMax != null && amountMin! > amountMax!;
+
+  ExpenseFilters copyWith({
+    Set<String>? types,
+    Set<String>? categoryIds,
+    Set<String>? tagIds,
+    Set<String>? paymentMethodIds,
+    Set<String>? eventIds,
+    Set<String>? projectIds,
+    int? Function()? amountMin,
+    int? Function()? amountMax,
+    DateTime? Function()? dateFrom,
+    DateTime? Function()? dateTo,
+  }) =>
+      ExpenseFilters(
+        types: types ?? this.types,
+        categoryIds: categoryIds ?? this.categoryIds,
+        tagIds: tagIds ?? this.tagIds,
+        paymentMethodIds: paymentMethodIds ?? this.paymentMethodIds,
+        eventIds: eventIds ?? this.eventIds,
+        projectIds: projectIds ?? this.projectIds,
+        amountMin: amountMin != null ? amountMin() : this.amountMin,
+        amountMax: amountMax != null ? amountMax() : this.amountMax,
+        dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
+        dateTo: dateTo != null ? dateTo() : this.dateTo,
       );
+
+  /// A copy with [dateFrom] and [dateTo] exchanged.
+  ExpenseFilters withSwappedDates() => copyWith(dateFrom: () => dateTo, dateTo: () => dateFrom);
+
+  /// A copy with [amountMin] and [amountMax] exchanged.
+  ExpenseFilters withSwappedAmounts() => copyWith(amountMin: () => amountMax, amountMax: () => amountMin);
 }
 
 class ExpenseRepository {
@@ -68,36 +103,40 @@ class ExpenseRepository {
       ];
 
   JoinedSelectStatement<HasResultSet, dynamic> _filteredQuery(ExpenseFilters filters) {
-    final query = _db.select(_db.expenses).join([
-      if (filters.tagId != null)
-        innerJoin(
-          _db.expenseTags,
-          _db.expenseTags.expenseId.equalsExp(_db.expenses.id) &
-              _db.expenseTags.tagId.equals(filters.tagId!),
-        ),
-    ]);
+    final e = _db.expenses;
+    final query = _db.select(e).join([]);
 
     final conditions = <Expression<bool>>[];
-    if (filters.type != null) conditions.add(_db.expenses.type.equals(filters.type!));
-    if (filters.categoryId != null) {
-      conditions.add(_inCategorySubtree(filters.categoryId!));
+    if (filters.types.isNotEmpty) conditions.add(e.type.isIn(filters.types));
+    if (filters.categoryIds.isNotEmpty) {
+      conditions.add(_inCategorySubtrees(filters.categoryIds));
     }
-    if (filters.paymentMethodId != null) {
-      conditions.add(_db.expenses.paymentMethodId.equals(filters.paymentMethodId!));
+    if (filters.tagIds.isNotEmpty) {
+      // A subquery rather than a join: a row with several matching tags must
+      // still be listed once.
+      final t = _db.expenseTags;
+      conditions.add(e.id.isInQuery(
+        _db.selectOnly(t)
+          ..addColumns([t.expenseId])
+          ..where(t.tagId.isIn(filters.tagIds)),
+      ));
     }
-    if (filters.eventId != null) conditions.add(_db.expenses.eventId.equals(filters.eventId!));
-    if (filters.projectId != null) {
-      conditions.add(_db.expenses.projectId.equals(filters.projectId!));
+    if (filters.paymentMethodIds.isNotEmpty) {
+      conditions.add(e.paymentMethodId.isIn(filters.paymentMethodIds));
     }
+    if (filters.eventIds.isNotEmpty) conditions.add(e.eventId.isIn(filters.eventIds));
+    if (filters.projectIds.isNotEmpty) conditions.add(e.projectId.isIn(filters.projectIds));
+    if (filters.amountMin != null) conditions.add(e.amount.isBiggerOrEqualValue(filters.amountMin!));
+    if (filters.amountMax != null) conditions.add(e.amount.isSmallerOrEqualValue(filters.amountMax!));
     if (filters.dateFrom != null) {
       final from = filters.dateFrom!;
-      conditions.add(_db.expenses.date.isBiggerOrEqualValue(DateTime(from.year, from.month, from.day)));
+      conditions.add(e.date.isBiggerOrEqualValue(DateTime(from.year, from.month, from.day)));
     }
     if (filters.dateTo != null) {
       // Pickers return the day at 00:00, but transactions carry a time: compare
       // against the start of the next day so the whole last day is included.
       final to = filters.dateTo!;
-      conditions.add(_db.expenses.date.isSmallerThanValue(DateTime(to.year, to.month, to.day + 1)));
+      conditions.add(e.date.isSmallerThanValue(DateTime(to.year, to.month, to.day + 1)));
     }
     for (final c in conditions) {
       query.where(c);
@@ -105,18 +144,18 @@ class ExpenseRepository {
     return query;
   }
 
-  /// `category_id IN {categoryId + all its descendants}`. Only leaves are
-  /// assigned to transactions, so filtering by a parent must match its whole
-  /// subtree. Resolved in SQL (recursive CTE) to keep the query synchronous and
-  /// fully DB-side; the id is inlined as an escaped string literal because
-  /// [CustomExpression] has no bind variables.
-  Expression<bool> _inCategorySubtree(String categoryId) {
-    final literal = "'${categoryId.replaceAll("'", "''")}'";
+  /// `category_id IN {each of categoryIds + all their descendants}`. Only
+  /// leaves are assigned to transactions, so filtering by a parent must match
+  /// its whole subtree. Resolved in SQL (recursive CTE) to keep the query
+  /// synchronous and fully DB-side; the ids are inlined as escaped string
+  /// literals because [CustomExpression] has no bind variables.
+  Expression<bool> _inCategorySubtrees(Set<String> categoryIds) {
+    final seeds = categoryIds.map((id) => "('${id.replaceAll("'", "''")}')").join(', ');
     return CustomExpression<bool>(
       'expenses.category_id IN ('
       'WITH RECURSIVE subtree(id) AS ('
-      'SELECT $literal '
-      'UNION ALL SELECT c.id FROM categories c JOIN subtree s ON c.parent_id = s.id'
+      'VALUES $seeds '
+      'UNION SELECT c.id FROM categories c JOIN subtree s ON c.parent_id = s.id'
       ') SELECT id FROM subtree)',
       watchedTables: [_db.categories],
     );
@@ -157,7 +196,7 @@ class ExpenseRepository {
   }
 
   /// Live variant of [listAll] — emits again on any write to `expenses` (or
-  /// `expenseTags` when [ExpenseFilters.tagId] is set), so callers never need
+  /// `expenseTags` when [ExpenseFilters.tagIds] is set), so callers never need
   /// to manually cache/invalidate (e.g. after confirming a recurring
   /// occurrence, which inserts directly into `expenses`).
   Stream<List<Expense>> watchAll({ExpenseFilters filters = const ExpenseFilters()}) {

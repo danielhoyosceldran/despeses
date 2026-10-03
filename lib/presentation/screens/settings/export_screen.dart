@@ -61,7 +61,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   Future<_ExportData> _buildData() async {
     final expenseRepo = ref.read(expenseRepositoryProvider);
     final expenses = await expenseRepo.listAll(
-      filters: ExpenseFilters(type: _type, dateFrom: _from, dateTo: _to),
+      filters: ExpenseFilters(types: {?_type}, dateFrom: _from, dateTo: _to),
     );
 
     final translations = await ref.read(translationsProvider.future);
