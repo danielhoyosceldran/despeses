@@ -9,9 +9,11 @@ Future<bool> showConfirmDialog(
   String confirmLabel = 'Confirm',
   String cancelLabel = 'Cancel',
   bool destructive = false,
+  bool useRootNavigator = true,
 }) async {
   final result = await showDialog<bool>(
     context: context,
+    useRootNavigator: useRootNavigator,
     builder: (context) => AlertDialog(
       title: Text(title),
       content: Text(message),

@@ -36,7 +36,14 @@ class UnsavedChangesGuard extends StatelessWidget {
     if (overlayMode && Router.maybeOf(context) != null) {
       result = BackButtonListener(
         onBackButtonPressed: () async {
-          onRequestClose();
+          // A dialog open over the sheet (its nested navigator) is closed
+          // first, like system back over any dialog.
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            onRequestClose();
+          }
           return true;
         },
         child: result,
@@ -47,10 +54,13 @@ class UnsavedChangesGuard extends StatelessWidget {
 }
 
 /// "Discard changes?" confirmation. Returns true when the user chose to
-/// discard.
+/// discard. Shown on the nearest navigator: when the screen is hosted as a
+/// `DragUpFab` overlay, the root navigator's routes sit behind the sheet, so
+/// the dialog would be invisible there.
 Future<bool> confirmDiscardChanges(BuildContext context, Translations? t) {
   return showConfirmDialog(
     context,
+    useRootNavigator: false,
     title: t?.t('common.discard_title') ?? 'Discard changes?',
     message: t?.t('common.discard_message') ?? 'Your unsaved changes will be lost.',
     confirmLabel: t?.t('common.discard') ?? 'Discard',
