@@ -81,20 +81,38 @@ void main() {
   testWidgets('a hidden dashboard ignores writes and catches up when shown again', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('Budgets').last);
-    await tester.pump(const Duration(milliseconds: 500));
+    try {
+      await tester.tap(find.text('Budgets').last);
+      // pumpAndSettle ensures: go_router navigation complete → AppShell rebuilds
+      // with navigationShell.currentIndex updated → addPostFrameCallback fires →
+      // currentTabIndexProvider updates → DashboardScreen rebuilds with
+      // visible=false → StreamBuilder.stream=null. A bare pump(500ms) is not
+      // enough because the addPostFrameCallback/Riverpod rebuild chain needs all
+      // pending frames to drain.
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
-    await tester.runAsync(() => insertExpense('new', DateTime.now(), description: 'NEW-ROW'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('NEW-ROW', skipOffstage: false), findsNothing,
-        reason: 'the hidden dashboard should not rebuild on writes');
+      await tester.runAsync(() => insertExpense('new', DateTime.now(), description: 'NEW-ROW'));
+      // Let Drift's change notification propagate; use runAsync so real async
+      // completes (isolate messages from NativeDatabase) before we check.
+      await tester.runAsync(() async {
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('NEW-ROW', skipOffstage: false), findsNothing,
+          reason: 'the hidden dashboard should not rebuild on writes');
 
-    await tester.tap(find.text('Dashboard').last);
-    for (var i = 0; i < 5; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Dashboard').last);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      // Stream re-subscribed; wait for Drift to emit with real async.
+      await tester.runAsync(() async {
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('NEW-ROW'), findsOneWidget);
+    } finally {
+      // Always unmount — ensures fake-async drains cleanly even on failure,
+      // preventing the 10-minute test timeout on unexpected assertion errors.
+      await unmount(tester);
     }
-    expect(find.text('NEW-ROW'), findsOneWidget);
-
-    await unmount(tester);
   });
 }
