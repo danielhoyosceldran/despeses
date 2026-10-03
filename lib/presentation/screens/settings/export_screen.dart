@@ -10,7 +10,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/i18n/translations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/database.dart';
 import '../../../domain/export/export_service.dart';
 import '../../../domain/repositories/expense_repository.dart';
 import '../../widgets/app_toast.dart';
@@ -56,7 +58,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     );
   }
 
-  Future<List<List<String>>> _buildRows() async {
+  Future<_ExportData> _buildData() async {
     final expenseRepo = ref.read(expenseRepositoryProvider);
     final expenses = await expenseRepo.listAll(
       filters: ExpenseFilters(type: _type, dateFrom: _from, dateTo: _to),
@@ -72,7 +74,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
     final tagIdsByExpenseId = await expenseRepo.tagIdsByExpense(expenses.map((e) => e.id));
 
-    return buildExportRows(
+    final rows = buildExportRows(
       expenses: expenses,
       categoriesById: categoriesById,
       paymentMethodsById: paymentMethodsById,
@@ -82,6 +84,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       tagsById: tagsById,
       translations: translations,
     );
+    return _ExportData(translations: translations, expenses: expenses, rows: rows);
   }
 
   static const _exportFilePrefix = 'despeses_export_';
@@ -112,8 +115,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     _orderDates();
     setState(() => _busy = true);
     try {
-      final rows = await _buildRows();
-      final csv = buildExportCsv(rows);
+      final data = await _buildData();
+      final csv = buildExportCsv(
+        data.rows,
+        header: buildExportHeader(data.translations),
+        format: CsvFormat.forLocale(data.translations.locale),
+      );
       final file = await _writeExportFile('csv', encodeCsvUtf8(csv));
       await Share.shareXFiles([XFile(file.path)]);
     } catch (e, st) {
@@ -131,8 +138,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     _orderDates();
     setState(() => _busy = true);
     try {
-      final rows = await _buildRows();
-      final bytes = await buildExportPdf(rows, rangeLabel: _rangeLabel);
+      final data = await _buildData();
+      final bytes = await buildExportPdf(
+        data.rows,
+        rangeLabel: _rangeLabel,
+        header: buildExportHeader(data.translations),
+        title: data.translations.t('analytics.transactions'),
+        totals: buildExportTotals(expenses: data.expenses, translations: data.translations),
+      );
       final file = await _writeExportFile('pdf', bytes);
       await Share.shareXFiles([XFile(file.path)]);
     } catch (e, st) {
@@ -203,4 +216,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       ),
     );
   }
+}
+
+/// Everything an export needs: the source transactions (for totals), their
+/// table rows and the translations they were rendered with.
+class _ExportData {
+  const _ExportData({required this.translations, required this.expenses, required this.rows});
+
+  final Translations translations;
+  final List<Expense> expenses;
+  final List<List<String>> rows;
 }
