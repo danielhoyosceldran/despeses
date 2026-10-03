@@ -338,7 +338,9 @@
     "undone": "Restore undone.",
     "invalid_file": "The file is not a valid backup of this app.",
     "too_new": "The backup is from a newer version of the app. Update the app to restore it.",
-    "too_old": "The backup is from an old version of the app that can no longer be restored."
+    "too_old": "The backup is from an old version of the app that can no longer be restored.",
+    "extra_columns": "The backup has columns this version of the app does not know, so it was not restored: {{columns}}.",
+    "missing_columns": "The backup is missing columns that cannot be added automatically, so it was not restored: {{columns}}."
   },
   "expenses": {
     "add": "Add expense",

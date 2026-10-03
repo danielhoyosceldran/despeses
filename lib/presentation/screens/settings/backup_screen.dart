@@ -139,6 +139,12 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           t?.t('backup.too_new') ?? 'The backup is from a newer version of the app. Update the app to restore it.',
         InvalidBackupReason.tooOld =>
           t?.t('backup.too_old') ?? 'The backup is from an old version of the app that can no longer be restored.',
+        InvalidBackupReason.extraColumns => (t?.t('backup.extra_columns') ??
+                'The backup has columns this version of the app does not know, so it was not restored: {{columns}}.')
+            .replaceAll('{{columns}}', error.detail ?? ''),
+        InvalidBackupReason.missingColumns => (t?.t('backup.missing_columns') ??
+                'The backup is missing columns that cannot be added automatically, so it was not restored: {{columns}}.')
+            .replaceAll('{{columns}}', error.detail ?? ''),
       };
     }
     return t?.t('backup.restore_failed') ?? 'Restore failed.';

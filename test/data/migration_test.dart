@@ -101,6 +101,63 @@ void main() {
     expect((await db.select(db.profile).getSingle()).favoritePaymentMethodId, isNull);
   });
 
+  /// Columns of every app table in the file at [path], read raw.
+  Map<String, Set<String>> fileColumns(String path) {
+    final raw = sqlite3.open(path, mode: OpenMode.readOnly);
+    try {
+      return {
+        for (final table in AppDatabase.schemaColumnsAt(AppDatabase.currentSchemaVersion).keys)
+          table: {for (final row in raw.select('PRAGMA table_info("$table")')) row['name'] as String},
+      };
+    } finally {
+      raw.dispose();
+    }
+  }
+
+  test('schemaColumnsAt matches the real schema at the baseline and at the current version', () async {
+    await writeDatabaseAt(AppDatabase.baselineSchemaVersion);
+    expect(fileColumns(dbPath()), AppDatabase.schemaColumnsAt(AppDatabase.baselineSchemaVersion));
+
+    final db = AppDatabase(NativeDatabase(File(dbPath())), service);
+    await db.select(db.profile).get(); // runs onUpgrade
+    await db.close();
+    expect(fileColumns(dbPath()), AppDatabase.schemaColumnsAt(AppDatabase.currentSchemaVersion));
+  });
+
+  test('restoring a v9 backup migrates its missing columns on the next open', () async {
+    await writeDatabaseAt(9);
+    final backup = await File(dbPath()).copy(p.join(tempDir.path, 'old_backup.sqlite'));
+    await File(dbPath()).delete();
+    // A live database to replace.
+    final live = AppDatabase(NativeDatabase(File(dbPath())), service);
+    await live.select(live.profile).get();
+    await live.close();
+
+    await service.restoreBackup(backup);
+
+    final db = AppDatabase(NativeDatabase(File(dbPath())), service);
+    addTearDown(db.close);
+    expect((await db.select(db.profile).getSingle()).favoritePaymentMethodId, isNull);
+    expect((await db.select(db.expenses).getSingle()).amount, 1250);
+  });
+
+  test('restoring a backup stamped v10 but lacking a v10 column still migrates it', () async {
+    await writeDatabaseAt(9);
+    final raw = sqlite3.open(dbPath());
+    raw.userVersion = 10; // version says v10, columns say v9
+    raw.dispose();
+    final backup = await File(dbPath()).copy(p.join(tempDir.path, 'mislabelled.sqlite'));
+    await File(dbPath()).delete();
+
+    await service.restoreBackup(backup);
+
+    final db = AppDatabase(NativeDatabase(File(dbPath())), service);
+    addTearDown(db.close);
+    expect((await db.select(db.profile).getSingle()).favoritePaymentMethodId, isNull);
+    expect((await db.select(db.expenses).getSingle()).amount, 1250);
+    expect(fileColumns(dbPath()), AppDatabase.schemaColumnsAt(AppDatabase.currentSchemaVersion));
+  });
+
   test('a pre-baseline database is refused, backed up and left untouched', () async {
     await writeDatabaseAt(AppDatabase.baselineSchemaVersion - 1);
 

@@ -338,7 +338,9 @@
     "undone": "Restauración deshecha.",
     "invalid_file": "El archivo no es una copia de seguridad válida de la app.",
     "too_new": "La copia es de una versión más reciente de la app. Actualiza la app para restaurarla.",
-    "too_old": "La copia es de una versión antigua de la app que ya no se puede restaurar."
+    "too_old": "La copia es de una versión antigua de la app que ya no se puede restaurar.",
+    "extra_columns": "La copia tiene columnas que esta versión de la app no conoce, así que no se ha restaurado: {{columns}}.",
+    "missing_columns": "A la copia le faltan columnas que no se pueden añadir automáticamente, así que no se ha restaurado: {{columns}}."
   },
   "expenses": {
     "add": "Añadir gasto",

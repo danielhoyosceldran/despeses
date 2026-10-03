@@ -338,7 +338,9 @@
     "undone": "Restauration annulée.",
     "invalid_file": "Le fichier n'est pas une sauvegarde valide de l'application.",
     "too_new": "La sauvegarde provient d'une version plus récente de l'application. Mettez-la à jour pour la restaurer.",
-    "too_old": "La sauvegarde provient d'une ancienne version de l'application qui ne peut plus être restaurée."
+    "too_old": "La sauvegarde provient d'une ancienne version de l'application qui ne peut plus être restaurée.",
+    "extra_columns": "La sauvegarde contient des colonnes inconnues de cette version de l'application ; elle n'a pas été restaurée : {{columns}}.",
+    "missing_columns": "Il manque à la sauvegarde des colonnes impossibles à ajouter automatiquement ; elle n'a pas été restaurée : {{columns}}."
   },
   "expenses": {
     "add": "Ajouter une dépense",

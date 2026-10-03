@@ -19,6 +19,14 @@ enum InvalidBackupReason {
 
   /// Older than [AppDatabase.baselineSchemaVersion]; can't be migrated.
   tooOld,
+
+  /// Has columns its schema version doesn't define (never produced by the
+  /// app). [InvalidBackupException.detail] lists them as `table.column`.
+  extraColumns,
+
+  /// Lacks columns that no migration step can add (e.g. a baseline column).
+  /// [InvalidBackupException.detail] lists them as `table.column`.
+  missingColumns,
 }
 
 class InvalidBackupException implements Exception {
@@ -146,9 +154,12 @@ class BackupService {
   /// aborted with a [StateError] and nothing is touched.
   ///
   /// The file is validated first ([validateBackup]); an invalid one throws an
-  /// [InvalidBackupException] before anything is touched.
+  /// [InvalidBackupException] before anything is touched. If it lacks columns
+  /// that a migration step adds, the restored copy (never the picked file) is
+  /// stamped with the schema version its columns actually match, so the next
+  /// open runs onUpgrade from there and adds them.
   Future<void> restoreBackup(File backupFile) async {
-    validateBackup(backupFile);
+    final (:version, :migrateFrom) = _validate(backupFile);
     final dbPath = await _dbFilePath();
     if (await File(dbPath).exists()) {
       final snapshot = await createAutoBackup(label: preRestoreLabel);
@@ -166,14 +177,30 @@ class BackupService {
         await sidecar.delete();
       }
     }
+    if (migrateFrom != version) {
+      final restored = sqlite3.open(dbPath);
+      try {
+        restored.userVersion = migrateFrom;
+      } finally {
+        restored.dispose();
+      }
+    }
   }
 
   /// Checks that [file] is a database this app can open before it replaces the
   /// live one: opened read-only, it must pass `PRAGMA integrity_check`, have
-  /// all the app's tables, and a `user_version` between
-  /// [AppDatabase.baselineSchemaVersion] and [AppDatabase.currentSchemaVersion].
+  /// all the app's tables, a `user_version` between
+  /// [AppDatabase.baselineSchemaVersion] and [AppDatabase.currentSchemaVersion],
+  /// and columns matching that version ([AppDatabase.schemaColumnsAt]).
   /// Throws an [InvalidBackupException] otherwise.
-  void validateBackup(File file) {
+  ///
+  /// Returns the schema version the file's columns actually match — its
+  /// `user_version`, or a lower one when the only missing columns are exactly
+  /// those that the migration steps above it add (`restoreBackup` migrates
+  /// from there). An extra column, or a missing one no step adds, is rejected.
+  int validateBackup(File file) => _validate(file).migrateFrom;
+
+  ({int version, int migrateFrom}) _validate(File file) {
     final Database db;
     try {
       db = sqlite3.open(file.path, mode: OpenMode.readOnly);
@@ -207,9 +234,43 @@ class BackupService {
       if (version < AppDatabase.baselineSchemaVersion) {
         throw InvalidBackupException(InvalidBackupReason.tooOld, 'schema v$version');
       }
+      return (version: version, migrateFrom: _matchColumns(db, version));
     } finally {
       db.dispose();
     }
+  }
+
+  /// See [validateBackup]'s return value.
+  int _matchColumns(Database db, int version) {
+    final expected = AppDatabase.schemaColumnsAt(version);
+    final actual = <String, Set<String>>{};
+    try {
+      for (final table in expected.keys) {
+        actual[table] = {for (final row in db.select('PRAGMA table_info("$table")')) row['name'] as String};
+      }
+    } on SqliteException catch (e) {
+      throw InvalidBackupException(InvalidBackupReason.notABackup, e.message);
+    }
+
+    final extra = [
+      for (final table in expected.keys)
+        for (final column in actual[table]!.difference(expected[table]!)) '$table.$column',
+    ];
+    if (extra.isNotEmpty) {
+      throw InvalidBackupException(InvalidBackupReason.extraColumns, extra.join(', '));
+    }
+
+    // actual ⊆ expected now; find the newest version the columns match exactly.
+    bool matches(Map<String, Set<String>> columns) =>
+        columns.entries.every((e) => actual[e.key]!.length == e.value.length && actual[e.key]!.containsAll(e.value));
+    for (var v = version; v >= AppDatabase.baselineSchemaVersion; v--) {
+      if (matches(v == version ? expected : AppDatabase.schemaColumnsAt(v))) return v;
+    }
+    final missing = [
+      for (final table in expected.keys)
+        for (final column in expected[table]!.difference(actual[table]!)) '$table.$column',
+    ];
+    throw InvalidBackupException(InvalidBackupReason.missingColumns, missing.join(', '));
   }
 
   /// The most recent [preRestoreLabel] safety copy (the data as it was before

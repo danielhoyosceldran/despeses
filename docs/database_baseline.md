@@ -53,6 +53,23 @@ La fuente de verdad de las columnas es `lib/data/tables.dart`.
 2. **No** subas `baselineSchemaVersion` mientras pueda existir una instalación
    en una versión anterior. Al subirla, borra los pasos que queden por debajo
    y actualiza este documento y `test/data/migration_test.dart`.
-3. Los backups de una versión anterior a la baseline (o posterior a
+3. Las columnas nuevas en tablas existentes se declaran en
+   `AppDatabase.columnsAddedInVersion` (versión → tabla → columnas). `onUpgrade`
+   añade esas columnas a partir de ese mapa, y la validación de backups lo usa
+   para saber qué columnas debe tener un fichero de cada versión
+   (`AppDatabase.schemaColumnsAt`).
+4. Los backups de una versión anterior a la baseline (o posterior a
    `AppDatabase.currentSchemaVersion`) no se pueden restaurar:
    `BackupService.validateBackup` los rechaza antes de reemplazar la BD.
+
+## Restaurar un backup: columnas
+
+`BackupService.validateBackup` compara las columnas de cada tabla del backup con
+las que corresponden a su `user_version`:
+
+| Caso | Qué pasa |
+|---|---|
+| Columnas exactas de su versión | Se restaura; si la versión es antigua, `onUpgrade` migra al reabrir. |
+| Faltan columnas que añade algún paso de migración (p. ej. dice v10 pero no tiene `profile.favorite_payment_method_id`) | Se restaura y la **copia restaurada** (no el fichero elegido) se marca con la versión que sus columnas cumplen de verdad, así que `onUpgrade` añade las que faltan al reabrir. |
+| Columnas de más (`extraColumns`) | Se rechaza sin tocar nada, con un mensaje que lista `tabla.columna`. |
+| Faltan columnas que ninguna migración añade (`missingColumns`) | Se rechaza sin tocar nada, con un mensaje que lista `tabla.columna`. |

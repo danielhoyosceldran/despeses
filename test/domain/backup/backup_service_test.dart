@@ -7,25 +7,49 @@ import 'package:despeses/data/database.dart';
 import 'package:despeses/domain/backup/backup_service.dart';
 
 /// Writes a minimal database that passes [BackupService.validateBackup]: every
-/// app table (empty stubs), [version] as user_version, and a `marker` table
-/// holding [marker] so tests can tell copies apart.
-void writeDb(String path, String marker, {int version = AppDatabase.currentSchemaVersion, bool allTables = true}) {
+/// app table with the columns of schema [version] (no constraints, no rows),
+/// [version] as user_version, and a `marker` table holding [marker] so tests
+/// can tell copies apart. [extraColumns]/[dropColumns] (`table.column`) bend
+/// the column set.
+void writeDb(
+  String path,
+  String marker, {
+  int version = AppDatabase.currentSchemaVersion,
+  bool allTables = true,
+  List<String> extraColumns = const [],
+  List<String> dropColumns = const [],
+}) {
   final file = File(path);
   if (file.existsSync()) file.deleteSync();
   final db = sqlite3.open(path);
   try {
     if (allTables) {
-      for (final t in [
-        'profile', 'tag_groups', 'tags', 'categories', 'payment_methods', 'events', 'projects',
-        'expenses', 'expense_tags', 'budgets', 'recurrings', 'recurring_tags',
-        'recurring_occurrences', 'savings_goals',
-      ]) {
-        db.execute('CREATE TABLE $t (id TEXT)');
+      final schemaVersion = version.clamp(AppDatabase.baselineSchemaVersion, AppDatabase.currentSchemaVersion);
+      final schema = AppDatabase.schemaColumnsAt(schemaVersion);
+      for (final c in extraColumns) {
+        final [table, column] = c.split('.');
+        schema[table]!.add(column);
+      }
+      for (final c in dropColumns) {
+        final [table, column] = c.split('.');
+        schema[table]!.remove(column);
+      }
+      for (final MapEntry(key: table, value: columns) in schema.entries) {
+        db.execute('CREATE TABLE $table (${columns.map((c) => '"$c"').join(', ')})');
       }
     }
     db.execute('CREATE TABLE marker (v TEXT)');
     db.execute('INSERT INTO marker VALUES (?)', [marker]);
     db.userVersion = version;
+  } finally {
+    db.dispose();
+  }
+}
+
+int readUserVersion(String path) {
+  final db = sqlite3.open(path, mode: OpenMode.readOnly);
+  try {
+    return db.userVersion;
   } finally {
     db.dispose();
   }
@@ -207,6 +231,55 @@ void main() {
       final path = p.join(tempDir.path, 'older.sqlite');
       writeDb(path, 'older', version: AppDatabase.baselineSchemaVersion - 1);
       await expectRejected(path, InvalidBackupReason.tooOld);
+    });
+
+    test('rejects a backup with a column its schema version does not define, naming it', () async {
+      final path = p.join(tempDir.path, 'extra.sqlite');
+      writeDb(path, 'extra', extraColumns: ['expenses.mystery', 'tags.legacy']);
+      await expectRejected(path, InvalidBackupReason.extraColumns);
+      expect(
+        () => service.validateBackup(File(path)),
+        throwsA(isA<InvalidBackupException>()
+            .having((e) => e.detail, 'detail', allOf(contains('expenses.mystery'), contains('tags.legacy')))),
+      );
+    });
+
+    test('a column from a later version counts as extra', () async {
+      final path = p.join(tempDir.path, 'v9_plus.sqlite');
+      writeDb(path, 'v9+', version: 9, extraColumns: ['profile.favorite_payment_method_id']);
+      await expectRejected(path, InvalidBackupReason.extraColumns);
+    });
+
+    test('rejects a backup missing a column no migration adds, naming it', () async {
+      final path = p.join(tempDir.path, 'missing.sqlite');
+      writeDb(path, 'missing', dropColumns: ['expenses.amount']);
+      await expectRejected(path, InvalidBackupReason.missingColumns);
+      expect(
+        () => service.validateBackup(File(path)),
+        throwsA(isA<InvalidBackupException>().having((e) => e.detail, 'detail', contains('expenses.amount'))),
+      );
+    });
+
+    test('an older backup with the columns of its own version needs no re-stamp', () async {
+      final path = p.join(tempDir.path, 'v9.sqlite');
+      writeDb(path, 'v9', version: 9);
+      expect(service.validateBackup(File(path)), 9);
+
+      await service.restoreBackup(File(path));
+      expect(readUserVersion(p.join(tempDir.path, 'despeses.sqlite')), 9);
+    });
+
+    test('missing columns a migration adds: the restored copy is stamped to migrate them', () async {
+      final path = p.join(tempDir.path, 'v10_short.sqlite');
+      writeDb(path, 'v10-short', version: 10, dropColumns: ['profile.favorite_payment_method_id']);
+      expect(service.validateBackup(File(path)), 9);
+
+      await service.restoreBackup(File(path));
+
+      final dbPath = p.join(tempDir.path, 'despeses.sqlite');
+      expect(readMarker(dbPath), 'v10-short');
+      expect(readUserVersion(dbPath), 9);
+      expect(readUserVersion(path), 10, reason: 'the picked file itself must not be modified');
     });
   });
 }

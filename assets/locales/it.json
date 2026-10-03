@@ -338,7 +338,9 @@
     "undone": "Ripristino annullato.",
     "invalid_file": "Il file non è un backup valido dell'app.",
     "too_new": "Il backup proviene da una versione più recente dell'app. Aggiorna l'app per ripristinarlo.",
-    "too_old": "Il backup proviene da una vecchia versione dell'app che non può più essere ripristinata."
+    "too_old": "Il backup proviene da una vecchia versione dell'app che non può più essere ripristinata.",
+    "extra_columns": "Il backup contiene colonne che questa versione dell'app non conosce, quindi non è stato ripristinato: {{columns}}.",
+    "missing_columns": "Al backup mancano colonne che non si possono aggiungere automaticamente, quindi non è stato ripristinato: {{columns}}."
   },
   "expenses": {
     "add": "Aggiungi spesa",

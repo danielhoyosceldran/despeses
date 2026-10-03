@@ -338,7 +338,9 @@
     "undone": "S'ha desfet la restauració.",
     "invalid_file": "El fitxer no és una còpia de seguretat vàlida de l'app.",
     "too_new": "La còpia és d'una versió més recent de l'app. Actualitza l'app per restaurar-la.",
-    "too_old": "La còpia és d'una versió antiga de l'app que ja no es pot restaurar."
+    "too_old": "La còpia és d'una versió antiga de l'app que ja no es pot restaurar.",
+    "extra_columns": "La còpia té columnes que aquesta versió de l'app no coneix, així que no s'ha restaurat: {{columns}}.",
+    "missing_columns": "A la còpia li falten columnes que no es poden afegir automàticament, així que no s'ha restaurat: {{columns}}."
   },
   "expenses": {
     "add": "Afegir despesa",

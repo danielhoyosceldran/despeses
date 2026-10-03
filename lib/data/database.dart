@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -92,6 +95,43 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => currentSchemaVersion;
 
+  /// Columns each schema bump after the baseline added to an EXISTING table:
+  /// version → table → SQL column names, in ascending version order. The
+  /// single source for onUpgrade's addColumn steps and for backup validation
+  /// ([schemaColumnsAt]), which must know which columns a file of a given
+  /// version is supposed to have.
+  static const Map<int, Map<String, Set<String>>> columnsAddedInVersion = {
+    10: {'profile': {'favorite_payment_method_id'}}, // BL-024
+  };
+
+  /// Every table's columns (SQL names) at schema [version], between
+  /// [baselineSchemaVersion] and [currentSchemaVersion]: the current drift
+  /// definitions minus the columns added in later versions. Tables added
+  /// after the baseline would need the same treatment here.
+  static Map<String, Set<String>> schemaColumnsAt(int version) {
+    final columns = {for (final e in _currentColumns.entries) e.key: {...e.value}};
+    for (final step in columnsAddedInVersion.entries) {
+      if (step.key <= version) continue;
+      for (final table in step.value.entries) {
+        columns[table.key]!.removeAll(table.value);
+      }
+    }
+    return columns;
+  }
+
+  static final Map<String, Set<String>> _currentColumns = _readCurrentColumns();
+
+  /// Reads the table definitions from a throwaway, never-opened instance (no
+  /// query runs, so the in-memory executor is never even created).
+  static Map<String, Set<String>> _readCurrentColumns() {
+    final db = _SchemaProbe();
+    final columns = {
+      for (final table in db.allTables) table.actualTableName: {for (final c in table.$columns) c.name},
+    };
+    unawaited(db.close());
+    return columns;
+  }
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
@@ -119,19 +159,31 @@ class AppDatabase extends _$AppDatabase {
                 'baseline and cannot be upgraded.');
           }
 
-          // Add one `if (from < N)` block per schema bump.
-          // v10 (BL-024): favorite payment method on the profile.
-          if (from < 10) await m.addColumn(profile, profile.favoritePaymentMethodId);
+          // Columns added to existing tables, driven by columnsAddedInVersion
+          // (v10, BL-024: profile.favorite_payment_method_id). Other kinds of
+          // step (new tables, data fixes) go in their own `if (from < N)`
+          // block.
+          for (final step in columnsAddedInVersion.entries) {
+            if (from >= step.key) continue;
+            for (final entry in step.value.entries) {
+              final table = allTables.firstWhere((t) => t.actualTableName == entry.key);
+              for (final name in entry.value) {
+                await m.addColumn(table, table.$columns.firstWhere((c) => c.name == name));
+              }
+            }
+          }
           //
           // CRITICAL when adding a column to an EXISTING table (tables.dart):
-          //   1. The column MUST declare withDefault(...)/clientDefault —
-          //      SQLite's ALTER TABLE ADD COLUMN cannot add a NOT NULL column
-          //      without a default.
-          //   2. Bump schemaVersion above and add the matching step here IN THE
-          //      SAME change. Drift selects the full explicit column list, so
-          //      an installed app that skips this step crashes on launch with
+          //   1. The column MUST declare withDefault(...)/clientDefault (or be
+          //      nullable) — SQLite's ALTER TABLE ADD COLUMN cannot add a NOT
+          //      NULL column without a default.
+          //   2. Bump schemaVersion above and add the column to
+          //      columnsAddedInVersion under the new version IN THE SAME
+          //      change. Drift selects the full explicit column list, so an
+          //      installed app that skips this step crashes on launch with
           //      "no such column" — onCreate hides this because it always
-          //      builds the full current schema.
+          //      builds the full current schema. Backup validation relies on
+          //      the same map to tell missing (migratable) columns apart.
           //   3. Steps must accumulate (if (from < N)), never replace an
           //      earlier step.
         },
@@ -152,6 +204,13 @@ class AppDatabase extends _$AppDatabase {
           await _createIndexes(this);
         },
       );
+}
+
+/// Table definitions only, for [AppDatabase._readCurrentColumns]. Its own
+/// class so drift's debug "created AppDatabase multiple times" check, which
+/// counts instances per runtimeType, ignores it.
+class _SchemaProbe extends AppDatabase {
+  _SchemaProbe() : super(NativeDatabase.memory());
 }
 
 /// Drops every table and rebuilds the current schema from scratch (seed +
