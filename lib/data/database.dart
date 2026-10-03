@@ -87,7 +87,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Schema version this build creates/migrates to. Static so code without a
   /// live connection (e.g. backup validation) can check a file against it.
-  static const int currentSchemaVersion = 9;
+  static const int currentSchemaVersion = 10;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -119,8 +119,9 @@ class AppDatabase extends _$AppDatabase {
                 'baseline and cannot be upgraded.');
           }
 
-          // Add one `if (from < N)` block per schema bump, e.g.:
-          //   if (from < 10) await m.addColumn(expenses, expenses.someColumn);
+          // Add one `if (from < N)` block per schema bump.
+          // v10 (BL-024): favorite payment method on the profile.
+          if (from < 10) await m.addColumn(profile, profile.favoritePaymentMethodId);
           //
           // CRITICAL when adding a column to an EXISTING table (tables.dart):
           //   1. The column MUST declare withDefault(...)/clientDefault —

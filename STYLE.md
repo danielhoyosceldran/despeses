@@ -290,6 +290,9 @@ primary `accent` (or `text`). Bottom-nav: Dashboard `layoutDashboard`, Expenses
 `receipt`, Budgets `pieChart`, Analytics `barChart2`, Settings/catalog `layers`.
 Header gear `settings`.
 
+Favorite marker (`EntityListTile.favorite`, Payment methods): `star` 20,
+tinted `accent`.
+
 ---
 
 ## 7. Motion

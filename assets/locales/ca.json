@@ -160,7 +160,9 @@
     "new": "Nou mètode de pagament",
     "edit": "Editar mètode de pagament",
     "delete_title": "Eliminar mètode de pagament",
-    "delete_message": "Eliminar \"{{name}}\"? Les despeses que l'usen conservaran les seves dades però perdran la referència."
+    "delete_message": "Eliminar \"{{name}}\"? Les despeses que l'usen conservaran les seves dades però perdran la referència.",
+    "favorite": "Preferit",
+    "cannot_delete_last": "Hi ha d'haver almenys un mètode de pagament."
   },
   "events": {
     "add": "Afegir esdeveniment",

@@ -14,6 +14,8 @@ import '../../core/theme/app_theme.dart';
 /// - selection ([selectionMode]): leading swaps to a checkbox, trailing shows
 ///   an edit pencil and (when [reorderIndex] is set) a drag handle; tap
 ///   toggles the checkbox instead of firing [onTap].
+///
+/// [favorite] shows a star at the trailing end in normal mode.
 class EntityListTile extends StatelessWidget {
   const EntityListTile({
     super.key,
@@ -30,6 +32,7 @@ class EntityListTile extends StatelessWidget {
     this.onSelectedChanged,
     this.reorderIndex,
     this.showDivider = true,
+    this.favorite = false,
   });
 
   /// Stable entity id.
@@ -64,6 +67,10 @@ class EntityListTile extends StatelessWidget {
 
   /// Show a hairline divider below the row, inset to align under the text.
   final bool showDivider;
+
+  /// Marks the row as the favorite (payment methods, BL-024): a star
+  /// in the trailing slot outside selection mode.
+  final bool favorite;
 
   static const double _avatarSize = 44;
   static const double _gap = AppSpacing.smMd;
@@ -147,9 +154,15 @@ class EntityListTile extends StatelessWidget {
                           child: Icon(LucideIcons.gripVertical300, size: 20, color: colors.textMuted),
                         ),
                       ),
-                  ] else if (onTap != null) ...[
-                    const SizedBox(width: AppSpacing.sm),
-                    Icon(LucideIcons.chevronRight300, size: 20, color: colors.textMuted),
+                  ] else ...[
+                    if (favorite) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      Icon(LucideIcons.star300, size: 20, color: colors.accent),
+                    ],
+                    if (onTap != null) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      Icon(LucideIcons.chevronRight300, size: 20, color: colors.textMuted),
+                    ],
                   ],
                 ],
               ),

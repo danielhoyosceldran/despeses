@@ -29,8 +29,27 @@ void main() {
     if (await tempDir.exists()) await tempDir.delete(recursive: true);
   });
 
+  /// Rebuilds `profile` without the v10 column (BL-024), keeping its row, so
+  /// the file really has the v9 shape. SQLite can't DROP a column that holds a
+  /// foreign key, hence the table rebuild.
+  Future<void> stripProfileToV9(AppDatabase db) async {
+    final createSql = (await db
+            .customSelect("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'profile'")
+            .getSingle())
+        .read<String>('sql');
+    final v9Sql = createSql.replaceFirst(
+        RegExp(r',\s*"favorite_payment_method_id" TEXT REFERENCES payment_methods\(id\) ON DELETE SET NULL'), '');
+    expect(v9Sql, isNot(contains('favorite_payment_method_id')));
+    const v9Columns = 'id, language, currency, theme, haptics_enabled, haptics_strength, created_at, updated_at';
+    await db.customStatement('ALTER TABLE profile RENAME TO profile_v10');
+    await db.customStatement(v9Sql);
+    await db.customStatement('INSERT INTO profile ($v9Columns) SELECT $v9Columns FROM profile_v10');
+    await db.customStatement('DROP TABLE profile_v10');
+  }
+
   /// Creates a current-schema database with one expense, then stamps it with
-  /// [version] so the next open goes through onUpgrade from there.
+  /// [version] (reshaping tables added to after it) so the next open goes
+  /// through onUpgrade from there.
   Future<void> writeDatabaseAt(int version) async {
     final db = AppDatabase(NativeDatabase(File(dbPath())), service);
     final leaf = (await db.select(db.categories).get()).firstWhere((c) => c.type == 'expense');
@@ -42,6 +61,7 @@ void main() {
           date: DateTime(2026, 7, 1),
           categoryId: Value(leaf.id),
         ));
+    if (version < 10) await stripProfileToV9(db);
     await db.customStatement('PRAGMA user_version = $version');
     await db.close();
   }
@@ -61,6 +81,24 @@ void main() {
     expect((await db.select(db.expenses).getSingle()).amount, 1250);
     expect(await db.select(db.recurrings).get(), isEmpty);
     expect(await db.select(db.savingsGoals).get(), isEmpty);
+  });
+
+  test('v9 → v10 adds profile.favorite_payment_method_id (null, FK set null on delete)', () async {
+    await writeDatabaseAt(9);
+
+    final db = AppDatabase(NativeDatabase(File(dbPath())), service);
+    addTearDown(db.close);
+
+    final profile = await db.select(db.profile).getSingle();
+    expect(profile.favoritePaymentMethodId, isNull);
+    expect((await db.select(db.expenses).getSingle()).amount, 1250);
+
+    final method = (await db.select(db.paymentMethods).get()).first;
+    await db.update(db.profile).write(ProfileCompanion(favoritePaymentMethodId: Value(method.id)));
+    expect((await db.select(db.profile).getSingle()).favoritePaymentMethodId, method.id);
+
+    await (db.delete(db.paymentMethods)..where((m) => m.id.equals(method.id))).go();
+    expect((await db.select(db.profile).getSingle()).favoritePaymentMethodId, isNull);
   });
 
   test('a pre-baseline database is refused, backed up and left untouched', () async {

@@ -160,7 +160,9 @@
     "new": "Nouveau moyen de paiement",
     "edit": "Modifier le moyen de paiement",
     "delete_title": "Supprimer le moyen de paiement",
-    "delete_message": "Supprimer « {{name}} » ? Les dépenses qui l'utilisent garderont leurs données mais perdront la référence."
+    "delete_message": "Supprimer « {{name}} » ? Les dépenses qui l'utilisent garderont leurs données mais perdront la référence.",
+    "favorite": "Favori",
+    "cannot_delete_last": "Il doit y avoir au moins un moyen de paiement."
   },
   "events": {
     "add": "Ajouter un événement",

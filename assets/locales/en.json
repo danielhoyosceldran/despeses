@@ -160,7 +160,9 @@
     "new": "New payment method",
     "edit": "Edit payment method",
     "delete_title": "Delete payment method",
-    "delete_message": "Delete \"{{name}}\"? Expenses using it will keep their data but lose the reference."
+    "delete_message": "Delete \"{{name}}\"? Expenses using it will keep their data but lose the reference.",
+    "favorite": "Favorite",
+    "cannot_delete_last": "There must be at least one payment method."
   },
   "events": {
     "add": "Add event",

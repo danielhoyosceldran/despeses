@@ -3,6 +3,459 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
+class $PaymentMethodsTable extends PaymentMethods
+    with TableInfo<$PaymentMethodsTable, PaymentMethod> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PaymentMethodsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
+  @override
+  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
+    'icon',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
+    'isDefault',
+  );
+  @override
+  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
+    'is_default',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_default" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    icon,
+    isDefault,
+    position,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'payment_methods';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaymentMethod> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('icon')) {
+      context.handle(
+        _iconMeta,
+        icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
+      );
+    }
+    if (data.containsKey('is_default')) {
+      context.handle(
+        _isDefaultMeta,
+        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
+      );
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {name},
+  ];
+  @override
+  PaymentMethod map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaymentMethod(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      icon: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon'],
+      ),
+      isDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_default'],
+      )!,
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PaymentMethodsTable createAlias(String alias) {
+    return $PaymentMethodsTable(attachedDatabase, alias);
+  }
+}
+
+class PaymentMethod extends DataClass implements Insertable<PaymentMethod> {
+  final String id;
+  final String name;
+  final String? icon;
+  final bool isDefault;
+  final int position;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const PaymentMethod({
+    required this.id,
+    required this.name,
+    this.icon,
+    required this.isDefault,
+    required this.position,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || icon != null) {
+      map['icon'] = Variable<String>(icon);
+    }
+    map['is_default'] = Variable<bool>(isDefault);
+    map['position'] = Variable<int>(position);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  PaymentMethodsCompanion toCompanion(bool nullToAbsent) {
+    return PaymentMethodsCompanion(
+      id: Value(id),
+      name: Value(name),
+      icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
+      isDefault: Value(isDefault),
+      position: Value(position),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory PaymentMethod.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaymentMethod(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      icon: serializer.fromJson<String?>(json['icon']),
+      isDefault: serializer.fromJson<bool>(json['isDefault']),
+      position: serializer.fromJson<int>(json['position']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'icon': serializer.toJson<String?>(icon),
+      'isDefault': serializer.toJson<bool>(isDefault),
+      'position': serializer.toJson<int>(position),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  PaymentMethod copyWith({
+    String? id,
+    String? name,
+    Value<String?> icon = const Value.absent(),
+    bool? isDefault,
+    int? position,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => PaymentMethod(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    icon: icon.present ? icon.value : this.icon,
+    isDefault: isDefault ?? this.isDefault,
+    position: position ?? this.position,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  PaymentMethod copyWithCompanion(PaymentMethodsCompanion data) {
+    return PaymentMethod(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      icon: data.icon.present ? data.icon.value : this.icon,
+      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
+      position: data.position.present ? data.position.value : this.position,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaymentMethod(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('icon: $icon, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('position: $position, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, icon, isDefault, position, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaymentMethod &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.icon == this.icon &&
+          other.isDefault == this.isDefault &&
+          other.position == this.position &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PaymentMethodsCompanion extends UpdateCompanion<PaymentMethod> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> icon;
+  final Value<bool> isDefault;
+  final Value<int> position;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const PaymentMethodsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.icon = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.position = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PaymentMethodsCompanion.insert({
+    required String id,
+    required String name,
+    this.icon = const Value.absent(),
+    this.isDefault = const Value.absent(),
+    this.position = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name);
+  static Insertable<PaymentMethod> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? icon,
+    Expression<bool>? isDefault,
+    Expression<int>? position,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (icon != null) 'icon': icon,
+      if (isDefault != null) 'is_default': isDefault,
+      if (position != null) 'position': position,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PaymentMethodsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? icon,
+    Value<bool>? isDefault,
+    Value<int>? position,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return PaymentMethodsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      isDefault: isDefault ?? this.isDefault,
+      position: position ?? this.position,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (icon.present) {
+      map['icon'] = Variable<String>(icon.value);
+    }
+    if (isDefault.present) {
+      map['is_default'] = Variable<bool>(isDefault.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaymentMethodsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('icon: $icon, ')
+          ..write('isDefault: $isDefault, ')
+          ..write('position: $position, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -79,6 +532,18 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _favoritePaymentMethodIdMeta =
+      const VerificationMeta('favoritePaymentMethodId');
+  @override
+  late final GeneratedColumn<String> favoritePaymentMethodId =
+      GeneratedColumn<String>(
+        'favorite_payment_method_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        $customConstraints: 'REFERENCES payment_methods(id) ON DELETE SET NULL',
+      );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -111,6 +576,7 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
     theme,
     hapticsEnabled,
     hapticsStrength,
+    favoritePaymentMethodId,
     createdAt,
     updatedAt,
   ];
@@ -165,6 +631,15 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
         ),
       );
     }
+    if (data.containsKey('favorite_payment_method_id')) {
+      context.handle(
+        _favoritePaymentMethodIdMeta,
+        favoritePaymentMethodId.isAcceptableOrUnknown(
+          data['favorite_payment_method_id']!,
+          _favoritePaymentMethodIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -210,6 +685,10 @@ class $ProfileTable extends Profile with TableInfo<$ProfileTable, ProfileData> {
         DriftSqlType.int,
         data['${effectivePrefix}haptics_strength'],
       )!,
+      favoritePaymentMethodId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}favorite_payment_method_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -235,7 +714,14 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
   final bool hapticsEnabled;
 
   /// Feedback intensity: 0 = soft, 1 = medium (default), 2 = strong.
+  /// Currently unused but kept on purpose (the setting may come back) — don't
+  /// drop it in a migration; see docs/database_baseline.md.
   final int hapticsStrength;
+
+  /// Payment method preselected on every new transaction (BL-024); null when
+  /// none is marked. Cleared by the database when that method is deleted.
+  /// Added in schema v10.
+  final String? favoritePaymentMethodId;
   final DateTime createdAt;
   final DateTime updatedAt;
   const ProfileData({
@@ -245,6 +731,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     required this.theme,
     required this.hapticsEnabled,
     required this.hapticsStrength,
+    this.favoritePaymentMethodId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -257,6 +744,11 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     map['theme'] = Variable<String>(theme);
     map['haptics_enabled'] = Variable<bool>(hapticsEnabled);
     map['haptics_strength'] = Variable<int>(hapticsStrength);
+    if (!nullToAbsent || favoritePaymentMethodId != null) {
+      map['favorite_payment_method_id'] = Variable<String>(
+        favoritePaymentMethodId,
+      );
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -270,6 +762,9 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       theme: Value(theme),
       hapticsEnabled: Value(hapticsEnabled),
       hapticsStrength: Value(hapticsStrength),
+      favoritePaymentMethodId: favoritePaymentMethodId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(favoritePaymentMethodId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -287,6 +782,9 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       theme: serializer.fromJson<String>(json['theme']),
       hapticsEnabled: serializer.fromJson<bool>(json['hapticsEnabled']),
       hapticsStrength: serializer.fromJson<int>(json['hapticsStrength']),
+      favoritePaymentMethodId: serializer.fromJson<String?>(
+        json['favoritePaymentMethodId'],
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -301,6 +799,9 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       'theme': serializer.toJson<String>(theme),
       'hapticsEnabled': serializer.toJson<bool>(hapticsEnabled),
       'hapticsStrength': serializer.toJson<int>(hapticsStrength),
+      'favoritePaymentMethodId': serializer.toJson<String?>(
+        favoritePaymentMethodId,
+      ),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -313,6 +814,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     String? theme,
     bool? hapticsEnabled,
     int? hapticsStrength,
+    Value<String?> favoritePaymentMethodId = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => ProfileData(
@@ -322,6 +824,9 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     theme: theme ?? this.theme,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     hapticsStrength: hapticsStrength ?? this.hapticsStrength,
+    favoritePaymentMethodId: favoritePaymentMethodId.present
+        ? favoritePaymentMethodId.value
+        : this.favoritePaymentMethodId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -337,6 +842,9 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
       hapticsStrength: data.hapticsStrength.present
           ? data.hapticsStrength.value
           : this.hapticsStrength,
+      favoritePaymentMethodId: data.favoritePaymentMethodId.present
+          ? data.favoritePaymentMethodId.value
+          : this.favoritePaymentMethodId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -351,6 +859,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
           ..write('theme: $theme, ')
           ..write('hapticsEnabled: $hapticsEnabled, ')
           ..write('hapticsStrength: $hapticsStrength, ')
+          ..write('favoritePaymentMethodId: $favoritePaymentMethodId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -365,6 +874,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
     theme,
     hapticsEnabled,
     hapticsStrength,
+    favoritePaymentMethodId,
     createdAt,
     updatedAt,
   );
@@ -378,6 +888,7 @@ class ProfileData extends DataClass implements Insertable<ProfileData> {
           other.theme == this.theme &&
           other.hapticsEnabled == this.hapticsEnabled &&
           other.hapticsStrength == this.hapticsStrength &&
+          other.favoritePaymentMethodId == this.favoritePaymentMethodId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -389,6 +900,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
   final Value<String> theme;
   final Value<bool> hapticsEnabled;
   final Value<int> hapticsStrength;
+  final Value<String?> favoritePaymentMethodId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const ProfileCompanion({
@@ -398,6 +910,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     this.theme = const Value.absent(),
     this.hapticsEnabled = const Value.absent(),
     this.hapticsStrength = const Value.absent(),
+    this.favoritePaymentMethodId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -408,6 +921,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     this.theme = const Value.absent(),
     this.hapticsEnabled = const Value.absent(),
     this.hapticsStrength = const Value.absent(),
+    this.favoritePaymentMethodId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -418,6 +932,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     Expression<String>? theme,
     Expression<bool>? hapticsEnabled,
     Expression<int>? hapticsStrength,
+    Expression<String>? favoritePaymentMethodId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -428,6 +943,8 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
       if (theme != null) 'theme': theme,
       if (hapticsEnabled != null) 'haptics_enabled': hapticsEnabled,
       if (hapticsStrength != null) 'haptics_strength': hapticsStrength,
+      if (favoritePaymentMethodId != null)
+        'favorite_payment_method_id': favoritePaymentMethodId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -440,6 +957,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     Value<String>? theme,
     Value<bool>? hapticsEnabled,
     Value<int>? hapticsStrength,
+    Value<String?>? favoritePaymentMethodId,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
@@ -450,6 +968,8 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
       theme: theme ?? this.theme,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       hapticsStrength: hapticsStrength ?? this.hapticsStrength,
+      favoritePaymentMethodId:
+          favoritePaymentMethodId ?? this.favoritePaymentMethodId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -476,6 +996,11 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
     if (hapticsStrength.present) {
       map['haptics_strength'] = Variable<int>(hapticsStrength.value);
     }
+    if (favoritePaymentMethodId.present) {
+      map['favorite_payment_method_id'] = Variable<String>(
+        favoritePaymentMethodId.value,
+      );
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -494,6 +1019,7 @@ class ProfileCompanion extends UpdateCompanion<ProfileData> {
           ..write('theme: $theme, ')
           ..write('hapticsEnabled: $hapticsEnabled, ')
           ..write('hapticsStrength: $hapticsStrength, ')
+          ..write('favoritePaymentMethodId: $favoritePaymentMethodId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2013,459 +2539,6 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('parentId: $parentId, ')
           ..write('name: $name, ')
           ..write('color: $color, ')
-          ..write('icon: $icon, ')
-          ..write('isDefault: $isDefault, ')
-          ..write('position: $position, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $PaymentMethodsTable extends PaymentMethods
-    with TableInfo<$PaymentMethodsTable, PaymentMethod> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $PaymentMethodsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
-  @override
-  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
-    'icon',
-    aliasedName,
-    true,
-    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
-    'isDefault',
-  );
-  @override
-  late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
-    'is_default',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_default" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _positionMeta = const VerificationMeta(
-    'position',
-  );
-  @override
-  late final GeneratedColumn<int> position = GeneratedColumn<int>(
-    'position',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-    'updated_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    name,
-    icon,
-    isDefault,
-    position,
-    createdAt,
-    updatedAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'payment_methods';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<PaymentMethod> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('icon')) {
-      context.handle(
-        _iconMeta,
-        icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
-      );
-    }
-    if (data.containsKey('is_default')) {
-      context.handle(
-        _isDefaultMeta,
-        isDefault.isAcceptableOrUnknown(data['is_default']!, _isDefaultMeta),
-      );
-    }
-    if (data.containsKey('position')) {
-      context.handle(
-        _positionMeta,
-        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(
-        _updatedAtMeta,
-        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  List<Set<GeneratedColumn>> get uniqueKeys => [
-    {name},
-  ];
-  @override
-  PaymentMethod map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return PaymentMethod(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      icon: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}icon'],
-      ),
-      isDefault: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_default'],
-      )!,
-      position: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}position'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-      updatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}updated_at'],
-      )!,
-    );
-  }
-
-  @override
-  $PaymentMethodsTable createAlias(String alias) {
-    return $PaymentMethodsTable(attachedDatabase, alias);
-  }
-}
-
-class PaymentMethod extends DataClass implements Insertable<PaymentMethod> {
-  final String id;
-  final String name;
-  final String? icon;
-  final bool isDefault;
-  final int position;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  const PaymentMethod({
-    required this.id,
-    required this.name,
-    this.icon,
-    required this.isDefault,
-    required this.position,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['name'] = Variable<String>(name);
-    if (!nullToAbsent || icon != null) {
-      map['icon'] = Variable<String>(icon);
-    }
-    map['is_default'] = Variable<bool>(isDefault);
-    map['position'] = Variable<int>(position);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    return map;
-  }
-
-  PaymentMethodsCompanion toCompanion(bool nullToAbsent) {
-    return PaymentMethodsCompanion(
-      id: Value(id),
-      name: Value(name),
-      icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
-      isDefault: Value(isDefault),
-      position: Value(position),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
-    );
-  }
-
-  factory PaymentMethod.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return PaymentMethod(
-      id: serializer.fromJson<String>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      icon: serializer.fromJson<String?>(json['icon']),
-      isDefault: serializer.fromJson<bool>(json['isDefault']),
-      position: serializer.fromJson<int>(json['position']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'name': serializer.toJson<String>(name),
-      'icon': serializer.toJson<String?>(icon),
-      'isDefault': serializer.toJson<bool>(isDefault),
-      'position': serializer.toJson<int>(position),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-    };
-  }
-
-  PaymentMethod copyWith({
-    String? id,
-    String? name,
-    Value<String?> icon = const Value.absent(),
-    bool? isDefault,
-    int? position,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) => PaymentMethod(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    icon: icon.present ? icon.value : this.icon,
-    isDefault: isDefault ?? this.isDefault,
-    position: position ?? this.position,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
-  PaymentMethod copyWithCompanion(PaymentMethodsCompanion data) {
-    return PaymentMethod(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      icon: data.icon.present ? data.icon.value : this.icon,
-      isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
-      position: data.position.present ? data.position.value : this.position,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('PaymentMethod(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('icon: $icon, ')
-          ..write('isDefault: $isDefault, ')
-          ..write('position: $position, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode =>
-      Object.hash(id, name, icon, isDefault, position, createdAt, updatedAt);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is PaymentMethod &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.icon == this.icon &&
-          other.isDefault == this.isDefault &&
-          other.position == this.position &&
-          other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
-}
-
-class PaymentMethodsCompanion extends UpdateCompanion<PaymentMethod> {
-  final Value<String> id;
-  final Value<String> name;
-  final Value<String?> icon;
-  final Value<bool> isDefault;
-  final Value<int> position;
-  final Value<DateTime> createdAt;
-  final Value<DateTime> updatedAt;
-  final Value<int> rowid;
-  const PaymentMethodsCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.icon = const Value.absent(),
-    this.isDefault = const Value.absent(),
-    this.position = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  PaymentMethodsCompanion.insert({
-    required String id,
-    required String name,
-    this.icon = const Value.absent(),
-    this.isDefault = const Value.absent(),
-    this.position = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       name = Value(name);
-  static Insertable<PaymentMethod> custom({
-    Expression<String>? id,
-    Expression<String>? name,
-    Expression<String>? icon,
-    Expression<bool>? isDefault,
-    Expression<int>? position,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? updatedAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (icon != null) 'icon': icon,
-      if (isDefault != null) 'is_default': isDefault,
-      if (position != null) 'position': position,
-      if (createdAt != null) 'created_at': createdAt,
-      if (updatedAt != null) 'updated_at': updatedAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  PaymentMethodsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? name,
-    Value<String?>? icon,
-    Value<bool>? isDefault,
-    Value<int>? position,
-    Value<DateTime>? createdAt,
-    Value<DateTime>? updatedAt,
-    Value<int>? rowid,
-  }) {
-    return PaymentMethodsCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      icon: icon ?? this.icon,
-      isDefault: isDefault ?? this.isDefault,
-      position: position ?? this.position,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (icon.present) {
-      map['icon'] = Variable<String>(icon.value);
-    }
-    if (isDefault.present) {
-      map['is_default'] = Variable<bool>(isDefault.value);
-    }
-    if (position.present) {
-      map['position'] = Variable<int>(position.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('PaymentMethodsCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
           ..write('icon: $icon, ')
           ..write('isDefault: $isDefault, ')
           ..write('position: $position, ')
@@ -7726,11 +7799,11 @@ class SavingsGoalsCompanion extends UpdateCompanion<SavingsGoal> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $PaymentMethodsTable paymentMethods = $PaymentMethodsTable(this);
   late final $ProfileTable profile = $ProfileTable(this);
   late final $TagGroupsTable tagGroups = $TagGroupsTable(this);
   late final $TagsTable tags = $TagsTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
-  late final $PaymentMethodsTable paymentMethods = $PaymentMethodsTable(this);
   late final $EventsTable events = $EventsTable(this);
   late final $ProjectsTable projects = $ProjectsTable(this);
   late final $ExpensesTable expenses = $ExpensesTable(this);
@@ -7746,11 +7819,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
+    paymentMethods,
     profile,
     tagGroups,
     tags,
     categories,
-    paymentMethods,
     events,
     projects,
     expenses,
@@ -7763,6 +7836,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'payment_methods',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('profile', kind: UpdateKind.update)],
+    ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
         'categories',
@@ -7892,6 +7972,556 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ]);
 }
 
+typedef $$PaymentMethodsTableCreateCompanionBuilder =
+    PaymentMethodsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> icon,
+      Value<bool> isDefault,
+      Value<int> position,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+typedef $$PaymentMethodsTableUpdateCompanionBuilder =
+    PaymentMethodsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> icon,
+      Value<bool> isDefault,
+      Value<int> position,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$PaymentMethodsTableReferences
+    extends BaseReferences<_$AppDatabase, $PaymentMethodsTable, PaymentMethod> {
+  $$PaymentMethodsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$ProfileTable, List<ProfileData>>
+  _profileRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.profile,
+    aliasName: $_aliasNameGenerator(
+      db.paymentMethods.id,
+      db.profile.favoritePaymentMethodId,
+    ),
+  );
+
+  $$ProfileTableProcessedTableManager get profileRefs {
+    final manager = $$ProfileTableTableManager($_db, $_db.profile).filter(
+      (f) =>
+          f.favoritePaymentMethodId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_profileRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ExpensesTable, List<Expense>> _expensesRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.expenses,
+    aliasName: $_aliasNameGenerator(
+      db.paymentMethods.id,
+      db.expenses.paymentMethodId,
+    ),
+  );
+
+  $$ExpensesTableProcessedTableManager get expensesRefs {
+    final manager = $$ExpensesTableTableManager($_db, $_db.expenses).filter(
+      (f) => f.paymentMethodId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_expensesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecurringsTable, List<Recurring>>
+  _recurringsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.recurrings,
+    aliasName: $_aliasNameGenerator(
+      db.paymentMethods.id,
+      db.recurrings.paymentMethodId,
+    ),
+  );
+
+  $$RecurringsTableProcessedTableManager get recurringsRefs {
+    final manager = $$RecurringsTableTableManager($_db, $_db.recurrings).filter(
+      (f) => f.paymentMethodId.id.sqlEquals($_itemColumn<String>('id')!),
+    );
+
+    final cache = $_typedResult.readTableOrNull(_recurringsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$PaymentMethodsTableFilterComposer
+    extends Composer<_$AppDatabase, $PaymentMethodsTable> {
+  $$PaymentMethodsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> profileRefs(
+    Expression<bool> Function($$ProfileTableFilterComposer f) f,
+  ) {
+    final $$ProfileTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.profile,
+      getReferencedColumn: (t) => t.favoritePaymentMethodId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfileTableFilterComposer(
+            $db: $db,
+            $table: $db.profile,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> expensesRefs(
+    Expression<bool> Function($$ExpensesTableFilterComposer f) f,
+  ) {
+    final $$ExpensesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.paymentMethodId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableFilterComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recurringsRefs(
+    Expression<bool> Function($$RecurringsTableFilterComposer f) f,
+  ) {
+    final $$RecurringsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurrings,
+      getReferencedColumn: (t) => t.paymentMethodId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringsTableFilterComposer(
+            $db: $db,
+            $table: $db.recurrings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PaymentMethodsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PaymentMethodsTable> {
+  $$PaymentMethodsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDefault => $composableBuilder(
+    column: $table.isDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PaymentMethodsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PaymentMethodsTable> {
+  $$PaymentMethodsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get icon =>
+      $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDefault =>
+      $composableBuilder(column: $table.isDefault, builder: (column) => column);
+
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> profileRefs<T extends Object>(
+    Expression<T> Function($$ProfileTableAnnotationComposer a) f,
+  ) {
+    final $$ProfileTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.profile,
+      getReferencedColumn: (t) => t.favoritePaymentMethodId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProfileTableAnnotationComposer(
+            $db: $db,
+            $table: $db.profile,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> expensesRefs<T extends Object>(
+    Expression<T> Function($$ExpensesTableAnnotationComposer a) f,
+  ) {
+    final $$ExpensesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.paymentMethodId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> recurringsRefs<T extends Object>(
+    Expression<T> Function($$RecurringsTableAnnotationComposer a) f,
+  ) {
+    final $$RecurringsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurrings,
+      getReferencedColumn: (t) => t.paymentMethodId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recurrings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PaymentMethodsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PaymentMethodsTable,
+          PaymentMethod,
+          $$PaymentMethodsTableFilterComposer,
+          $$PaymentMethodsTableOrderingComposer,
+          $$PaymentMethodsTableAnnotationComposer,
+          $$PaymentMethodsTableCreateCompanionBuilder,
+          $$PaymentMethodsTableUpdateCompanionBuilder,
+          (PaymentMethod, $$PaymentMethodsTableReferences),
+          PaymentMethod,
+          PrefetchHooks Function({
+            bool profileRefs,
+            bool expensesRefs,
+            bool recurringsRefs,
+          })
+        > {
+  $$PaymentMethodsTableTableManager(
+    _$AppDatabase db,
+    $PaymentMethodsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PaymentMethodsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PaymentMethodsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PaymentMethodsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PaymentMethodsCompanion(
+                id: id,
+                name: name,
+                icon: icon,
+                isDefault: isDefault,
+                position: position,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> icon = const Value.absent(),
+                Value<bool> isDefault = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PaymentMethodsCompanion.insert(
+                id: id,
+                name: name,
+                icon: icon,
+                isDefault: isDefault,
+                position: position,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PaymentMethodsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                profileRefs = false,
+                expensesRefs = false,
+                recurringsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (profileRefs) db.profile,
+                    if (expensesRefs) db.expenses,
+                    if (recurringsRefs) db.recurrings,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (profileRefs)
+                        await $_getPrefetchedData<
+                          PaymentMethod,
+                          $PaymentMethodsTable,
+                          ProfileData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PaymentMethodsTableReferences
+                              ._profileRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PaymentMethodsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).profileRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.favoritePaymentMethodId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (expensesRefs)
+                        await $_getPrefetchedData<
+                          PaymentMethod,
+                          $PaymentMethodsTable,
+                          Expense
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PaymentMethodsTableReferences
+                              ._expensesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PaymentMethodsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).expensesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.paymentMethodId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (recurringsRefs)
+                        await $_getPrefetchedData<
+                          PaymentMethod,
+                          $PaymentMethodsTable,
+                          Recurring
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PaymentMethodsTableReferences
+                              ._recurringsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PaymentMethodsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recurringsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.paymentMethodId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$PaymentMethodsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PaymentMethodsTable,
+      PaymentMethod,
+      $$PaymentMethodsTableFilterComposer,
+      $$PaymentMethodsTableOrderingComposer,
+      $$PaymentMethodsTableAnnotationComposer,
+      $$PaymentMethodsTableCreateCompanionBuilder,
+      $$PaymentMethodsTableUpdateCompanionBuilder,
+      (PaymentMethod, $$PaymentMethodsTableReferences),
+      PaymentMethod,
+      PrefetchHooks Function({
+        bool profileRefs,
+        bool expensesRefs,
+        bool recurringsRefs,
+      })
+    >;
 typedef $$ProfileTableCreateCompanionBuilder =
     ProfileCompanion Function({
       Value<int> id,
@@ -7900,6 +8530,7 @@ typedef $$ProfileTableCreateCompanionBuilder =
       Value<String> theme,
       Value<bool> hapticsEnabled,
       Value<int> hapticsStrength,
+      Value<String?> favoritePaymentMethodId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -7911,9 +8542,39 @@ typedef $$ProfileTableUpdateCompanionBuilder =
       Value<String> theme,
       Value<bool> hapticsEnabled,
       Value<int> hapticsStrength,
+      Value<String?> favoritePaymentMethodId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
+
+final class $$ProfileTableReferences
+    extends BaseReferences<_$AppDatabase, $ProfileTable, ProfileData> {
+  $$ProfileTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PaymentMethodsTable _favoritePaymentMethodIdTable(_$AppDatabase db) =>
+      db.paymentMethods.createAlias(
+        $_aliasNameGenerator(
+          db.profile.favoritePaymentMethodId,
+          db.paymentMethods.id,
+        ),
+      );
+
+  $$PaymentMethodsTableProcessedTableManager? get favoritePaymentMethodId {
+    final $_column = $_itemColumn<String>('favorite_payment_method_id');
+    if ($_column == null) return null;
+    final manager = $$PaymentMethodsTableTableManager(
+      $_db,
+      $_db.paymentMethods,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(
+      _favoritePaymentMethodIdTable($_db),
+    );
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$ProfileTableFilterComposer
     extends Composer<_$AppDatabase, $ProfileTable> {
@@ -7963,6 +8624,29 @@ class $$ProfileTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$PaymentMethodsTableFilterComposer get favoritePaymentMethodId {
+    final $$PaymentMethodsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.favoritePaymentMethodId,
+      referencedTable: $db.paymentMethods,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaymentMethodsTableFilterComposer(
+            $db: $db,
+            $table: $db.paymentMethods,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ProfileTableOrderingComposer
@@ -8013,6 +8697,29 @@ class $$ProfileTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$PaymentMethodsTableOrderingComposer get favoritePaymentMethodId {
+    final $$PaymentMethodsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.favoritePaymentMethodId,
+      referencedTable: $db.paymentMethods,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaymentMethodsTableOrderingComposer(
+            $db: $db,
+            $table: $db.paymentMethods,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ProfileTableAnnotationComposer
@@ -8051,6 +8758,29 @@ class $$ProfileTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$PaymentMethodsTableAnnotationComposer get favoritePaymentMethodId {
+    final $$PaymentMethodsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.favoritePaymentMethodId,
+      referencedTable: $db.paymentMethods,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaymentMethodsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.paymentMethods,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ProfileTableTableManager
@@ -8064,12 +8794,9 @@ class $$ProfileTableTableManager
           $$ProfileTableAnnotationComposer,
           $$ProfileTableCreateCompanionBuilder,
           $$ProfileTableUpdateCompanionBuilder,
-          (
-            ProfileData,
-            BaseReferences<_$AppDatabase, $ProfileTable, ProfileData>,
-          ),
+          (ProfileData, $$ProfileTableReferences),
           ProfileData,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool favoritePaymentMethodId})
         > {
   $$ProfileTableTableManager(_$AppDatabase db, $ProfileTable table)
     : super(
@@ -8090,6 +8817,7 @@ class $$ProfileTableTableManager
                 Value<String> theme = const Value.absent(),
                 Value<bool> hapticsEnabled = const Value.absent(),
                 Value<int> hapticsStrength = const Value.absent(),
+                Value<String?> favoritePaymentMethodId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => ProfileCompanion(
@@ -8099,6 +8827,7 @@ class $$ProfileTableTableManager
                 theme: theme,
                 hapticsEnabled: hapticsEnabled,
                 hapticsStrength: hapticsStrength,
+                favoritePaymentMethodId: favoritePaymentMethodId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -8110,6 +8839,7 @@ class $$ProfileTableTableManager
                 Value<String> theme = const Value.absent(),
                 Value<bool> hapticsEnabled = const Value.absent(),
                 Value<int> hapticsStrength = const Value.absent(),
+                Value<String?> favoritePaymentMethodId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => ProfileCompanion.insert(
@@ -8119,13 +8849,59 @@ class $$ProfileTableTableManager
                 theme: theme,
                 hapticsEnabled: hapticsEnabled,
                 hapticsStrength: hapticsStrength,
+                favoritePaymentMethodId: favoritePaymentMethodId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ProfileTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({favoritePaymentMethodId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (favoritePaymentMethodId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.favoritePaymentMethodId,
+                                referencedTable: $$ProfileTableReferences
+                                    ._favoritePaymentMethodIdTable(db),
+                                referencedColumn: $$ProfileTableReferences
+                                    ._favoritePaymentMethodIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -8140,9 +8916,9 @@ typedef $$ProfileTableProcessedTableManager =
       $$ProfileTableAnnotationComposer,
       $$ProfileTableCreateCompanionBuilder,
       $$ProfileTableUpdateCompanionBuilder,
-      (ProfileData, BaseReferences<_$AppDatabase, $ProfileTable, ProfileData>),
+      (ProfileData, $$ProfileTableReferences),
       ProfileData,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool favoritePaymentMethodId})
     >;
 typedef $$TagGroupsTableCreateCompanionBuilder =
     TagGroupsCompanion Function({
@@ -9792,451 +10568,6 @@ typedef $$CategoriesTableProcessedTableManager =
         bool recurringsRefs,
         bool savingsGoalsRefs,
       })
-    >;
-typedef $$PaymentMethodsTableCreateCompanionBuilder =
-    PaymentMethodsCompanion Function({
-      required String id,
-      required String name,
-      Value<String?> icon,
-      Value<bool> isDefault,
-      Value<int> position,
-      Value<DateTime> createdAt,
-      Value<DateTime> updatedAt,
-      Value<int> rowid,
-    });
-typedef $$PaymentMethodsTableUpdateCompanionBuilder =
-    PaymentMethodsCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<String?> icon,
-      Value<bool> isDefault,
-      Value<int> position,
-      Value<DateTime> createdAt,
-      Value<DateTime> updatedAt,
-      Value<int> rowid,
-    });
-
-final class $$PaymentMethodsTableReferences
-    extends BaseReferences<_$AppDatabase, $PaymentMethodsTable, PaymentMethod> {
-  $$PaymentMethodsTableReferences(
-    super.$_db,
-    super.$_table,
-    super.$_typedResult,
-  );
-
-  static MultiTypedResultKey<$ExpensesTable, List<Expense>> _expensesRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.expenses,
-    aliasName: $_aliasNameGenerator(
-      db.paymentMethods.id,
-      db.expenses.paymentMethodId,
-    ),
-  );
-
-  $$ExpensesTableProcessedTableManager get expensesRefs {
-    final manager = $$ExpensesTableTableManager($_db, $_db.expenses).filter(
-      (f) => f.paymentMethodId.id.sqlEquals($_itemColumn<String>('id')!),
-    );
-
-    final cache = $_typedResult.readTableOrNull(_expensesRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$RecurringsTable, List<Recurring>>
-  _recurringsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.recurrings,
-    aliasName: $_aliasNameGenerator(
-      db.paymentMethods.id,
-      db.recurrings.paymentMethodId,
-    ),
-  );
-
-  $$RecurringsTableProcessedTableManager get recurringsRefs {
-    final manager = $$RecurringsTableTableManager($_db, $_db.recurrings).filter(
-      (f) => f.paymentMethodId.id.sqlEquals($_itemColumn<String>('id')!),
-    );
-
-    final cache = $_typedResult.readTableOrNull(_recurringsRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-}
-
-class $$PaymentMethodsTableFilterComposer
-    extends Composer<_$AppDatabase, $PaymentMethodsTable> {
-  $$PaymentMethodsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get icon => $composableBuilder(
-    column: $table.icon,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isDefault => $composableBuilder(
-    column: $table.isDefault,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get position => $composableBuilder(
-    column: $table.position,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  Expression<bool> expensesRefs(
-    Expression<bool> Function($$ExpensesTableFilterComposer f) f,
-  ) {
-    final $$ExpensesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.expenses,
-      getReferencedColumn: (t) => t.paymentMethodId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExpensesTableFilterComposer(
-            $db: $db,
-            $table: $db.expenses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> recurringsRefs(
-    Expression<bool> Function($$RecurringsTableFilterComposer f) f,
-  ) {
-    final $$RecurringsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.recurrings,
-      getReferencedColumn: (t) => t.paymentMethodId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$RecurringsTableFilterComposer(
-            $db: $db,
-            $table: $db.recurrings,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-}
-
-class $$PaymentMethodsTableOrderingComposer
-    extends Composer<_$AppDatabase, $PaymentMethodsTable> {
-  $$PaymentMethodsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get icon => $composableBuilder(
-    column: $table.icon,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isDefault => $composableBuilder(
-    column: $table.isDefault,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get position => $composableBuilder(
-    column: $table.position,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$PaymentMethodsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $PaymentMethodsTable> {
-  $$PaymentMethodsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<String> get icon =>
-      $composableBuilder(column: $table.icon, builder: (column) => column);
-
-  GeneratedColumn<bool> get isDefault =>
-      $composableBuilder(column: $table.isDefault, builder: (column) => column);
-
-  GeneratedColumn<int> get position =>
-      $composableBuilder(column: $table.position, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  Expression<T> expensesRefs<T extends Object>(
-    Expression<T> Function($$ExpensesTableAnnotationComposer a) f,
-  ) {
-    final $$ExpensesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.expenses,
-      getReferencedColumn: (t) => t.paymentMethodId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ExpensesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.expenses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<T> recurringsRefs<T extends Object>(
-    Expression<T> Function($$RecurringsTableAnnotationComposer a) f,
-  ) {
-    final $$RecurringsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.recurrings,
-      getReferencedColumn: (t) => t.paymentMethodId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$RecurringsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.recurrings,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-}
-
-class $$PaymentMethodsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $PaymentMethodsTable,
-          PaymentMethod,
-          $$PaymentMethodsTableFilterComposer,
-          $$PaymentMethodsTableOrderingComposer,
-          $$PaymentMethodsTableAnnotationComposer,
-          $$PaymentMethodsTableCreateCompanionBuilder,
-          $$PaymentMethodsTableUpdateCompanionBuilder,
-          (PaymentMethod, $$PaymentMethodsTableReferences),
-          PaymentMethod,
-          PrefetchHooks Function({bool expensesRefs, bool recurringsRefs})
-        > {
-  $$PaymentMethodsTableTableManager(
-    _$AppDatabase db,
-    $PaymentMethodsTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$PaymentMethodsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$PaymentMethodsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$PaymentMethodsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<String?> icon = const Value.absent(),
-                Value<bool> isDefault = const Value.absent(),
-                Value<int> position = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => PaymentMethodsCompanion(
-                id: id,
-                name: name,
-                icon: icon,
-                isDefault: isDefault,
-                position: position,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String name,
-                Value<String?> icon = const Value.absent(),
-                Value<bool> isDefault = const Value.absent(),
-                Value<int> position = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => PaymentMethodsCompanion.insert(
-                id: id,
-                name: name,
-                icon: icon,
-                isDefault: isDefault,
-                position: position,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$PaymentMethodsTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback:
-              ({expensesRefs = false, recurringsRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (expensesRefs) db.expenses,
-                    if (recurringsRefs) db.recurrings,
-                  ],
-                  addJoins: null,
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (expensesRefs)
-                        await $_getPrefetchedData<
-                          PaymentMethod,
-                          $PaymentMethodsTable,
-                          Expense
-                        >(
-                          currentTable: table,
-                          referencedTable: $$PaymentMethodsTableReferences
-                              ._expensesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$PaymentMethodsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).expensesRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.paymentMethodId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (recurringsRefs)
-                        await $_getPrefetchedData<
-                          PaymentMethod,
-                          $PaymentMethodsTable,
-                          Recurring
-                        >(
-                          currentTable: table,
-                          referencedTable: $$PaymentMethodsTableReferences
-                              ._recurringsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$PaymentMethodsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).recurringsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.paymentMethodId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
-                  },
-                );
-              },
-        ),
-      );
-}
-
-typedef $$PaymentMethodsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $PaymentMethodsTable,
-      PaymentMethod,
-      $$PaymentMethodsTableFilterComposer,
-      $$PaymentMethodsTableOrderingComposer,
-      $$PaymentMethodsTableAnnotationComposer,
-      $$PaymentMethodsTableCreateCompanionBuilder,
-      $$PaymentMethodsTableUpdateCompanionBuilder,
-      (PaymentMethod, $$PaymentMethodsTableReferences),
-      PaymentMethod,
-      PrefetchHooks Function({bool expensesRefs, bool recurringsRefs})
     >;
 typedef $$EventsTableCreateCompanionBuilder =
     EventsCompanion Function({
@@ -15544,6 +15875,8 @@ typedef $$SavingsGoalsTableProcessedTableManager =
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
+  $$PaymentMethodsTableTableManager get paymentMethods =>
+      $$PaymentMethodsTableTableManager(_db, _db.paymentMethods);
   $$ProfileTableTableManager get profile =>
       $$ProfileTableTableManager(_db, _db.profile);
   $$TagGroupsTableTableManager get tagGroups =>
@@ -15551,8 +15884,6 @@ class $AppDatabaseManager {
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
-  $$PaymentMethodsTableTableManager get paymentMethods =>
-      $$PaymentMethodsTableTableManager(_db, _db.paymentMethods);
   $$EventsTableTableManager get events =>
       $$EventsTableTableManager(_db, _db.events);
   $$ProjectsTableTableManager get projects =>

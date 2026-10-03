@@ -17,6 +17,12 @@ class Profile extends Table {
   /// Currently unused but kept on purpose (the setting may come back) — don't
   /// drop it in a migration; see docs/database_baseline.md.
   IntColumn get hapticsStrength => integer().withDefault(const Constant(1))();
+  /// Payment method preselected on every new transaction (BL-024); null when
+  /// none is marked. Cleared by the database when that method is deleted.
+  /// Added in schema v10.
+  TextColumn get favoritePaymentMethodId => text()
+      .nullable()
+      .customConstraint('REFERENCES payment_methods(id) ON DELETE SET NULL')();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

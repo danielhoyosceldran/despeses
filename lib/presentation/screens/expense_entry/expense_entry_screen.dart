@@ -84,8 +84,9 @@ class ExpenseEntryScreen extends ConsumerStatefulWidget {
 }
 
 // Auto-advance chain on "Next": amount → description → category → payment
-// method, then stop. Remaining fields (tags, event, project, notes) are filled
-// manually by the user.
+// method, then stop. The payment method step is skipped when one is already
+// picked (e.g. the preselected favorite). Remaining fields (tags, event,
+// project, notes) are filled manually by the user.
 const _fieldStepOrder = [
   'amount',
   'description',
@@ -138,8 +139,22 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _initialSnapshot = _snapshot();
     } else {
       _initialSnapshot = _snapshot();
+      _preselectFavoritePaymentMethod();
       WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel());
     }
+  }
+
+  /// A blank new transaction starts with the favorite payment method (BL-024),
+  /// if one is marked. Edits and seeded entries keep their own method. The
+  /// preselection is folded into the initial snapshot, so on its own it never
+  /// counts as an unsaved change.
+  Future<void> _preselectFavoritePaymentMethod() async {
+    final favoriteId = (await ref.read(profileRepositoryProvider).get()).favoritePaymentMethodId;
+    if (favoriteId == null || !mounted || _paymentMethodId != null) return;
+    final untouched = !_isDirty;
+    setState(() => _paymentMethodId = favoriteId);
+    if (untouched) _initialSnapshot = _snapshot();
+    _refreshLabels();
   }
 
   List<Object?> _snapshot() => [
@@ -302,6 +317,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     for (var i = startIndex; i < _fieldStepOrder.length; i++) {
       final step = _fieldStepOrder[i];
       if (!available.contains(step)) continue;
+      if (step == 'paymentMethod' && _paymentMethodId != null) continue;
       if (!mounted) return;
       switch (step) {
         case 'amount':

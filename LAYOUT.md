@@ -101,7 +101,8 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
   3. `BottomActionPanel`: `NumericKeypad` (amount), `CalendarPanel` (shared month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
-- Tapping a field row opens its panel. "Next" auto-advances through amount → description → category → payment method, then stops; remaining fields (tags, event, project, notes) are filled manually. Skips empty ref types. Pops `true` on save.
+- A blank new transaction starts with the favorite payment method preselected (not when editing or when seeded from a recurring).
+- Tapping a field row opens its panel. "Next" auto-advances through amount → description → category → payment method (skipped when one is already picked), then stops; remaining fields (tags, event, project, notes) are filled manually. Skips empty ref types. Pops `true` on save.
 - Can be opened pre-filled from a `ExpenseSeed` (recurring "edit & confirm" flow): all fields hydrated, keypad does not auto-open.
 
 ### Budget entry (`budget_entry/budget_entry_screen.dart`)
@@ -173,6 +174,8 @@ current level/group (not just when the whole catalog is empty).
 Two row modes:
 - **Normal**: leading avatar (icon/initial); tap = act (open/descend, or nothing
   for leaf lists); long-press = enter selection mode with this row checked.
+  Trailing: a star on the favorite row (Payment methods only), then a chevron
+  when the row opens/descends.
 - **Selection mode** (entered via any row's long-press): leading swaps to a
   `Checkbox`; trailing shows an edit pencil icon (`onEdit`) and, on
   reorderable lists, a drag-handle icon (`ReorderableDragStartListener`,
@@ -199,7 +202,7 @@ Identical to Events with "Projects" title.
 - **FAB**: "+" → `showEntityFormDialog` (name only). Delete moves tags to Ungrouped.
 
 ### Settings › Payment methods (`settings/payment_methods_screen.dart`)
-Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityListTile` list (icon, no color). FAB "+" → `showEntityFormDialog` (with icon).
+Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityListTile` list (icon, no color; the favorite row shows a trailing star). FAB "+" → `showEntityFormDialog` (with icon and a "Favorite" toggle row; the edit dialog has the same toggle). At most one favorite: turning it on for one method moves it there; deleting the favorite clears it. Deleting every remaining method is refused with a warning toast (at least one must stay).
 
 ### Settings › Tags (`settings/tags_screen.dart`)
 - **AppBar**: empty normally; selection-mode actions (trash, Done) per above.

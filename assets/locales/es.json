@@ -160,7 +160,9 @@
     "new": "Nuevo método de pago",
     "edit": "Editar método de pago",
     "delete_title": "Eliminar método de pago",
-    "delete_message": "¿Eliminar \"{{name}}\"? Los gastos que lo usan conservarán sus datos pero perderán la referencia."
+    "delete_message": "¿Eliminar \"{{name}}\"? Los gastos que lo usan conservarán sus datos pero perderán la referencia.",
+    "favorite": "Favorito",
+    "cannot_delete_last": "Debe haber al menos un método de pago."
   },
   "events": {
     "add": "Añadir evento",

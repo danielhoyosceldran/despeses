@@ -45,6 +45,14 @@ class ProfileRepository {
     );
   }
 
+  /// Marks [paymentMethodId] as the favorite preselected on new transactions,
+  /// or clears the favorite when null. Only one can be favorite at a time.
+  Future<void> setFavoritePaymentMethod(String? paymentMethodId) async {
+    await (_db.update(_db.profile)..where((p) => p.id.equals(1))).write(
+      ProfileCompanion(favoritePaymentMethodId: Value(paymentMethodId), updatedAt: Value(DateTime.now())),
+    );
+  }
+
   /// v1 only supports EUR; kept as a real write path (not a no-op) so the
   /// latent multi-currency "warns, doesn't block" behavior has somewhere to
   /// live once more currencies are added (plan §3.8, §6).
