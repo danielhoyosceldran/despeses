@@ -19,8 +19,8 @@ The header gear (`AppTopBar`) opens a separate **Account** hub (Profile · Expor
 | `PageTitleHeader` | Large in-body title Row: title left, optional trailing action right. Used where AppBar is title-less. |
 | `AppTopBar` | Shared in-body top header (no Material AppBar). Left: month pager (chevron · uppercase month/year · chevron, emits month ±1) **or** a display title. When given the page's `PageController`, the month label tracks the swipe continuously (sliding filmstrip revealing the incoming month) instead of flipping on settle. Trailing: optional actions (`TopBarCircleButton`s) then a settings gear that pushes the Account hub. In selection mode swaps to: leading X (clear) · "N selected" · trailing trash (delete). Settings gear hideable. |
 | `TopBarCircleButton` | Circular header action (ghost or filled chip); used for chevrons, gear, and per-screen actions (filter, active/expired eye). |
-| `BottomActionPanel` | In-screen animated bottom panel (not modal). Height 0→content, rounded top. Hosts keypad/pickers. |
-| `NumericKeypad` | 4×56 money keypad. 3 digit columns (`1/4/7/00`, `2/5/8/0`, `3/6/9/,`) + 4th column: backspace, large "Next". |
+| `BottomActionPanel` | In-screen animated bottom panel (not modal). Height 0→content, rounded top. Hosts pickers. |
+| `AmountInputField` | Centered amount hero as an editable text field using the device's numeric keyboard, with the currency symbol after it. Keyboard action key = "Next". Used as the amount hero on the expense/budget/goal/recurring entry screens. |
 | `ExpenseFilterSheet` | Modal sheet. Column: "Filters" title, 6 dropdowns (Type, Category, Tag, Payment method, Event, Project), From/To date Row, "Clear"/"Apply" Row. The Category dropdown is a tree grouped by transaction type: a non-selectable uppercase type header, then each root category followed by its subcategories, indented by depth (closed field shows the plain name). Choosing a parent filters its whole subtree. An inverted From/To range is swapped on Apply with a warning toast. |
 | `CategoryPickerSheet` / `...Content` | Drill-down picker (modal 70% or embedded). Optional breadcrumb back-row + ListView of grid rows (64px ancestor cells + wide candidate cell). Leaf selects; branch descends. |
 | `SimplePickerSheet` / `...Content` | Single-select (modal 60% or embedded). Title + ListView of ListTiles; tap selects & closes. |
@@ -97,20 +97,20 @@ Personal/app settings hub, pushed over the shell from the header gear.
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 - **AppBar**: leading down-chevron (dismiss); centered title = date `TextButton` (opens the calendar panel).
 - **Body** Column:
-  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered tappable amount (`AmountText`, opens keypad) · Description field (themed filled input, no wrapping card) · `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field (themed filled input, no wrapping card).
+  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered amount (`AmountInputField`, system numeric keyboard) · Description field (themed filled input, no wrapping card) · `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field (themed filled input, no wrapping card).
   2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
-  3. `BottomActionPanel`: `NumericKeypad` (amount), `CalendarPanel` (shared month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
+  3. `BottomActionPanel`: `CalendarPanel` (shared month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
 - A blank new transaction starts with the favorite payment method preselected (not when editing or when seeded from a recurring).
 - Tapping a field row opens its panel. "Next" auto-advances through amount → description → category → payment method (skipped when one is already picked), then stops; remaining fields (tags, event, project, notes) are filled manually. Skips empty ref types. Pops `true` on save.
-- Can be opened pre-filled from a `ExpenseSeed` (recurring "edit & confirm" flow): all fields hydrated, keypad does not auto-open.
+- Can be opened pre-filled from a `ExpenseSeed` (recurring "edit & confirm" flow): all fields hydrated, amount field is not auto-focused.
 
 ### Budget entry (`budget_entry/budget_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 - **AppBar**: leading down-chevron (dismiss); title ("New budget" / "Edit budget").
 - **Body** Column:
   1. Expanded ListView:
-     - **Limit hero**: centered uppercase "LIMIT" header + centered `AmountText` (tap → keypad).
+     - **Limit hero**: centered uppercase "LIMIT" header + centered `AmountInputField` (system numeric keyboard).
      - **Name** field (themed filled input, no wrapping card).
      - **Tracks** section (uppercase header) — 2×2 grid of toggle cells (Category/Tag/Project/Event, disabled in edit) + `AppCard` value row → picker (disabled in edit).
      - **Period** section (uppercase header):
@@ -119,33 +119,33 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
          - **Range**: `AppCard` with From + Until field rows (both required, divider between).
        - **Project/Event** dimension — no picker; period is fixed to the entity's own duration. Read-only `AppCard` (From/Until months) + caption when the entity has dates, else a warning that the event/project needs start/end dates.
   2. Inline "Save" above panel when open.
-  3. `BottomActionPanel`: `NumericKeypad`, `MonthPickerContent`, `CategoryPickerContent`, or `SimplePickerContent`.
+  3. `BottomActionPanel`: `MonthPickerContent`, `CategoryPickerContent`, or `SimplePickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
-- New budget: keypad opens first; "Next" auto-advances amount → name, then stops (dimension, value, period chosen manually). Pops `true` on save.
+- New budget: amount field is focused first; the keyboard's "Next" auto-advances amount → name, then stops (dimension, value, period chosen manually). Pops `true` on save.
 
 ### Goal entry (`goal_entry/goal_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. Creates/edits a savings goal.
 - **AppBar**: leading down-chevron (dismiss); title ("New goal" / "Edit goal").
 - **Body** Column:
   1. Expanded ListView:
-     - **Target hero**: centered uppercase "TARGET" header + centered `AmountText` (tap → keypad).
+     - **Target hero**: centered uppercase "TARGET" header + centered `AmountInputField` (system numeric keyboard).
      - **Name** field.
      - **Savings category** section (uppercase header) — `AppCard` value row → `ahorro`-scoped category picker (locked in edit).
      - **Deadline** section (uppercase header) — `AppCard` row → calendar panel; shows "No deadline" placeholder with a trailing clear button when set.
   2. Inline "Save" above panel when open.
-  3. `BottomActionPanel`: `NumericKeypad`, `CategoryPickerContent` (ahorro tree), or `CalendarPanel` (deadline).
+  3. `BottomActionPanel`: `CategoryPickerContent` (ahorro tree), or `CalendarPanel` (deadline).
   4. No panel: bottom SafeArea full-width "Save" button.
-- New goal: keypad opens first; "Next" moves amount → name. Category + currency lock after creation; only name/target/deadline stay editable. Pops `true` on save.
+- New goal: amount field is focused first; the keyboard's "Next" moves amount → name. Category + currency lock after creation; only name/target/deadline stay editable. Pops `true` on save.
 
 ### Recurring entry (`recurring/recurring_entry_screen.dart`)
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. Creates/edits a recurring-transaction template. Every field editable in both new and edit modes.
 - **AppBar**: leading down-chevron (dismiss); centered title ("New recurring" / "Edit recurring").
 - **Body** Column:
-  1. Expanded ListView: centered type selector (Expense · Income · Refund · Savings) · big centered tappable amount (`AmountText`, opens keypad) · Description field · **Schedule** section (uppercase header): `SegmentedButton` (Monthly/Weekly/Yearly) + `AppCard` with Starts row and Ends row (Ends shows "No end date" placeholder with a trailing clear button when set) · **Details** section (uppercase header): `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field.
+  1. Expanded ListView: centered type selector (Expense · Income · Refund · Savings) · big centered amount (`AmountInputField`, system numeric keyboard) · Description field · **Schedule** section (uppercase header): `SegmentedButton` (Monthly/Weekly/Yearly) + `AppCard` with Starts row and Ends row (Ends shows "No end date" placeholder with a trailing clear button when set) · **Details** section (uppercase header): `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field.
   2. Inline "Save" above panel when open ("Save"+"Next" in tags step).
-  3. `BottomActionPanel`: `NumericKeypad`, `CalendarPanel` (start/end date), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
+  3. `BottomActionPanel`: `CalendarPanel` (start/end date), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
   4. No panel: bottom SafeArea full-width "Save" button.
-- New: keypad opens first; "Next" moves amount → description. Save requires amount > 0 + non-empty description + end date not before start. Pops `true` on save (then materializes any already-due dates).
+- New: amount field is focused first; the keyboard's "Next" moves amount → description. Save requires amount > 0 + non-empty description + end date not before start. Pops `true` on save (then materializes any already-due dates).
 
 ### Settings › Recurring (`recurring/recurring_screen.dart`)
 - **Header**: `AppTopBar` title "Recurring". Selection mode (long-press a template): "N selected", X (clear), trash (delete-confirm).
@@ -213,6 +213,6 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 ## Cross-screen patterns
 - Tab screens (Dashboard, Expenses, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
 - Selection mode (multi-delete) on Dashboard, Expenses, Budgets (both tabs), Recurring swaps `AppTopBar` contents (count + clear + delete).
-- Entry screens (expense/budget/goal/recurring) use the in-screen `BottomActionPanel` + `NumericKeypad` + embedded pickers, not modal sheets. The Expenses list uses a true modal filter sheet.
+- Entry screens (expense/budget/goal/recurring) use the in-screen `BottomActionPanel` + embedded pickers (amount via `AmountInputField` + system keyboard), not modal sheets. The Expenses list uses a true modal filter sheet.
 - Entry screens closing with unsaved changes (any field differing from its loaded/initial value) via the down-chevron, swipe down, or system back show a destructive "Discard changes?" confirm dialog (Cancel / Discard) first; without changes they close directly. A failed save shows an error toast and keeps the screen open.
 - Recurring (reached from the Settings hub, but not a `settings/*` list screen) renders an `AppTopBar` + FAB like a tab screen, rather than the `PageTitleHeader` used by the catalog list screens.

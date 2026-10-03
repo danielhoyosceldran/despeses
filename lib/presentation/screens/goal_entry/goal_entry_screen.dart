@@ -13,18 +13,17 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/savings_goal_repository.dart';
-import '../../widgets/amount_text.dart';
+import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
-import '../../widgets/numeric_keypad.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/unsaved_changes_guard.dart';
 
 /// Create/edit a savings goal (feature 3.14). Reuses the budget entry pattern
-/// (keypad + panels). The linked savings category and currency are locked once
+/// (amount field + panels). The linked savings category and currency are locked once
 /// the goal exists — only name, target and deadline stay editable — mirroring
 /// how a budget's dimension is frozen after creation.
 class GoalEntryScreen extends ConsumerStatefulWidget {
@@ -44,6 +43,7 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
 
   final _nameController = TextEditingController();
   final _nameFocus = FocusNode();
+  final _amountFocus = FocusNode();
   int _targetCents = 0;
   String? _categoryId;
   String? _categoryLabel;
@@ -70,12 +70,16 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
     _nameFocus.addListener(() {
       if (_nameFocus.hasFocus && _openPanel != null) _closePanel();
     });
+    _amountFocus.addListener(() {
+      if (_amountFocus.hasFocus && _openPanel != null) _closePanel();
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _nameFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -121,11 +125,9 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
   void _openAmountPanel() {
-    _dismissKeyboard();
-    setState(() {
-      _openPanel = 'amount';
-      _panelContent = null;
-    });
+    // Focus the amount field (system keyboard); its focus listener closes
+    // any open bottom panel.
+    _amountFocus.requestFocus();
   }
 
   Future<void> _openCategoryPanel() async {
@@ -293,10 +295,13 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
                     Center(child: Text((translations?.t('goals.target') ?? 'Target').toUpperCase(), style: appHeaderStyle(colors))),
                     const SizedBox(height: AppSpacing.sm),
                     Center(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _openAmountPanel,
-                        child: AmountText(amountCents: _targetCents, currency: currency, color: colors.text),
+                      child: AmountInputField(
+                        amountCents: _targetCents,
+                        focusNode: _amountFocus,
+                        currency: currency,
+                        color: colors.text,
+                        onAmountChanged: (v) => setState(() => _targetCents = v),
+                        onSubmitted: () => _nameFocus.requestFocus(),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -350,18 +355,7 @@ class _GoalEntryScreenState extends ConsumerState<GoalEntryScreen> {
                     _ => 340,
                   } +
                   MediaQuery.of(context).padding.bottom,
-              child: _openPanel == 'amount'
-                  ? NumericKeypad(
-                      amountCents: _targetCents,
-                      nextLabel: translations?.t('common.next') ?? 'Next',
-                      onKeyTap: () => ref.read(hapticsProvider).selection(),
-                      onAmountChanged: (v) => setState(() => _targetCents = v),
-                      onNext: () {
-                        _closePanel();
-                        _nameFocus.requestFocus();
-                      },
-                    )
-                  : _panelContent,
+              child: _panelContent,
             ),
             if (_openPanel == null)
               SafeArea(

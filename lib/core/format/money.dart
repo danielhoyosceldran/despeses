@@ -55,6 +55,16 @@ String formatMoney(int cents, String currency, {String? locale}) {
   }
 }
 
+/// The currency's display symbol (`€` for EUR), falling back to the code for a
+/// currency `intl` doesn't know.
+String currencySymbolFor(String currency, {String? locale}) {
+  try {
+    return _currencyFormat(currency, locale).currencySymbol;
+  } catch (_) {
+    return currency;
+  }
+}
+
 /// Cents → localized plain number (2 decimals, no currency symbol). Used where
 /// the symbol is shown separately (e.g. split-styled displays).
 String formatDecimal(int cents, {String? locale}) => _decimalFormat(locale).format(cents / 100);

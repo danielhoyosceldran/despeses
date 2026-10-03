@@ -5,24 +5,22 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/haptics/haptics.dart';
 import '../../../core/i18n/display_name.dart';
 import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
-import '../../widgets/amount_text.dart';
+import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
 import '../../widgets/month_picker_dialog.dart';
-import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/unsaved_changes_guard.dart';
 
-/// Rich entry for budgets (plan §4), reusing the same keypad/panel pattern
+/// Rich entry for budgets (plan §4), reusing the same amount-field/panel pattern
 /// as transactions (plan §3). Full-screen, closes with X (not back arrow).
 ///
 /// In edit mode, dimension/type/value are locked — only name and amount can
@@ -54,6 +52,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
 
   final _nameController = TextEditingController();
   final _nameFocus = FocusNode();
+  final _amountFocus = FocusNode();
   int _amountCents = 0;
   _Dimension _dimension = _Dimension.category;
   _BudgetType _type = _BudgetType.monthly;
@@ -77,14 +76,17 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
       _hydrate(widget.budget!);
       _resolveDimensionLabel();
     } else {
-      // New budget: open the keypad first so the flow starts at the amount.
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel(''));
+      // New budget: focus the amount first so the flow starts at the amount.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel());
     }
     _initialSnapshot = _snapshot();
-    // Focusing the name field must dismiss any open bottom panel (keypad/month
+    // Focusing the name field must dismiss any open bottom panel (month
     // picker) so the OS keyboard doesn't stack on top of it.
     _nameFocus.addListener(() {
       if (_nameFocus.hasFocus && _openPanel != null) _closePanel();
+    });
+    _amountFocus.addListener(() {
+      if (_amountFocus.hasFocus && _openPanel != null) _closePanel();
     });
   }
 
@@ -142,6 +144,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
   void dispose() {
     _nameController.dispose();
     _nameFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -176,12 +179,10 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
   /// hides (otherwise it stacks on top of the panel).
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
-  void _openAmountPanel(String currency) {
-    _dismissKeyboard();
-    setState(() {
-      _openPanel = 'amount';
-      _panelContent = null;
-    });
+  void _openAmountPanel() {
+    // Focus the amount field (system keyboard); its focus listener closes
+    // any open bottom panel.
+    _amountFocus.requestFocus();
   }
 
   Future<void> _openDimensionValuePanel() async {
@@ -478,14 +479,18 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
                 children: [
-                  // Limit hero — the money value, Clash display, tap to open keypad.
+                  // Limit hero — the money value, Clash display, edited with the system keyboard.
                   Center(child: Text((translations?.t('budgets.limit') ?? 'Limit').toUpperCase(), style: appHeaderStyle(colors))),
                   const SizedBox(height: AppSpacing.sm),
                   Center(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _openAmountPanel(currency),
-                      child: AmountText(amountCents: _amountCents, currency: currency, color: colors.text),
+                    // Auto-advance chain: amount → name, then stop.
+                    child: AmountInputField(
+                      amountCents: _amountCents,
+                      focusNode: _amountFocus,
+                      currency: currency,
+                      color: colors.text,
+                      onAmountChanged: (v) => setState(() => _amountCents = v),
+                      onSubmitted: () => _nameFocus.requestFocus(),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -621,20 +626,7 @@ class _BudgetEntryScreenState extends ConsumerState<BudgetEntryScreen> {
                     _ => 340,
                   } +
                   MediaQuery.of(context).padding.bottom,
-              child: _openPanel == 'amount'
-                  ? NumericKeypad(
-                      amountCents: _amountCents,
-                      nextLabel: translations?.t('common.next') ?? 'Next',
-                      onKeyTap: () => ref.read(hapticsProvider).selection(),
-                      onAmountChanged: (v) => setState(() => _amountCents = v),
-                      // Auto-advance chain: amount → name, then stop. Dimension,
-                      // value and period are chosen manually by the user.
-                      onNext: () {
-                        _closePanel();
-                        _nameFocus.requestFocus();
-                      },
-                    )
-                  : _panelContent,
+              child: _panelContent,
             ),
             if (_openPanel == null)
               SafeArea(

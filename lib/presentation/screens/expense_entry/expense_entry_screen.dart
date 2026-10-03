@@ -13,20 +13,20 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/recurring_repository.dart';
-import '../../widgets/amount_text.dart';
+import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
-import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/tag_picker_sheet.dart';
 import '../../widgets/unsaved_changes_guard.dart';
 
-/// The rich transaction entry flow (plan §3): full-screen, own numeric
-/// keypad, field rows opening embedded bottom panels, auto-advancing steps
+/// The rich transaction entry flow (plan §3): full-screen, amount field on
+/// the system numeric keyboard, field rows opening embedded bottom panels,
+/// auto-advancing steps
 /// (skipping tags/event/project when the user hasn't created any), category
 /// drill-down, fixed save bar.
 /// Initial values to pre-fill a *new* transaction with — used by the recurring
@@ -107,6 +107,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   final _notesController = TextEditingController();
   final _descriptionFocus = FocusNode();
   final _notesFocus = FocusNode();
+  final _amountFocus = FocusNode();
 
   bool _loadingExisting = false;
 
@@ -128,10 +129,11 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   @override
   void initState() {
     super.initState();
-    // Focusing a text field must dismiss any open bottom panel (keypad/pickers)
+    // Focusing a text field must dismiss any open bottom panel (pickers)
     // so the OS keyboard doesn't stack on top of it.
     _descriptionFocus.addListener(_dismissPanelOnTextFocus);
     _notesFocus.addListener(_dismissPanelOnTextFocus);
+    _amountFocus.addListener(_dismissPanelOnTextFocus);
     if (widget.expenseId != null) {
       _loadExisting(widget.expenseId!);
     } else if (widget.seed != null) {
@@ -186,7 +188,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   }
 
   /// Pre-fills a new transaction from a [ExpenseSeed] (recurring confirm flow).
-  /// Unlike a blank new entry, the keypad does not auto-open — the user is
+  /// Unlike a blank new entry, the amount field is not auto-focused — the user is
   /// reviewing already-filled values, not starting from scratch.
   void _hydrateFromSeed(ExpenseSeed seed) {
     _type = seed.type;
@@ -208,6 +210,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     _notesController.dispose();
     _descriptionFocus.dispose();
     _notesFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -257,7 +260,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       });
 
   void _dismissPanelOnTextFocus() {
-    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus) && _openPanel != null) {
+    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus || _amountFocus.hasFocus) && _openPanel != null) {
       _closePanel();
     }
   }
@@ -267,11 +270,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
   void _openAmountPanel() {
-    _dismissKeyboard();
-    setState(() {
-      _openPanel = 'amount';
-      _panelContent = null;
-    });
+    // Focus the amount field (system keyboard); its focus listener closes
+    // any open bottom panel.
+    _amountFocus.requestFocus();
   }
 
   void _openDatePanel() {
@@ -607,18 +608,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
                     _ => 340,
                   } +
                   MediaQuery.of(context).padding.bottom,
-              child: _openPanel == 'amount'
-                  ? NumericKeypad(
-                      amountCents: _amountCents,
-                      nextLabel: translations?.t('common.next') ?? 'Next',
-                      onKeyTap: () => ref.read(hapticsProvider).selection(),
-                      onAmountChanged: (v) => setState(() => _amountCents = v),
-                      onNext: () {
-                        _closePanel();
-                        _openNextStep('amount');
-                      },
-                    )
-                  : _panelContent,
+              child: _panelContent,
             ),
             if (_openPanel == null)
               SafeArea(
@@ -663,14 +653,13 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             _buildTypeSelector(translations, colors, semantic),
             const SizedBox(height: AppSpacing.lg),
             Center(
-              child: GestureDetector(
-                onTap: _openAmountPanel,
-                behavior: HitTestBehavior.opaque,
-                child: AmountText(
-                  amountCents: _amountCents,
-                  currency: currency,
-                  color: _typeColor(colors, semantic),
-                ),
+              child: AmountInputField(
+                amountCents: _amountCents,
+                focusNode: _amountFocus,
+                currency: currency,
+                color: _typeColor(colors, semantic),
+                onAmountChanged: (v) => setState(() => _amountCents = v),
+                onSubmitted: () => _openNextStep('amount'),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

@@ -12,20 +12,19 @@ import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
-import '../../widgets/amount_text.dart';
+import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
-import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/tag_picker_sheet.dart';
 import '../../widgets/unsaved_changes_guard.dart';
 
 /// Create/edit a recurring-transaction template (feature 3.13). Reuses the
-/// transaction entry pattern (keypad + bottom panels), adding a schedule block
+/// transaction entry pattern (amount field + bottom panels), adding a schedule block
 /// (frequency + start/end date). Unlike budgets, every field stays editable in
 /// edit mode; changing the start date re-anchors the next fire.
 class RecurringEntryScreen extends ConsumerStatefulWidget {
@@ -57,6 +56,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
   final _notesController = TextEditingController();
   final _descriptionFocus = FocusNode();
   final _notesFocus = FocusNode();
+  final _amountFocus = FocusNode();
 
   /// Field values as hydrated/initialized; closing with different values asks
   /// before discarding them (null while an edited template is hydrating).
@@ -74,6 +74,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     super.initState();
     _descriptionFocus.addListener(_dismissPanelOnTextFocus);
     _notesFocus.addListener(_dismissPanelOnTextFocus);
+    _amountFocus.addListener(_dismissPanelOnTextFocus);
     if (widget.recurring != null) {
       _hydrate(widget.recurring!);
     } else {
@@ -118,6 +119,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     _notesController.dispose();
     _descriptionFocus.dispose();
     _notesFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -156,7 +158,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
       });
 
   void _dismissPanelOnTextFocus() {
-    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus) && _openPanel != null) {
+    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus || _amountFocus.hasFocus) && _openPanel != null) {
       _closePanel();
     }
   }
@@ -164,11 +166,9 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
   void _openAmountPanel() {
-    _dismissKeyboard();
-    setState(() {
-      _openPanel = 'amount';
-      _panelContent = null;
-    });
+    // Focus the amount field (system keyboard); its focus listener closes
+    // any open bottom panel.
+    _amountFocus.requestFocus();
   }
 
   void _openDatePanel({required bool isEnd}) {
@@ -418,10 +418,13 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
                     _buildTypeSelector(translations, colors, semantic),
                     const SizedBox(height: AppSpacing.lg),
                     Center(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _openAmountPanel,
-                        child: AmountText(amountCents: _amountCents, currency: currency, color: _typeColor(semantic)),
+                      child: AmountInputField(
+                        amountCents: _amountCents,
+                        focusNode: _amountFocus,
+                        currency: currency,
+                        color: _typeColor(semantic),
+                        onAmountChanged: (v) => setState(() => _amountCents = v),
+                        onSubmitted: () => _descriptionFocus.requestFocus(),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -568,18 +571,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
                     _ => 340,
                   } +
                   MediaQuery.of(context).padding.bottom,
-              child: _openPanel == 'amount'
-                  ? NumericKeypad(
-                      amountCents: _amountCents,
-                      nextLabel: translations?.t('common.next') ?? 'Next',
-                      onKeyTap: () => ref.read(hapticsProvider).selection(),
-                      onAmountChanged: (v) => setState(() => _amountCents = v),
-                      onNext: () {
-                        _closePanel();
-                        _descriptionFocus.requestFocus();
-                      },
-                    )
-                  : _panelContent,
+              child: _panelContent,
             ),
             if (_openPanel == null)
               SafeArea(

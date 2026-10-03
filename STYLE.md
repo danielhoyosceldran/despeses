@@ -106,7 +106,7 @@ Inter w600, `letterSpacing 0.5`, `textMuted`. Uppercase section/day headers
 |---|---|---|
 | `displayLarge` | Clash 60 w500 | balance hero (expanded) |
 | `displayMedium` | Clash 48 w500 | analytics total |
-| `displaySmall` | Clash 34 w500 | keypad / big totals |
+| `displaySmall` | Clash 34 w500 | amount hero / big totals |
 | `headlineMedium` | Clash 28 w500 | `PageTitleHeader` |
 | `headlineSmall` | Clash 22 w500 | `AppTopBar` title |
 | `titleLarge` | Clash 20 w500 | display section titles |
