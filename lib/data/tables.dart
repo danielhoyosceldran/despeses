@@ -194,6 +194,22 @@ class ExpenseTags extends Table {
   Set<Column> get primaryKey => {expenseId, tagId};
 }
 
+/// Optional many-to-many link between a refund and the expenses it refunds
+/// (schema v12, BL-071). Both ends are [Expenses] rows: [refundId] must be of
+/// type 'refund' and [expenseId] of type 'expense', both dated in the same
+/// calendar month (enforced by ExpenseRepository, not by SQL). Deleting either
+/// row removes the link, leaving the other side unlinked. Informational only:
+/// analytics and budgets ignore it.
+class ExpenseRefundLinks extends Table {
+  TextColumn get refundId =>
+      text().customConstraint('NOT NULL REFERENCES expenses(id) ON DELETE CASCADE')();
+  TextColumn get expenseId =>
+      text().customConstraint('NOT NULL REFERENCES expenses(id) ON DELETE CASCADE')();
+
+  @override
+  Set<Column> get primaryKey => {refundId, expenseId};
+}
+
 /// A recurring-transaction template (feature 3.13). Holds the same payload as
 /// an [Expenses] row plus a schedule. It never appears in listings/analytics
 /// itself; instead the materializer turns due dates into [RecurringOccurrences]

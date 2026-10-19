@@ -51,6 +51,16 @@ La fuente de verdad de las columnas es `lib/data/tables.dart`.
 |---|---|
 | v10 | `profile.favorite_payment_method_id` (BL-024). Columna nueva, declarada en `columnsAddedInVersion`. |
 | v11 | Fechas contables como fecha/hora civil (BL-042). Sin columnas nuevas: paso de datos `_convertToCivilDates`. |
+| v12 | Tabla nueva `expense_refund_links` (BL-071): vínculo opcional reembolso ↔ gasto. Declarada en `tablesAddedInVersion`; los reembolsos existentes quedan sin asociar. |
+
+### Vínculos reembolso ↔ gasto (v12, BL-071)
+
+`expense_refund_links(refund_id, expense_id)`, PK compuesta, ambas columnas
+`REFERENCES expenses(id) ON DELETE CASCADE`: borrar el reembolso o el gasto
+borra el vínculo y deja el otro lado sin asociar. Índice
+`idx_refund_links_expense` para buscar los reembolsos de un gasto. Las reglas
+(solo reembolso → gasto, mismo mes natural) las aplica `ExpenseRepository`,
+no SQL.
 
 ### Fechas contables (v11, BL-042)
 
@@ -87,6 +97,11 @@ ese día (y mes) aunque el móvil esté en otra zona horaria.
    añade esas columnas a partir de ese mapa, y la validación de backups lo usa
    para saber qué columnas debe tener un fichero de cada versión
    (`AppDatabase.schemaColumnsAt`).
+   Las tablas nuevas se declaran en `AppDatabase.tablesAddedInVersion`
+   (versión → tablas), para que `schemaColumnsAt` las omita en versiones
+   anteriores, y se crean con su propio paso `if (from < N) m.createTable(...)`.
+   Un backup que dice ser de esa versión pero no tiene la tabla se restaura
+   marcado con la versión anterior, y `onUpgrade` la crea al reabrir.
 4. Los backups de una versión anterior a la baseline (o posterior a
    `AppDatabase.currentSchemaVersion`) no se pueden restaurar:
    `BackupService.validateBackup` los rechaza antes de reemplazar la BD.

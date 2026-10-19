@@ -300,7 +300,8 @@
     "col_payment": "Paiement",
     "col_event": "Événement",
     "col_project": "Projet",
-    "col_tags": "Étiquettes"
+    "col_tags": "Étiquettes",
+    "col_linked_expenses": "Dépenses liées"
   },
   "dashboard": {
     "prev_month": "Mois précédent",
@@ -318,7 +319,8 @@
     "no_transactions": "Aucune transaction",
     "delete_title": "Supprimer les transactions",
     "delete_message": "Supprimer {{count}} transaction(s) sélectionnée(s) ?",
-    "error_load_month": "Impossible de charger ce mois."
+    "error_load_month": "Impossible de charger ce mois.",
+    "delete_unlinks_refunds": "{{count}} remboursement(s) lié(s) ne seront plus associés."
   },
   "backup": {
     "export_title": "Exporter la sauvegarde",
@@ -378,7 +380,14 @@
     "type_ahorro": "Épargne",
     "tag": "Étiquette",
     "amount_min": "Montant min.",
-    "amount_max": "Montant max."
+    "amount_max": "Montant max.",
+    "linked_expenses": "Dépenses liées",
+    "linked_expenses_count": "{{count}} dépense(s) liée(s)",
+    "linked_expenses_empty": "Aucune dépense dans le mois de ce remboursement.",
+    "refunded_summary": "Remboursé : {{amount}} ({{count}})",
+    "refund_link_month_mismatch": "Un remboursement et ses dépenses liées doivent être du même mois. Changez la date ou retirez le lien.",
+    "refund_link_type_locked": "Cette dépense a des remboursements liés. Retirez le lien depuis chaque remboursement avant de changer le type.",
+    "refund_link_invalid": "Une des dépenses liées n’existe plus ou n’est pas une dépense."
   },
   "auth": {
     "title": "Gastos",

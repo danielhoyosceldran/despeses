@@ -4477,6 +4477,227 @@ class ExpenseTagsCompanion extends UpdateCompanion<ExpenseTag> {
   }
 }
 
+class $ExpenseRefundLinksTable extends ExpenseRefundLinks
+    with TableInfo<$ExpenseRefundLinksTable, ExpenseRefundLink> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExpenseRefundLinksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _refundIdMeta = const VerificationMeta(
+    'refundId',
+  );
+  @override
+  late final GeneratedColumn<String> refundId = GeneratedColumn<String>(
+    'refund_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES expenses(id) ON DELETE CASCADE',
+  );
+  static const VerificationMeta _expenseIdMeta = const VerificationMeta(
+    'expenseId',
+  );
+  @override
+  late final GeneratedColumn<String> expenseId = GeneratedColumn<String>(
+    'expense_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL REFERENCES expenses(id) ON DELETE CASCADE',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [refundId, expenseId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'expense_refund_links';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ExpenseRefundLink> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('refund_id')) {
+      context.handle(
+        _refundIdMeta,
+        refundId.isAcceptableOrUnknown(data['refund_id']!, _refundIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_refundIdMeta);
+    }
+    if (data.containsKey('expense_id')) {
+      context.handle(
+        _expenseIdMeta,
+        expenseId.isAcceptableOrUnknown(data['expense_id']!, _expenseIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expenseIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {refundId, expenseId};
+  @override
+  ExpenseRefundLink map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExpenseRefundLink(
+      refundId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}refund_id'],
+      )!,
+      expenseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expense_id'],
+      )!,
+    );
+  }
+
+  @override
+  $ExpenseRefundLinksTable createAlias(String alias) {
+    return $ExpenseRefundLinksTable(attachedDatabase, alias);
+  }
+}
+
+class ExpenseRefundLink extends DataClass
+    implements Insertable<ExpenseRefundLink> {
+  final String refundId;
+  final String expenseId;
+  const ExpenseRefundLink({required this.refundId, required this.expenseId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['refund_id'] = Variable<String>(refundId);
+    map['expense_id'] = Variable<String>(expenseId);
+    return map;
+  }
+
+  ExpenseRefundLinksCompanion toCompanion(bool nullToAbsent) {
+    return ExpenseRefundLinksCompanion(
+      refundId: Value(refundId),
+      expenseId: Value(expenseId),
+    );
+  }
+
+  factory ExpenseRefundLink.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExpenseRefundLink(
+      refundId: serializer.fromJson<String>(json['refundId']),
+      expenseId: serializer.fromJson<String>(json['expenseId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'refundId': serializer.toJson<String>(refundId),
+      'expenseId': serializer.toJson<String>(expenseId),
+    };
+  }
+
+  ExpenseRefundLink copyWith({String? refundId, String? expenseId}) =>
+      ExpenseRefundLink(
+        refundId: refundId ?? this.refundId,
+        expenseId: expenseId ?? this.expenseId,
+      );
+  ExpenseRefundLink copyWithCompanion(ExpenseRefundLinksCompanion data) {
+    return ExpenseRefundLink(
+      refundId: data.refundId.present ? data.refundId.value : this.refundId,
+      expenseId: data.expenseId.present ? data.expenseId.value : this.expenseId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExpenseRefundLink(')
+          ..write('refundId: $refundId, ')
+          ..write('expenseId: $expenseId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(refundId, expenseId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExpenseRefundLink &&
+          other.refundId == this.refundId &&
+          other.expenseId == this.expenseId);
+}
+
+class ExpenseRefundLinksCompanion extends UpdateCompanion<ExpenseRefundLink> {
+  final Value<String> refundId;
+  final Value<String> expenseId;
+  final Value<int> rowid;
+  const ExpenseRefundLinksCompanion({
+    this.refundId = const Value.absent(),
+    this.expenseId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ExpenseRefundLinksCompanion.insert({
+    required String refundId,
+    required String expenseId,
+    this.rowid = const Value.absent(),
+  }) : refundId = Value(refundId),
+       expenseId = Value(expenseId);
+  static Insertable<ExpenseRefundLink> custom({
+    Expression<String>? refundId,
+    Expression<String>? expenseId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (refundId != null) 'refund_id': refundId,
+      if (expenseId != null) 'expense_id': expenseId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ExpenseRefundLinksCompanion copyWith({
+    Value<String>? refundId,
+    Value<String>? expenseId,
+    Value<int>? rowid,
+  }) {
+    return ExpenseRefundLinksCompanion(
+      refundId: refundId ?? this.refundId,
+      expenseId: expenseId ?? this.expenseId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (refundId.present) {
+      map['refund_id'] = Variable<String>(refundId.value);
+    }
+    if (expenseId.present) {
+      map['expense_id'] = Variable<String>(expenseId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExpenseRefundLinksCompanion(')
+          ..write('refundId: $refundId, ')
+          ..write('expenseId: $expenseId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -7811,6 +8032,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ProjectsTable projects = $ProjectsTable(this);
   late final $ExpensesTable expenses = $ExpensesTable(this);
   late final $ExpenseTagsTable expenseTags = $ExpenseTagsTable(this);
+  late final $ExpenseRefundLinksTable expenseRefundLinks =
+      $ExpenseRefundLinksTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
   late final $RecurringsTable recurrings = $RecurringsTable(this);
   late final $RecurringTagsTable recurringTags = $RecurringTagsTable(this);
@@ -7831,6 +8054,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     projects,
     expenses,
     expenseTags,
+    expenseRefundLinks,
     budgets,
     recurrings,
     recurringTags,
@@ -7887,6 +8111,20 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('expense_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'expenses',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('expense_refund_links', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'expenses',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('expense_refund_links', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -12836,6 +13074,374 @@ typedef $$ExpenseTagsTableProcessedTableManager =
       ExpenseTag,
       PrefetchHooks Function({bool expenseId, bool tagId})
     >;
+typedef $$ExpenseRefundLinksTableCreateCompanionBuilder =
+    ExpenseRefundLinksCompanion Function({
+      required String refundId,
+      required String expenseId,
+      Value<int> rowid,
+    });
+typedef $$ExpenseRefundLinksTableUpdateCompanionBuilder =
+    ExpenseRefundLinksCompanion Function({
+      Value<String> refundId,
+      Value<String> expenseId,
+      Value<int> rowid,
+    });
+
+final class $$ExpenseRefundLinksTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ExpenseRefundLinksTable,
+          ExpenseRefundLink
+        > {
+  $$ExpenseRefundLinksTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $ExpensesTable _refundIdTable(_$AppDatabase db) =>
+      db.expenses.createAlias(
+        $_aliasNameGenerator(db.expenseRefundLinks.refundId, db.expenses.id),
+      );
+
+  $$ExpensesTableProcessedTableManager get refundId {
+    final $_column = $_itemColumn<String>('refund_id')!;
+
+    final manager = $$ExpensesTableTableManager(
+      $_db,
+      $_db.expenses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_refundIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ExpensesTable _expenseIdTable(_$AppDatabase db) =>
+      db.expenses.createAlias(
+        $_aliasNameGenerator(db.expenseRefundLinks.expenseId, db.expenses.id),
+      );
+
+  $$ExpensesTableProcessedTableManager get expenseId {
+    final $_column = $_itemColumn<String>('expense_id')!;
+
+    final manager = $$ExpensesTableTableManager(
+      $_db,
+      $_db.expenses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_expenseIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ExpenseRefundLinksTableFilterComposer
+    extends Composer<_$AppDatabase, $ExpenseRefundLinksTable> {
+  $$ExpenseRefundLinksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$ExpensesTableFilterComposer get refundId {
+    final $$ExpensesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.refundId,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableFilterComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExpensesTableFilterComposer get expenseId {
+    final $$ExpensesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.expenseId,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableFilterComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExpenseRefundLinksTableOrderingComposer
+    extends Composer<_$AppDatabase, $ExpenseRefundLinksTable> {
+  $$ExpenseRefundLinksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$ExpensesTableOrderingComposer get refundId {
+    final $$ExpensesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.refundId,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableOrderingComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExpensesTableOrderingComposer get expenseId {
+    final $$ExpensesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.expenseId,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableOrderingComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExpenseRefundLinksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ExpenseRefundLinksTable> {
+  $$ExpenseRefundLinksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$ExpensesTableAnnotationComposer get refundId {
+    final $$ExpensesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.refundId,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ExpensesTableAnnotationComposer get expenseId {
+    final $$ExpensesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.expenseId,
+      referencedTable: $db.expenses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ExpensesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.expenses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ExpenseRefundLinksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ExpenseRefundLinksTable,
+          ExpenseRefundLink,
+          $$ExpenseRefundLinksTableFilterComposer,
+          $$ExpenseRefundLinksTableOrderingComposer,
+          $$ExpenseRefundLinksTableAnnotationComposer,
+          $$ExpenseRefundLinksTableCreateCompanionBuilder,
+          $$ExpenseRefundLinksTableUpdateCompanionBuilder,
+          (ExpenseRefundLink, $$ExpenseRefundLinksTableReferences),
+          ExpenseRefundLink,
+          PrefetchHooks Function({bool refundId, bool expenseId})
+        > {
+  $$ExpenseRefundLinksTableTableManager(
+    _$AppDatabase db,
+    $ExpenseRefundLinksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExpenseRefundLinksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExpenseRefundLinksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExpenseRefundLinksTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> refundId = const Value.absent(),
+                Value<String> expenseId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ExpenseRefundLinksCompanion(
+                refundId: refundId,
+                expenseId: expenseId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String refundId,
+                required String expenseId,
+                Value<int> rowid = const Value.absent(),
+              }) => ExpenseRefundLinksCompanion.insert(
+                refundId: refundId,
+                expenseId: expenseId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ExpenseRefundLinksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({refundId = false, expenseId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (refundId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.refundId,
+                                referencedTable:
+                                    $$ExpenseRefundLinksTableReferences
+                                        ._refundIdTable(db),
+                                referencedColumn:
+                                    $$ExpenseRefundLinksTableReferences
+                                        ._refundIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (expenseId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.expenseId,
+                                referencedTable:
+                                    $$ExpenseRefundLinksTableReferences
+                                        ._expenseIdTable(db),
+                                referencedColumn:
+                                    $$ExpenseRefundLinksTableReferences
+                                        ._expenseIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ExpenseRefundLinksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ExpenseRefundLinksTable,
+      ExpenseRefundLink,
+      $$ExpenseRefundLinksTableFilterComposer,
+      $$ExpenseRefundLinksTableOrderingComposer,
+      $$ExpenseRefundLinksTableAnnotationComposer,
+      $$ExpenseRefundLinksTableCreateCompanionBuilder,
+      $$ExpenseRefundLinksTableUpdateCompanionBuilder,
+      (ExpenseRefundLink, $$ExpenseRefundLinksTableReferences),
+      ExpenseRefundLink,
+      PrefetchHooks Function({bool refundId, bool expenseId})
+    >;
 typedef $$BudgetsTableCreateCompanionBuilder =
     BudgetsCompanion Function({
       required String id,
@@ -15895,6 +16501,8 @@ class $AppDatabaseManager {
       $$ExpensesTableTableManager(_db, _db.expenses);
   $$ExpenseTagsTableTableManager get expenseTags =>
       $$ExpenseTagsTableTableManager(_db, _db.expenseTags);
+  $$ExpenseRefundLinksTableTableManager get expenseRefundLinks =>
+      $$ExpenseRefundLinksTableTableManager(_db, _db.expenseRefundLinks);
   $$BudgetsTableTableManager get budgets =>
       $$BudgetsTableTableManager(_db, _db.budgets);
   $$RecurringsTableTableManager get recurrings =>

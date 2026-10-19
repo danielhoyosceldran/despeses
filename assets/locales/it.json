@@ -300,7 +300,8 @@
     "col_payment": "Pagamento",
     "col_event": "Evento",
     "col_project": "Progetto",
-    "col_tags": "Etichette"
+    "col_tags": "Etichette",
+    "col_linked_expenses": "Spese collegate"
   },
   "dashboard": {
     "prev_month": "Mese precedente",
@@ -318,7 +319,8 @@
     "no_transactions": "Nessuna transazione",
     "delete_title": "Elimina transazioni",
     "delete_message": "Eliminare {{count}} transazione/i selezionata/e?",
-    "error_load_month": "Impossibile caricare questo mese."
+    "error_load_month": "Impossibile caricare questo mese.",
+    "delete_unlinks_refunds": "{{count}} rimborso/i collegato/i resterà senza collegamento."
   },
   "backup": {
     "export_title": "Esporta backup",
@@ -378,7 +380,14 @@
     "type_ahorro": "Risparmio",
     "tag": "Etichetta",
     "amount_min": "Importo minimo",
-    "amount_max": "Importo massimo"
+    "amount_max": "Importo massimo",
+    "linked_expenses": "Spese collegate",
+    "linked_expenses_count": "{{count}} spesa/e collegata/e",
+    "linked_expenses_empty": "Non ci sono spese nel mese di questo rimborso.",
+    "refunded_summary": "Rimborsato: {{amount}} ({{count}})",
+    "refund_link_month_mismatch": "Un rimborso e le sue spese collegate devono essere dello stesso mese. Cambia la data o rimuovi il collegamento.",
+    "refund_link_type_locked": "Questa spesa ha rimborsi collegati. Rimuovi il collegamento da ogni rimborso prima di cambiare il tipo.",
+    "refund_link_invalid": "Una delle spese collegate non esiste più o non è una spesa."
   },
   "auth": {
     "title": "Gastos",

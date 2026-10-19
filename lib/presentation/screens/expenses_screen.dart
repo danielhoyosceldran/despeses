@@ -153,11 +153,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   Future<void> _deleteSelected() async {
     final count = _selectedIds.length;
     final t = ref.read(translationsProvider).asData?.value;
+    final unlinked = await ref.read(expenseRepositoryProvider).refundsUnlinkedByDeleting(_selectedIds);
+    if (!mounted) return;
     final confirmed = await showConfirmDialog(
       context,
       title: t?.t('dashboard.delete_title') ?? 'Delete transactions',
       message: (t?.t('dashboard.delete_message') ?? 'Delete {{count}} selected transaction(s)?')
-          .replaceAll('{{count}}', '$count'),
+              .replaceAll('{{count}}', '$count') +
+          (unlinked == 0
+              ? ''
+              : ' ${(t?.t('dashboard.delete_unlinks_refunds') ?? '{{count}} linked refund(s) will be left unlinked.').replaceAll('{{count}}', '$unlinked')}'),
       destructive: true,
     );
     if (!confirmed) return;

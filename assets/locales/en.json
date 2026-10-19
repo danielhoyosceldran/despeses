@@ -300,7 +300,8 @@
     "col_payment": "Payment",
     "col_event": "Event",
     "col_project": "Project",
-    "col_tags": "Tags"
+    "col_tags": "Tags",
+    "col_linked_expenses": "Linked expenses"
   },
   "dashboard": {
     "prev_month": "Previous month",
@@ -318,7 +319,8 @@
     "no_transactions": "No transactions",
     "delete_title": "Delete transactions",
     "delete_message": "Delete {{count}} selected transaction(s)?",
-    "error_load_month": "Could not load this month."
+    "error_load_month": "Could not load this month.",
+    "delete_unlinks_refunds": "{{count}} linked refund(s) will be left unlinked."
   },
   "backup": {
     "export_title": "Export backup",
@@ -378,7 +380,14 @@
     "type_ahorro": "Savings",
     "tag": "Tag",
     "amount_min": "Min amount",
-    "amount_max": "Max amount"
+    "amount_max": "Max amount",
+    "linked_expenses": "Linked expenses",
+    "linked_expenses_count": "{{count}} linked expense(s)",
+    "linked_expenses_empty": "There are no expenses in this refund’s month.",
+    "refunded_summary": "Refunded: {{amount}} ({{count}})",
+    "refund_link_month_mismatch": "A refund and its linked expenses must be in the same month. Change the date or remove the link.",
+    "refund_link_type_locked": "This expense has linked refunds. Remove the link from each refund before changing the type.",
+    "refund_link_invalid": "One of the linked expenses no longer exists or is not an expense."
   },
   "auth": {
     "title": "Gastos",

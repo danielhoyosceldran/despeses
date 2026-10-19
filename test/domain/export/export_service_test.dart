@@ -77,6 +77,34 @@ void main() {
     expect(rows.single[5], 'Food > Custom sub');
   });
 
+  test("withLinkedExpensesColumn appends each refund's linked expenses (BL-071)", () {
+    final expenses = [
+      _expense('r1', amount: 500, type: 'refund'),
+      _expense('r2', amount: 500, type: 'refund'),
+      _expense('e1', amount: 1000, type: 'expense', description: 'Shoes'),
+    ];
+    final rows = buildExportRows(
+      expenses: expenses,
+      categoriesById: const {},
+      paymentMethodsById: const {},
+      eventsById: const {},
+      projectsById: const {},
+      tagIdsByExpenseId: const {},
+      tagsById: const {},
+      translations: translations,
+    );
+
+    final withLinks = withLinkedExpensesColumn(rows, expenses: expenses, linkedExpensesByRefundId: {
+      'r1': [expenses[2], _expense('e2', amount: 100, type: 'expense')],
+    });
+
+    expect(withLinks.map((r) => r.length).toSet(), {exportColumnCount + 1});
+    expect(withLinks[0].last, '2026-03-15 Shoes; 2026-03-15');
+    expect(withLinks[1].last, '');
+    expect(withLinks[2].last, '');
+    expect(rows.first.length, exportColumnCount, reason: 'the input rows are not modified');
+  });
+
   test('every row has exactly 10 columns and amount formatted with 2 decimals', () {
     final rows = buildExportRows(
       expenses: [_expense('e1', amount: 1250, type: 'income', description: 'Salary')],

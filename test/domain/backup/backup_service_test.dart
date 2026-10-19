@@ -10,7 +10,7 @@ import 'package:despeses/domain/backup/backup_service.dart';
 /// app table with the columns of schema [version] (no constraints, no rows),
 /// [version] as user_version, and a `marker` table holding [marker] so tests
 /// can tell copies apart. [extraColumns]/[dropColumns] (`table.column`) bend
-/// the column set.
+/// the column set; [dropTables] leaves whole tables out.
 void writeDb(
   String path,
   String marker, {
@@ -18,6 +18,7 @@ void writeDb(
   bool allTables = true,
   List<String> extraColumns = const [],
   List<String> dropColumns = const [],
+  List<String> dropTables = const [],
 }) {
   final file = File(path);
   if (file.existsSync()) file.deleteSync();
@@ -34,6 +35,7 @@ void writeDb(
         final [table, column] = c.split('.');
         schema[table]!.remove(column);
       }
+      dropTables.forEach(schema.remove);
       for (final MapEntry(key: table, value: columns) in schema.entries) {
         db.execute('CREATE TABLE $table (${columns.map((c) => '"$c"').join(', ')})');
       }
@@ -280,6 +282,12 @@ void main() {
       expect(readMarker(dbPath), 'v10-short');
       expect(readUserVersion(dbPath), 9);
       expect(readUserVersion(path), 10, reason: 'the picked file itself must not be modified');
+    });
+
+    test('a table a migration adds is missing: the restored copy is stamped to create it', () async {
+      final path = p.join(tempDir.path, 'v12_short.sqlite');
+      writeDb(path, 'v12-short', version: 12, dropTables: ['expense_refund_links']);
+      expect(service.validateBackup(File(path)), 11);
     });
   });
 }

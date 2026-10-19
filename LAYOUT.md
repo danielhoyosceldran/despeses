@@ -97,9 +97,10 @@ Personal/app settings hub, pushed over the shell from the header gear.
 Full-screen entry; opens by sliding up from the bottom, dismisses sliding down.
 - **AppBar**: leading down-chevron (dismiss); centered title = date `TextButton` (opens the calendar panel).
 - **Body** Column:
-  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change) · big centered amount (`AmountInputField`, system numeric keyboard) · Description field (themed filled input, no wrapping card) · `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project]] · multiline Notes field (themed filled input, no wrapping card).
-  2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in tags step.
-  3. `BottomActionPanel`: `CalendarPanel` (shared month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, or `TagPickerContent`.
+  1. Expanded fields ListView: centered type selector (Expense · Income · Refund · Savings as tappable text separated by "|"; selected takes its colour + bold, clears category on change; leaving Refund also clears the linked expenses) · big centered amount (`AmountInputField`, system numeric keyboard) · Description field (themed filled input, no wrapping card) · `AppCard` of rows [Category · Payment method · Tags (count) · Row [Event | Project] · **Linked expenses (count)** — refunds only, hidden when confirming a recurring occurrence] · multiline Notes field (themed filled input, no wrapping card) · **expenses with linked refunds (editing)**: read-only `AppCard` "Refunded: amount (count)" header + one row per refund (title, date, amount).
+  2. When panel open: inline action Row above panel — full-width "Save", or "Save"+"Next" in the tags and linked-expenses steps.
+  3. `BottomActionPanel`: `CalendarPanel` (shared month nav + 7-col day grid), `CategoryPickerContent`, `SimplePickerContent`, `TagPickerContent`, or `ExpenseLinkPickerContent` (title + multi-select checkbox list of the expenses of the refund's month — title, date, amount — plus any already-linked expense from another month so it can be unchecked; empty-month message).
+- Refund links (BL-071): a refund can link to several expenses, all from its own month. A save that breaks the same-month rule, or changes the type of an expense with linked refunds, is blocked with a warning toast.
   4. No panel: bottom SafeArea full-width "Save" button.
 - A blank new transaction starts with the favorite payment method preselected (not when editing or when seeded from a recurring).
 - Tapping a field row opens its panel. "Next" auto-advances through amount → description → category → payment method (skipped when one is already picked), then stops; remaining fields (tags, event, project, notes) are filled manually. Skips empty ref types. Pops `true` on save.
@@ -160,7 +161,7 @@ Full-screen entry; opens by sliding up from the bottom, dismisses sliding down. 
 
 ### Account › Export (`settings/export_screen.dart`)
 - **AppBar**: empty.
-- **Body** ListView: From | To date TextButtons Row · "Type" dropdown (All/Expense/Income/Refund) · "Export CSV" button · "Export PDF" button · `LinearProgressIndicator` while busy. Both exports build rows → share sheet.
+- **Body** ListView: From | To date TextButtons Row · "Type" dropdown (All/Expense/Income/Refund) · "Export CSV" button · "Export PDF" button · `LinearProgressIndicator` while busy. Both exports build rows → share sheet. The CSV adds a last "Linked expenses" column (a refund's linked expenses as "date title", `; `-separated); the PDF doesn't.
 
 ### Account › Profile (`settings/profile_screen.dart`)
 - **AppBar**: empty.
@@ -212,7 +213,7 @@ Same as Tag groups: `PageTitleHeader` "Payment methods" + reorderable `EntityLis
 
 ## Cross-screen patterns
 - Tab screens (Dashboard, Transactions, Budgets, Analytics, Settings) have no Material `AppBar`; they render a shared in-body `AppTopBar` (month pager or title + settings gear) and, where they create, a `FloatingActionButton`. Entry screens still use a real Material `AppBar`. All `settings/*` list screens leave the AppBar empty and render their title via `PageTitleHeader`.
-- Selection mode (multi-delete) on Dashboard, Transactions, Budgets (both tabs), Recurring swaps `AppTopBar` contents (count + clear + delete).
+- Selection mode (multi-delete) on Dashboard, Transactions, Budgets (both tabs), Recurring swaps `AppTopBar` contents (count + clear + delete). On Dashboard/Transactions the delete confirmation also says how many linked refunds will be left unlinked, when any.
 - Entry screens (expense/budget/goal/recurring) use the in-screen `BottomActionPanel` + embedded pickers (amount via `AmountInputField` + system keyboard), not modal sheets. The Transactions list uses a true modal filter sheet.
 - Entry screens closing with unsaved changes (any field differing from its loaded/initial value) via the down-chevron, swipe down, or system back show a destructive "Discard changes?" confirm dialog (Cancel / Discard) first; without changes they close directly. A failed save shows an error toast and keeps the screen open.
 - Recurring (reached from the Settings hub, but not a `settings/*` list screen) renders an `AppTopBar` + FAB like a tab screen, rather than the `PageTitleHeader` used by the catalog list screens.

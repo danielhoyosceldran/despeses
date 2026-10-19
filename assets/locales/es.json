@@ -300,7 +300,8 @@
     "col_payment": "Pago",
     "col_event": "Evento",
     "col_project": "Proyecto",
-    "col_tags": "Etiquetas"
+    "col_tags": "Etiquetas",
+    "col_linked_expenses": "Gastos asociados"
   },
   "dashboard": {
     "prev_month": "Mes anterior",
@@ -318,7 +319,8 @@
     "no_transactions": "Sin transacciones",
     "delete_title": "Eliminar transacciones",
     "delete_message": "¿Eliminar {{count}} transacción(es) seleccionada(s)?",
-    "error_load_month": "No se pudo cargar este mes."
+    "error_load_month": "No se pudo cargar este mes.",
+    "delete_unlinks_refunds": "{{count}} reembolso(s) asociado(s) quedarán sin asociar."
   },
   "backup": {
     "export_title": "Exportar copia",
@@ -378,7 +380,14 @@
     "type_ahorro": "Ahorro",
     "tag": "Etiqueta",
     "amount_min": "Importe mínimo",
-    "amount_max": "Importe máximo"
+    "amount_max": "Importe máximo",
+    "linked_expenses": "Gastos asociados",
+    "linked_expenses_count": "{{count}} gasto(s) asociado(s)",
+    "linked_expenses_empty": "No hay gastos en el mes de este reembolso.",
+    "refunded_summary": "Reembolsado: {{amount}} ({{count}})",
+    "refund_link_month_mismatch": "Un reembolso y sus gastos asociados deben ser del mismo mes. Cambia la fecha o quita la asociación.",
+    "refund_link_type_locked": "Este gasto tiene reembolsos asociados. Quita la asociación desde cada reembolso antes de cambiar el tipo.",
+    "refund_link_invalid": "Alguno de los gastos asociados ya no existe o no es un gasto."
   },
   "auth": {
     "title": "Gastos",

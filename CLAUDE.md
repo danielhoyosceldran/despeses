@@ -55,6 +55,17 @@ refund can never carry an expense category. Budgets by category therefore do
 tag/project/event do. Don't "fix" this by letting refunds use expense
 categories.
 
+**Refund ↔ expense links (BL-071).** A refund can optionally be linked to the
+expenses it refunds (many-to-many, table `expense_refund_links`, schema v12);
+refunds without links are valid, and every refund registered before v12 is
+unlinked. **A refund may only be linked to expenses dated in the same calendar
+month as the refund's own date** — the app reviews movements month by month.
+Saves that would break it are blocked with a warning (never auto-unlinked):
+linking an expense of another month, moving a linked refund or a linked
+expense to another month, or changing a linked expense's type. Deleting either
+side just drops the link. The link is **informational only**: analytics and
+budgets ignore it (letting it carry the expense's category is backlog BL-072).
+
 **Single currency.** Multi-currency is permanently out of scope.
 
 ## Database schema baseline

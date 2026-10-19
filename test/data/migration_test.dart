@@ -69,6 +69,14 @@ void main() {
           'UPDATE expenses SET date = ?', [expenseDate.millisecondsSinceEpoch ~/ 1000]);
     }
     if (version < 10) await stripProfileToV9(db);
+    // Tables created by later versions don't exist yet.
+    for (final step in AppDatabase.tablesAddedInVersion.entries) {
+      if (step.key > version) {
+        for (final table in step.value) {
+          await db.customStatement('DROP TABLE $table');
+        }
+      }
+    }
     await db.customStatement('PRAGMA user_version = $version');
     await db.close();
   }
@@ -141,13 +149,34 @@ void main() {
     expect(stored.read<int>('date'), DateTime.utc(2026, 7, 1, 0, 30).millisecondsSinceEpoch ~/ 1000);
   });
 
-  /// Columns of every app table in the file at [path], read raw.
+  test('v11 → v12 creates expense_refund_links; existing refunds stay unlinked (BL-071)', () async {
+    await writeDatabaseAt(11);
+    final raw = sqlite3.open(dbPath());
+    raw.execute("INSERT INTO expenses (id, amount, currency, type, date) VALUES ('r1', 300, 'EUR', 'refund', ?)",
+        [DateTime.utc(2026, 7, 2).millisecondsSinceEpoch ~/ 1000]);
+    raw.dispose();
+
+    final db = AppDatabase(NativeDatabase(File(dbPath())), service);
+    addTearDown(db.close);
+
+    expect(await db.select(db.expenses).get(), hasLength(2));
+    expect(await db.select(db.expenseRefundLinks).get(), isEmpty);
+    await db.into(db.expenseRefundLinks).insert(ExpenseRefundLinksCompanion.insert(refundId: 'r1', expenseId: 'e1'));
+    // Deleting the expense cascades to the link, leaving the refund unlinked.
+    await (db.delete(db.expenses)..where((e) => e.id.equals('e1'))).go();
+    expect(await db.select(db.expenseRefundLinks).get(), isEmpty);
+    expect(await db.select(db.expenses).get(), hasLength(1));
+  });
+
+  /// Columns of every app table in the file at [path], read raw. Tables the
+  /// file lacks are left out.
   Map<String, Set<String>> fileColumns(String path) {
     final raw = sqlite3.open(path, mode: OpenMode.readOnly);
     try {
       return {
         for (final table in AppDatabase.schemaColumnsAt(AppDatabase.currentSchemaVersion).keys)
-          table: {for (final row in raw.select('PRAGMA table_info("$table")')) row['name'] as String},
+          if (raw.select("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table]).isNotEmpty)
+            table: {for (final row in raw.select('PRAGMA table_info("$table")')) row['name'] as String},
       };
     } finally {
       raw.dispose();

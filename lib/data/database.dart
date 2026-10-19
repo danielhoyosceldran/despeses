@@ -70,6 +70,7 @@ void _insertCategoryNode(
   Projects,
   Expenses,
   ExpenseTags,
+  ExpenseRefundLinks,
   Budgets,
   Recurrings,
   RecurringTags,
@@ -93,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Schema version this build creates/migrates to. Static so code without a
   /// live connection (e.g. backup validation) can check a file against it.
-  static const int currentSchemaVersion = 11;
+  static const int currentSchemaVersion = 12;
 
   /// Accounting-date columns (table → SQL column names), stored with
   /// [CivilDateTimeType] since schema v11 (BL-042). Before v11 they held
@@ -119,12 +120,22 @@ class AppDatabase extends _$AppDatabase {
     10: {'profile': {'favorite_payment_method_id'}}, // BL-024
   };
 
+  /// Tables each schema bump after the baseline created: version → SQL table
+  /// names. A file of an older version lacks them, so [schemaColumnsAt]
+  /// leaves them out and onUpgrade creates them.
+  static const Map<int, Set<String>> tablesAddedInVersion = {
+    12: {'expense_refund_links'}, // BL-071
+  };
+
   /// Every table's columns (SQL names) at schema [version], between
   /// [baselineSchemaVersion] and [currentSchemaVersion]: the current drift
-  /// definitions minus the columns added in later versions. Tables added
-  /// after the baseline would need the same treatment here.
+  /// definitions minus the tables ([tablesAddedInVersion]) and columns
+  /// ([columnsAddedInVersion]) added in later versions.
   static Map<String, Set<String>> schemaColumnsAt(int version) {
     final columns = {for (final e in _currentColumns.entries) e.key: {...e.value}};
+    for (final step in tablesAddedInVersion.entries) {
+      if (step.key > version) step.value.forEach(columns.remove);
+    }
     for (final step in columnsAddedInVersion.entries) {
       if (step.key <= version) continue;
       for (final table in step.value.entries) {
@@ -190,6 +201,10 @@ class AppDatabase extends _$AppDatabase {
 
           // v11 (BL-042): accounting dates become civil date/times.
           if (from < 11) await _convertToCivilDates(this);
+
+          // v12 (BL-071): refund ↔ expense links. Existing refunds stay
+          // unlinked. Its index is created by _createIndexes in beforeOpen.
+          if (from < 12) await m.createTable(expenseRefundLinks);
           //
           // CRITICAL when adding a column to an EXISTING table (tables.dart):
           //   1. The column MUST declare withDefault(...)/clientDefault (or be
@@ -299,6 +314,10 @@ Future<void> _createIndexes(AppDatabase db) async {
   // keyset cursor seeks straight to the next page (BL-065).
   await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_order '
       'ON expenses(date DESC, created_at DESC, id DESC)');
+  // Reverse lookup of refund links (an expense's refunds, BL-071); the
+  // primary key already serves lookups by refund_id.
+  await db.customStatement('CREATE INDEX IF NOT EXISTS idx_refund_links_expense '
+      'ON expense_refund_links(expense_id)');
 }
 
 /// Indexes on the recurring feature's hot paths (feature 3.13): the

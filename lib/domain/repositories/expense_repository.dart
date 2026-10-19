@@ -7,6 +7,32 @@ import '../../data/database.dart';
 
 const _uuid = Uuid();
 
+/// Why a refund-link rule (BL-071) rejected a save. See
+/// [ExpenseRepository.create] and [ExpenseRepository.update].
+enum RefundLinkViolation {
+  /// A linked expense is dated in another calendar month than its refund.
+  monthMismatch,
+
+  /// A linked id is missing or not of type 'expense'.
+  notAnExpense,
+
+  /// An expense with linked refunds can't change to another type.
+  expenseHasRefunds,
+}
+
+class RefundLinkException implements Exception {
+  const RefundLinkException(this.violation);
+
+  final RefundLinkViolation violation;
+
+  @override
+  String toString() => 'RefundLinkException(${violation.name})';
+}
+
+/// Whether [a] and [b] fall in the same calendar month — the only expenses a
+/// refund may be linked to (BL-071: the app reviews movements month by month).
+bool isSameMonth(DateTime a, DateTime b) => a.year == b.year && a.month == b.month;
+
 class ExpenseFilters {
   const ExpenseFilters({
     this.types = const {},
@@ -233,8 +259,128 @@ class ExpenseRepository {
 
   static const _inChunk = 900;
 
+  /// Ids of the expenses [refundId] is linked to (BL-071).
+  Future<List<String>> linkedExpenseIdsOf(String refundId) async {
+    final l = _db.expenseRefundLinks;
+    final rows = await (_db.select(l)..where((r) => r.refundId.equals(refundId))).get();
+    return rows.map((r) => r.expenseId).toList();
+  }
+
+  /// The expenses [refundId] is linked to, newest first.
+  Future<List<Expense>> linkedExpensesOf(String refundId) => _linkedRows(
+        _db.expenseRefundLinks.expenseId,
+        _db.expenseRefundLinks.refundId.equals(refundId),
+      );
+
+  /// The refunds linked to [expenseId], newest first.
+  Future<List<Expense>> refundsLinkedTo(String expenseId) => _linkedRows(
+        _db.expenseRefundLinks.refundId,
+        _db.expenseRefundLinks.expenseId.equals(expenseId),
+      );
+
+  /// Expense rows whose id is in [idColumn] of the links matching [where].
+  Future<List<Expense>> _linkedRows(Expression<String> idColumn, Expression<bool> where) {
+    final l = _db.expenseRefundLinks;
+    final query = _db.select(_db.expenses)
+      ..where((e) => e.id.isInQuery(_db.selectOnly(l)
+        ..addColumns([idColumn])
+        ..where(where)))
+      ..orderBy([(e) => OrderingTerm.desc(e.date), (e) => OrderingTerm.desc(e.createdAt)]);
+    return query.get();
+  }
+
+  /// Expenses a refund dated in [month]'s calendar month can be linked to:
+  /// every 'expense' row of that month, newest first.
+  Future<List<Expense>> refundLinkCandidates(DateTime month) {
+    final start = DateTime(month.year, month.month);
+    final end = DateTime(month.year, month.month + 1);
+    final query = _db.select(_db.expenses)
+      ..where((e) =>
+          e.type.equals('expense') & e.date.isBiggerOrEqualValue(start) & e.date.isSmallerThanValue(end))
+      ..orderBy([(e) => OrderingTerm.desc(e.date), (e) => OrderingTerm.desc(e.createdAt)]);
+    return query.get();
+  }
+
+  /// Linked expenses of many refunds at once: refund id → its expenses, oldest
+  /// first (unlinked refunds are absent). Chunked like [tagIdsByExpense].
+  Future<Map<String, List<Expense>>> linkedExpensesByRefund(Iterable<String> refundIds) async {
+    final ids = refundIds.toList();
+    final l = _db.expenseRefundLinks;
+    final result = <String, List<Expense>>{};
+    for (var i = 0; i < ids.length; i += _inChunk) {
+      final chunk = ids.sublist(i, min(i + _inChunk, ids.length));
+      final rows = await (_db.select(l).join([innerJoin(_db.expenses, _db.expenses.id.equalsExp(l.expenseId))])
+            ..where(l.refundId.isIn(chunk))
+            ..orderBy([OrderingTerm.asc(_db.expenses.date)]))
+          .get();
+      for (final row in rows) {
+        (result[row.readTable(l).refundId] ??= []).add(row.readTable(_db.expenses));
+      }
+    }
+    return result;
+  }
+
+  /// How many refunds outside [expenseIds] are linked to any of them, i.e.
+  /// would be left unlinked if those rows were deleted.
+  Future<int> refundsUnlinkedByDeleting(Iterable<String> expenseIds) async {
+    final ids = expenseIds.toSet();
+    final list = ids.toList();
+    final l = _db.expenseRefundLinks;
+    final refundIds = <String>{};
+    for (var i = 0; i < list.length; i += _inChunk) {
+      final chunk = list.sublist(i, min(i + _inChunk, list.length));
+      final rows = await (_db.select(l)..where((r) => r.expenseId.isIn(chunk))).get();
+      refundIds.addAll(rows.map((r) => r.refundId));
+    }
+    return refundIds.difference(ids).length;
+  }
+
+  /// Enforces the refund-link rules (BL-071) for a row about to be saved as
+  /// [type] on [date]:
+  /// - a refund's [linkedExpenseIds] must all be expenses of [date]'s month;
+  /// - an expense with linked refunds must stay an expense, in their month.
+  /// Throws a [RefundLinkException] otherwise. [id] is null on create.
+  Future<void> _checkRefundLinks({
+    String? id,
+    required String type,
+    required DateTime date,
+    required Set<String> linkedExpenseIds,
+  }) async {
+    if (type == 'refund' && linkedExpenseIds.isNotEmpty) {
+      if (id != null && linkedExpenseIds.contains(id)) {
+        throw const RefundLinkException(RefundLinkViolation.notAnExpense);
+      }
+      final targets = await (_db.select(_db.expenses)..where((e) => e.id.isIn(linkedExpenseIds))).get();
+      if (targets.length != linkedExpenseIds.length || targets.any((e) => e.type != 'expense')) {
+        throw const RefundLinkException(RefundLinkViolation.notAnExpense);
+      }
+      if (targets.any((e) => !isSameMonth(e.date, date))) {
+        throw const RefundLinkException(RefundLinkViolation.monthMismatch);
+      }
+    }
+    if (id == null) return;
+    final refunds = await refundsLinkedTo(id);
+    if (refunds.isEmpty) return;
+    if (type != 'expense') throw const RefundLinkException(RefundLinkViolation.expenseHasRefunds);
+    if (refunds.any((r) => !isSameMonth(r.date, date))) {
+      throw const RefundLinkException(RefundLinkViolation.monthMismatch);
+    }
+  }
+
+  Future<void> _replaceRefundLinks(String refundId, Set<String> expenseIds) async {
+    final l = _db.expenseRefundLinks;
+    await (_db.delete(l)..where((r) => r.refundId.equals(refundId))).go();
+    for (final expenseId in expenseIds) {
+      await _db.into(l).insert(ExpenseRefundLinksCompanion.insert(refundId: refundId, expenseId: expenseId));
+    }
+  }
+
   /// [amountCents] is always stored positive; the sign is derived from [type]
   /// at display/aggregation time, never in storage.
+  ///
+  /// [linkedExpenseIds] only applies to refunds (ignored otherwise): the
+  /// expenses this refund refunds, all from [date]'s month (BL-071), else a
+  /// [RefundLinkException] is thrown and nothing is saved.
   Future<String> create({
     required int amountCents,
     required String currency,
@@ -247,9 +393,12 @@ class ExpenseRepository {
     String? eventId,
     String? projectId,
     List<String> tagIds = const [],
+    List<String> linkedExpenseIds = const [],
   }) async {
     final id = _uuid.v4();
+    final links = type == 'refund' ? linkedExpenseIds.toSet() : <String>{};
     await _db.transaction(() async {
+      await _checkRefundLinks(type: type, date: date, linkedExpenseIds: links);
       await _db.into(_db.expenses).insert(
             ExpensesCompanion.insert(
               id: id,
@@ -272,12 +421,18 @@ class ExpenseRepository {
               ExpenseTagsCompanion.insert(expenseId: id, tagId: tagId),
             );
       }
+      if (links.isNotEmpty) await _replaceRefundLinks(id, links);
     });
     return id;
   }
 
   /// Currency is intentionally never part of the update payload — it is frozen
   /// at creation (see plan §2, "moneda inmutable").
+  ///
+  /// Refund links (BL-071): [linkedExpenseIds] replaces a refund's links (null
+  /// keeps them). A row that stops being a refund loses its links. Throws a
+  /// [RefundLinkException], saving nothing, when the result would link
+  /// across months or turn an expense with refunds into another type.
   Future<void> update(
     String id, {
     int? amountCents,
@@ -290,8 +445,15 @@ class ExpenseRepository {
     String? eventId,
     String? projectId,
     List<String>? tagIds,
+    List<String>? linkedExpenseIds,
   }) async {
     await _db.transaction(() async {
+      final current = await byId(id);
+      if (current == null) return;
+      final newType = type ?? current.type;
+      final links =
+          newType == 'refund' ? (linkedExpenseIds ?? await linkedExpenseIdsOf(id)).toSet() : <String>{};
+      await _checkRefundLinks(id: id, type: newType, date: date ?? current.date, linkedExpenseIds: links);
       await (_db.update(_db.expenses)..where((e) => e.id.equals(id))).write(
         ExpensesCompanion(
           amount: amountCents == null ? const Value.absent() : Value(amountCents),
@@ -315,9 +477,12 @@ class ExpenseRepository {
               );
         }
       }
+      if (newType != 'refund' || linkedExpenseIds != null) await _replaceRefundLinks(id, links);
     });
   }
 
+  /// Rows linked on the other side of a refund link are left unlinked (the
+  /// link rows cascade, BL-071).
   Future<void> delete(String id) async {
     await (_db.delete(_db.expenses)..where((e) => e.id.equals(id))).go();
   }

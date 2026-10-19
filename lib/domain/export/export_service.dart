@@ -87,6 +87,27 @@ const _exportHeaderKeys = [
 List<String> buildExportHeader(Translations translations) =>
     [for (final key in _exportHeaderKeys) translations.t(key)];
 
+/// CSV-only extra column (BL-071): for each refund row, the expenses it is
+/// linked to as "yyyy-MM-dd description", joined by "; " (empty for other
+/// rows and unlinked refunds). [rows] must be [buildExportRows] of [expenses];
+/// returns new rows with the column appended. Pair with
+/// [linkedExpensesHeader].
+List<List<String>> withLinkedExpensesColumn(
+  List<List<String>> rows, {
+  required List<Expense> expenses,
+  required Map<String, List<Expense>> linkedExpensesByRefundId,
+}) {
+  final dateFormat = DateFormat('yyyy-MM-dd');
+  String label(Expense e) => [dateFormat.format(e.date), if (e.description != null) e.description!].join(' ');
+  return [
+    for (var i = 0; i < rows.length; i++)
+      [...rows[i], (linkedExpensesByRefundId[expenses[i].id] ?? const []).map(label).join('; ')],
+  ];
+}
+
+/// Header of the [withLinkedExpensesColumn] column.
+String linkedExpensesHeader(Translations translations) => translations.t('export.col_linked_expenses');
+
 /// Index of the amount column in an export row.
 const _amountColumn = 2;
 

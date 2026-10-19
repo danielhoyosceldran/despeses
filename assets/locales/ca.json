@@ -300,7 +300,8 @@
     "col_payment": "Pagament",
     "col_event": "Esdeveniment",
     "col_project": "Projecte",
-    "col_tags": "Etiquetes"
+    "col_tags": "Etiquetes",
+    "col_linked_expenses": "Despeses associades"
   },
   "dashboard": {
     "prev_month": "Mes anterior",
@@ -318,7 +319,8 @@
     "no_transactions": "Sense transaccions",
     "delete_title": "Eliminar transaccions",
     "delete_message": "Eliminar {{count}} transacció(ns) seleccionada(es)?",
-    "error_load_month": "No s'ha pogut carregar aquest mes."
+    "error_load_month": "No s'ha pogut carregar aquest mes.",
+    "delete_unlinks_refunds": "{{count}} reemborsament(s) associat(s) quedaran sense associar."
   },
   "backup": {
     "export_title": "Exportar còpia",
@@ -378,7 +380,14 @@
     "type_ahorro": "Estalvi",
     "tag": "Etiqueta",
     "amount_min": "Import mínim",
-    "amount_max": "Import màxim"
+    "amount_max": "Import màxim",
+    "linked_expenses": "Despeses associades",
+    "linked_expenses_count": "{{count}} despesa(es) associada(es)",
+    "linked_expenses_empty": "No hi ha despeses al mes d’aquest reemborsament.",
+    "refunded_summary": "Reemborsat: {{amount}} ({{count}})",
+    "refund_link_month_mismatch": "Un reemborsament i les seves despeses associades han de ser del mateix mes. Canvia la data o treu l’associació.",
+    "refund_link_type_locked": "Aquesta despesa té reemborsaments associats. Treu l’associació des de cada reemborsament abans de canviar el tipus.",
+    "refund_link_invalid": "Alguna de les despeses associades ja no existeix o no és una despesa."
   },
   "auth": {
     "title": "Gastos",

@@ -6,12 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/format/date.dart';
+import '../../../core/format/money.dart';
 import '../../../core/i18n/display_name.dart';
 import '../../../core/i18n/translations.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
+import '../../../domain/repositories/expense_repository.dart';
 import '../../../domain/repositories/recurring_repository.dart';
 import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
@@ -19,6 +22,7 @@ import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
+import '../../widgets/expense_link_picker.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/tag_picker_sheet.dart';
@@ -103,6 +107,13 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   String? _eventId;
   String? _projectId;
   List<String> _tagIds = [];
+
+  /// Refunds only: the expenses this refund is linked to (BL-071).
+  List<String> _linkedExpenseIds = [];
+
+  /// Expenses only (editing): the refunds linked to this expense. Read-only
+  /// here; links are edited from the refund.
+  List<Expense> _linkedRefunds = const [];
   final _descriptionController = TextEditingController();
   final _notesController = TextEditingController();
   final _descriptionFocus = FocusNode();
@@ -168,6 +179,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         _eventId,
         _projectId,
         ([..._tagIds]..sort()).join(','),
+        ([..._linkedExpenseIds]..sort()).join(','),
         _descriptionController.text.trim(),
         _notesController.text.trim(),
       ];
@@ -229,6 +241,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       return;
     }
     final tagIds = await repo.tagIdsOf(id);
+    final linkedExpenseIds = expense.type == 'refund' ? await repo.linkedExpenseIdsOf(id) : <String>[];
+    final linkedRefunds = expense.type == 'expense' ? await repo.refundsLinkedTo(id) : const <Expense>[];
     if (!mounted) return;
     setState(() {
       _type = expense.type;
@@ -239,6 +253,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _eventId = expense.eventId;
       _projectId = expense.projectId;
       _tagIds = tagIds;
+      _linkedExpenseIds = linkedExpenseIds;
+      _linkedRefunds = linkedRefunds;
       _descriptionController.text = expense.description ?? '';
       _notesController.text = expense.notes ?? '';
       _loadingExisting = false;
@@ -416,6 +432,21 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             },
           );
         });
+      case 'refundLinks':
+        final candidates = await _refundLinkCandidates();
+        if (!mounted) return;
+        setState(() {
+          _openPanel = 'refundLinks';
+          _panelContent = ExpenseLinkPickerContent(
+            candidates: candidates,
+            initialSelectedIds: _linkedExpenseIds,
+            translations: translations,
+            onChanged: (selected) {
+              ref.read(hapticsProvider).selection();
+              setState(() => _linkedExpenseIds = selected);
+            },
+          );
+        });
       case 'project':
         final projects = await ref.read(referenceDataCacheProvider).projects();
         if (!mounted) return;
@@ -437,6 +468,19 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     }
   }
 
+  /// The expenses of the refund's month, plus any already-linked expense from
+  /// another month (its date changed) so the user can uncheck it.
+  Future<List<Expense>> _refundLinkCandidates() async {
+    final repo = ref.read(expenseRepositoryProvider);
+    final candidates = await repo.refundLinkCandidates(_date ?? DateTime.now());
+    final listed = {for (final e in candidates) e.id};
+    for (final id in _linkedExpenseIds.where((id) => !listed.contains(id))) {
+      final expense = await repo.byId(id);
+      if (expense != null) candidates.add(expense);
+    }
+    return candidates;
+  }
+
   bool get _canSave =>
       _amountCents > 0 &&
       _date != null &&
@@ -451,6 +495,16 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     setState(() => _saving = true);
     try {
       await _doSave();
+    } on RefundLinkException catch (e) {
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        final key = switch (e.violation) {
+          RefundLinkViolation.monthMismatch => 'expenses.refund_link_month_mismatch',
+          RefundLinkViolation.expenseHasRefunds => 'expenses.refund_link_type_locked',
+          RefundLinkViolation.notAnExpense => 'expenses.refund_link_invalid',
+        };
+        showAppToast(context, t?.t(key) ?? 'Could not save.', variant: ToastVariant.warning);
+      }
     } catch (e, st) {
       developer.log('save failed', name: 'ExpenseEntryScreen', error: e, stackTrace: st);
       if (mounted) {
@@ -502,6 +556,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         eventId: _eventId,
         projectId: _projectId,
         tagIds: _tagIds,
+        linkedExpenseIds: _linkedExpenseIds,
       );
     } else {
       await repo.update(
@@ -516,6 +571,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         eventId: _eventId,
         projectId: _projectId,
         tagIds: _tagIds,
+        linkedExpenseIds: _type == 'refund' ? _linkedExpenseIds : null,
       );
     }
     if (!mounted) return;
@@ -585,7 +641,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             if (_openPanel != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-                child: _openPanel == 'tags'
+                child: _openPanel == 'tags' || _openPanel == 'refundLinks'
                     ? Row(
                         children: [
                           Expanded(child: _saveButton(translations)),
@@ -593,7 +649,11 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
                           Expanded(
                             child: FilledButton(
                               onPressed: () {
-                                _tagPickerKey?.currentState?.confirm();
+                                if (_openPanel == 'refundLinks') {
+                                  _closePanel();
+                                } else {
+                                  _tagPickerKey?.currentState?.confirm();
+                                }
                               },
                               child: Text(translations?.t('common.next') ?? 'Next'),
                             ),
@@ -709,6 +769,19 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
                       ],
                     ),
                   ),
+                  // Recurring confirmations can't carry links (BL-071).
+                  if (_type == 'refund' && widget.seed?.occurrence == null) ...[
+                    Divider(height: 1, color: colors.divider),
+                    _fieldTile(
+                      _linkedExpenseIds.isEmpty
+                          ? (translations?.t('expenses.linked_expenses') ?? 'Linked expenses')
+                          : (translations
+                                  ?.t('expenses.linked_expenses_count')
+                                  .replaceAll('{{count}}', '${_linkedExpenseIds.length}') ??
+                              '${_linkedExpenseIds.length} linked expenses'),
+                      () => _openStep('refundLinks'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -725,9 +798,46 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
                 counterText: '',
               ),
             ),
+            if (_type == 'expense' && _linkedRefunds.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              _buildLinkedRefunds(translations, colors, currency),
+            ],
           ],
           ),
         );
+  }
+
+  /// Read-only summary of the refunds linked to this expense (BL-071): the
+  /// refunded total and one row per refund. Links are edited from the refund.
+  Widget _buildLinkedRefunds(Translations? translations, AppColors colors, String currency) {
+    final total = _linkedRefunds.fold<int>(0, (sum, r) => sum + r.amount);
+    return AppCard(
+      clip: true,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          ListTile(
+            dense: true,
+            title: Text(
+              (translations?.t('expenses.refunded_summary') ?? 'Refunded: {{amount}} ({{count}})')
+                  .replaceAll('{{amount}}', formatMoney(total, currency))
+                  .replaceAll('{{count}}', '${_linkedRefunds.length}'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          for (final refund in _linkedRefunds) ...[
+            Divider(height: 1, color: colors.divider),
+            ListTile(
+              dense: true,
+              visualDensity: const VisualDensity(vertical: -2),
+              title: Text(refund.description ?? (translations?.t('expenses.type_refund') ?? 'Refund')),
+              subtitle: Text(formatDate(refund.date)),
+              trailing: Text(formatMoney(refund.amount, refund.currency)),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   /// Compact tappable field row for the entry card (tighter padding than a
@@ -783,6 +893,8 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _type = newType;
       // Category trees differ per type — the previous selection is invalid.
       _categoryId = null;
+      // Only refunds carry links to expenses (BL-071).
+      if (newType != 'refund') _linkedExpenseIds = [];
     });
     _refreshLabels();
   }

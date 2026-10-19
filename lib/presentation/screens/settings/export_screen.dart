@@ -116,9 +116,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     setState(() => _busy = true);
     try {
       final data = await _buildData();
+      final linked = await ref
+          .read(expenseRepositoryProvider)
+          .linkedExpensesByRefund(data.expenses.where((e) => e.type == 'refund').map((e) => e.id));
       final csv = buildExportCsv(
-        data.rows,
-        header: buildExportHeader(data.translations),
+        withLinkedExpensesColumn(data.rows, expenses: data.expenses, linkedExpensesByRefundId: linked),
+        header: [...buildExportHeader(data.translations), linkedExpensesHeader(data.translations)],
         format: CsvFormat.forLocale(data.translations.locale),
       );
       final file = await _writeExportFile('csv', encodeCsvUtf8(csv));
