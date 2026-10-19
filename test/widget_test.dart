@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:despeses/core/config/feature_flags.dart';
 import 'package:despeses/main.dart';
 import 'package:despeses/presentation/screens/app_shell.dart';
 
@@ -27,7 +26,7 @@ void main() {
 
     for (final label in [
       'Dashboard',
-      if (FeatureFlags.showExpensesScreen) 'Expenses',
+      'Transactions',
       'Budgets',
       'Analytics',
       'Manage',

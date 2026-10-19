@@ -7,6 +7,35 @@ import '../../data/database.dart';
 
 const _uuid = Uuid();
 
+/// The values the user settled on in the "edit & confirm" flow, replacing the
+/// occurrence's snapshot (and the template's tags) when passed to
+/// [RecurringRepository.confirm].
+class OccurrenceEdits {
+  const OccurrenceEdits({
+    required this.amountCents,
+    required this.type,
+    required this.date,
+    this.description,
+    this.notes,
+    this.categoryId,
+    this.paymentMethodId,
+    this.eventId,
+    this.projectId,
+    this.tagIds = const [],
+  });
+
+  final int amountCents;
+  final String type;
+  final DateTime date;
+  final String? description;
+  final String? notes;
+  final String? categoryId;
+  final String? paymentMethodId;
+  final String? eventId;
+  final String? projectId;
+  final List<String> tagIds;
+}
+
 /// Recurring transactions (feature 3.13).
 ///
 /// A [Recurring] is a template + schedule. It never shows up in listings or
@@ -100,6 +129,16 @@ class RecurringRepository {
   /// materialization, and `confirm` deletes occurrences (losing the unique-key
   /// protection), so rewinding it would let `materializeDue` regenerate
   /// already-confirmed dates as fresh, re-confirmable duplicates.
+  ///
+  /// A finished template (see [isFinished]) whose end date is extended past
+  /// its schedule (or cleared) is reactivated, skipping the dates between its
+  /// end and today exactly like resuming a paused one ([setActive]). [now] is
+  /// injectable for tests.
+  ///
+  /// Changing [frequency] recomputes [nextDate] as the first date of the new
+  /// schedule after the last materialized date (one old-frequency period
+  /// before the current [nextDate]), never before the start date — otherwise
+  /// the old schedule's [nextDate] would skip occurrences of the new one.
   Future<void> update(
     String id, {
     int? amountCents,
@@ -115,18 +154,40 @@ class RecurringRepository {
     String? eventId,
     String? projectId,
     List<String>? tagIds,
+    DateTime? now,
   }) async {
     await _db.transaction(() async {
       Value<DateTime> nextDateValue = const Value.absent();
-      if (startDate != null) {
-        final current = await templateById(id);
-        final currentNextDate = current == null ? null : _dateOnly(current.nextDate);
-        final newStartDate = _dateOnly(startDate);
+      Value<bool> activeValue = const Value.absent();
+      final current = await templateById(id);
+      final frequencyChanged =
+          current != null && frequency != null && frequency != current.frequency;
+      if (startDate != null || frequencyChanged) {
+        DateTime? candidate = current == null ? null : _dateOnly(current.nextDate);
+        if (frequencyChanged) {
+          final currentStart = _dateOnly(current.startDate);
+          // Nothing materialized yet: the schedule still starts at startDate.
+          if (candidate!.isAfter(currentStart)) {
+            final lastDue = _retreat(candidate, current.frequency, current.startDate);
+            candidate = _firstAfter(lastDue, frequency, startDate ?? current.startDate);
+          }
+        }
+        final newStartDate = _dateOnly(startDate ?? current!.startDate);
         nextDateValue = Value(
-          currentNextDate != null && newStartDate.isBefore(currentNextDate)
-              ? currentNextDate
-              : newStartDate,
+          candidate != null && newStartDate.isBefore(candidate) ? candidate : newStartDate,
         );
+      }
+      if (current != null && isFinished(current)) {
+        final newEnd = clearEndDate ? null : (endDate ?? current.endDate);
+        var resumed = nextDateValue.present ? nextDateValue.value : _dateOnly(current.nextDate);
+        final today = _dateOnly(now ?? DateTime.now());
+        while (resumed.isBefore(today)) {
+          resumed = _advance(resumed, frequency ?? current.frequency, startDate ?? current.startDate);
+        }
+        if (newEnd == null || !resumed.isAfter(_dateOnly(newEnd))) {
+          nextDateValue = Value(resumed);
+          activeValue = const Value(true);
+        }
       }
       await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
         RecurringsCompanion(
@@ -135,6 +196,7 @@ class RecurringRepository {
           frequency: frequency == null ? const Value.absent() : Value(frequency),
           startDate: startDate == null ? const Value.absent() : Value(startDate),
           nextDate: nextDateValue,
+          active: activeValue,
           endDate: clearEndDate ? const Value(null) : (endDate == null ? const Value.absent() : Value(endDate)),
           description: Value(description),
           notes: Value(notes),
@@ -157,11 +219,39 @@ class RecurringRepository {
     });
   }
 
-  Future<void> setActive(String id, bool active) async {
-    await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
-      RecurringsCompanion(active: Value(active), updatedAt: Value(DateTime.now())),
-    );
+  /// Pauses or resumes a template. Resuming skips the paused period: [nextDate]
+  /// jumps forward to the first scheduled date on or after today, so the dates
+  /// that fell while it was paused are never materialized. [now] is injectable
+  /// for tests.
+  Future<void> setActive(String id, bool active, {DateTime? now}) async {
+    await _db.transaction(() async {
+      Value<DateTime> nextDateValue = const Value.absent();
+      if (active) {
+        final current = await templateById(id);
+        if (current != null && !current.active) {
+          final today = _dateOnly(now ?? DateTime.now());
+          var cursor = _dateOnly(current.nextDate);
+          while (cursor.isBefore(today)) {
+            cursor = _advance(cursor, current.frequency, current.startDate);
+          }
+          nextDateValue = Value(cursor);
+        }
+      }
+      await (_db.update(_db.recurrings)..where((r) => r.id.equals(id))).write(
+        RecurringsCompanion(
+          active: Value(active),
+          nextDate: nextDateValue,
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    });
   }
+
+  /// Whether [r] has run past its end date: its next scheduled date is after
+  /// [Recurring.endDate], so it can never fire again until the end date is
+  /// extended (see [update]). The materializer deactivates such templates.
+  static bool isFinished(Recurring r) =>
+      r.endDate != null && _dateOnly(r.nextDate).isAfter(_dateOnly(r.endDate!));
 
   /// Deleting a template cascades to its tags and any pending occurrences.
   Future<void> delete(String id) async {
@@ -190,7 +280,14 @@ class RecurringRepository {
 
   /// Confirms a pending occurrence into a real [Expense] (copying the template's
   /// current tags) and removes it from the inbox — all in one transaction.
-  /// Returns the new expense id.
+  /// Returns the new expense id, or null when the occurrence was already
+  /// confirmed/skipped (e.g. a double tap, or "confirm all" racing a single
+  /// confirm): the occurrence is claimed by deleting it first, so only the
+  /// caller whose delete actually removed the row creates the expense.
+  ///
+  /// With [edits] (the "edit & confirm" flow) the expense takes the user's
+  /// values instead of the snapshot, still atomically with clearing the
+  /// occurrence, so it can't end up both saved and still pending.
   ///
   /// [RecurringOccurrence] stores its FK-shaped fields (category/payment
   /// method/event/project) as plain text without an actual FK constraint,
@@ -199,37 +296,60 @@ class RecurringRepository {
   /// as-is into `expenses` (which DOES have a real FK) would violate the
   /// constraint and roll back the whole confirmation, permanently. So each
   /// dangling id is nulled out here, right before the insert.
-  Future<String> confirm(RecurringOccurrence occ) async {
-    final expenseId = _uuid.v4();
-    await _db.transaction(() async {
-      final tagIds = await tagIdsOf(occ.recurringId);
-      final categoryId = await _existingOrNull(_db.categories, _db.categories.id, occ.categoryId);
-      final paymentMethodId =
-          await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id, occ.paymentMethodId);
-      final eventId = await _existingOrNull(_db.events, _db.events.id, occ.eventId);
-      final projectId = await _existingOrNull(_db.projects, _db.projects.id, occ.projectId);
-      await _db.into(_db.expenses).insert(
-            ExpensesCompanion.insert(
-              id: expenseId,
-              amount: occ.amount,
-              currency: occ.currency,
-              type: occ.type,
-              date: occ.dueDate,
-              description: Value(occ.description),
-              notes: Value(occ.notes),
-              categoryId: Value(categoryId),
-              paymentMethodId: Value(paymentMethodId),
-              eventId: Value(eventId),
-              projectId: Value(projectId),
-            ),
-          );
-      for (final tagId in tagIds) {
-        await _db.into(_db.expenseTags).insert(
-              ExpenseTagsCompanion.insert(expenseId: expenseId, tagId: tagId),
-            );
+  Future<String?> confirm(RecurringOccurrence occ, {OccurrenceEdits? edits}) {
+    return _db.transaction(() => _confirmInTransaction(occ, edits));
+  }
+
+  /// Confirms every occurrence in [occurrences] all-or-nothing: they share one
+  /// transaction, so if any insert fails none is confirmed and the error
+  /// propagates. Occurrences already confirmed/skipped are left out. Returns
+  /// how many expenses were created.
+  Future<int> confirmAll(List<RecurringOccurrence> occurrences) {
+    return _db.transaction(() async {
+      var created = 0;
+      for (final occ in occurrences) {
+        if (await _confirmInTransaction(occ, null) != null) created++;
       }
-      await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
+      return created;
     });
+  }
+
+  /// Body of [confirm]; must run inside a transaction.
+  Future<String?> _confirmInTransaction(RecurringOccurrence occ, OccurrenceEdits? edits) async {
+    final expenseId = _uuid.v4();
+    final claimed =
+        await (_db.delete(_db.recurringOccurrences)..where((o) => o.id.equals(occ.id))).go();
+    if (claimed != 1) return null;
+    // Dedup: `expense_tags` PK is {expenseId, tagId}.
+    final tagIds = edits?.tagIds.toSet() ?? await tagIdsOf(occ.recurringId);
+    final categoryId = await _existingOrNull(
+        _db.categories, _db.categories.id, edits == null ? occ.categoryId : edits.categoryId);
+    final paymentMethodId = await _existingOrNull(_db.paymentMethods, _db.paymentMethods.id,
+        edits == null ? occ.paymentMethodId : edits.paymentMethodId);
+    final eventId =
+        await _existingOrNull(_db.events, _db.events.id, edits == null ? occ.eventId : edits.eventId);
+    final projectId = await _existingOrNull(
+        _db.projects, _db.projects.id, edits == null ? occ.projectId : edits.projectId);
+    await _db.into(_db.expenses).insert(
+          ExpensesCompanion.insert(
+            id: expenseId,
+            amount: edits?.amountCents ?? occ.amount,
+            currency: occ.currency,
+            type: edits?.type ?? occ.type,
+            date: edits?.date ?? occ.dueDate,
+            description: Value(edits == null ? occ.description : edits.description),
+            notes: Value(edits == null ? occ.notes : edits.notes),
+            categoryId: Value(categoryId),
+            paymentMethodId: Value(paymentMethodId),
+            eventId: Value(eventId),
+            projectId: Value(projectId),
+          ),
+        );
+    for (final tagId in tagIds) {
+      await _db.into(_db.expenseTags).insert(
+            ExpenseTagsCompanion.insert(expenseId: expenseId, tagId: tagId),
+          );
+    }
     return expenseId;
   }
 
@@ -340,6 +460,45 @@ class RecurringRepository {
           nextMonthFirst.year,
           nextMonthFirst.month,
           _clampDay(nextMonthFirst.year, nextMonthFirst.month, anchor.day),
+        );
+    }
+  }
+
+  /// First date of the [frequency] schedule anchored on [anchor] that falls
+  /// strictly after [after]. Unlike [_advance], [after] need not be on that
+  /// schedule (it may come from a different frequency).
+  static DateTime _firstAfter(DateTime after, String frequency, DateTime anchor) {
+    switch (frequency) {
+      case 'weekly':
+        return DateTime(after.year, after.month, after.day + 7);
+      case 'yearly':
+        final sameYear =
+            DateTime(after.year, anchor.month, _clampDay(after.year, anchor.month, anchor.day));
+        return sameYear.isAfter(after) ? sameYear : _advance(sameYear, frequency, anchor);
+      case 'monthly':
+      default:
+        final sameMonth =
+            DateTime(after.year, after.month, _clampDay(after.year, after.month, anchor.day));
+        return sameMonth.isAfter(after) ? sameMonth : _advance(sameMonth, frequency, anchor);
+    }
+  }
+
+  /// Inverse of [_advance]: steps [from] back by one period on the same
+  /// [anchor] schedule.
+  static DateTime _retreat(DateTime from, String frequency, DateTime anchor) {
+    switch (frequency) {
+      case 'weekly':
+        return DateTime(from.year, from.month, from.day - 7);
+      case 'yearly':
+        final year = from.year - 1;
+        return DateTime(year, anchor.month, _clampDay(year, anchor.month, anchor.day));
+      case 'monthly':
+      default:
+        final prevMonthFirst = DateTime(from.year, from.month - 1);
+        return DateTime(
+          prevMonthFirst.year,
+          prevMonthFirst.month,
+          _clampDay(prevMonthFirst.year, prevMonthFirst.month, anchor.day),
         );
     }
   }

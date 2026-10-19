@@ -57,7 +57,7 @@ void main() {
     await addSavings(amount: 888, categoryId: root, type: 'income');
 
     final id = await goals.create(
-      name: 'Japan', categoryId: root, targetCents: 300000, currency: 'EUR');
+      name: 'Japan', categoryId: root, targetCents: 300000, currency: 'EUR', now: DateTime(2026, 1, 1));
     final goal = (await goals.byId(id))!;
 
     final progress = await goals.calculateProgress(goal);
@@ -75,7 +75,7 @@ void main() {
     await addSavings(amount: 99999, categoryId: root, currency: 'USD');
 
     final id = await goals.create(
-      name: 'x', categoryId: root, targetCents: 50000, currency: 'EUR');
+      name: 'x', categoryId: root, targetCents: 50000, currency: 'EUR', now: DateTime(2026, 1, 1));
     final goal = (await goals.byId(id))!;
 
     expect((await goals.calculateProgress(goal)).saved, 10000);
@@ -86,7 +86,7 @@ void main() {
     await addSavings(amount: 50000, categoryId: root);
 
     final id = await goals.create(
-      name: 'x', categoryId: root, targetCents: 50000, currency: 'EUR');
+      name: 'x', categoryId: root, targetCents: 50000, currency: 'EUR', now: DateTime(2026, 1, 1));
     final goal = (await goals.byId(id))!;
 
     final progress = await goals.calculateProgress(goal);
@@ -103,7 +103,7 @@ void main() {
       name: 'x',
       categoryId: root,
       targetCents: 40000,
-      currency: 'EUR',
+      currency: 'EUR', now: DateTime(2026, 1, 1),
       deadline: DateTime(2026, 3, 31),
     );
     final goal = (await goals.byId(id))!;
@@ -122,7 +122,7 @@ void main() {
       name: 'x',
       categoryId: root,
       targetCents: 40000,
-      currency: 'EUR',
+      currency: 'EUR', now: DateTime(2026, 1, 1),
       deadline: DateTime(2025, 12, 31),
     );
     final goal = (await goals.byId(id))!;
@@ -140,7 +140,7 @@ void main() {
       name: 'x',
       categoryId: root,
       targetCents: 40000,
-      currency: 'EUR',
+      currency: 'EUR', now: DateTime(2026, 1, 1),
       deadline: DateTime(2026, 6, 30),
     );
     final goal = (await goals.byId(id))!;
@@ -154,7 +154,7 @@ void main() {
       name: 'Old',
       categoryId: root,
       targetCents: 10000,
-      currency: 'EUR',
+      currency: 'EUR', now: DateTime(2026, 1, 1),
       deadline: DateTime(2026, 6, 30),
     );
 
@@ -171,10 +171,45 @@ void main() {
     final root = await savingsCategory();
     final child = await categories.create(name: 'sub', parentId: root, type: 'ahorro');
     final id = await goals.create(
-      name: 'x', categoryId: child, targetCents: 10000, currency: 'EUR');
+      name: 'x', categoryId: child, targetCents: 10000, currency: 'EUR', now: DateTime(2026, 1, 1));
 
     await categories.delete(child);
 
     expect(await goals.byId(id), isNull);
+  });
+
+  test('savings recorded before the goal was created do not count', () async {
+    final root = await savingsCategory();
+    await addSavings(amount: 7000, categoryId: root, date: DateTime(2026, 2, 28));
+    await addSavings(amount: 3000, categoryId: root, date: DateTime(2026, 3, 1, 8)); // creation day
+    await addSavings(amount: 2000, categoryId: root, date: DateTime(2026, 4, 1));
+
+    final id = await goals.create(
+        name: 'x', categoryId: root, targetCents: 50000, currency: 'EUR', now: DateTime(2026, 3, 1, 18));
+    final goal = (await goals.byId(id))!;
+
+    expect((await goals.calculateProgress(goal)).saved, 5000);
+  });
+
+  test('a second goal on the same, an ancestor or a descendant category is rejected', () async {
+    final root = await savingsCategory();
+    final child = await categories.create(name: 'sub', parentId: root, type: 'ahorro');
+    final other = (await categories.listAll()).firstWhere((c) => c.type == 'ahorro' && c.parentId == null && c.id != root).id;
+    await goals.create(name: 'First', categoryId: child, targetCents: 100, currency: 'EUR');
+
+    for (final categoryId in [child, root]) {
+      await expectLater(
+        goals.create(name: 'Dup', categoryId: categoryId, targetCents: 100, currency: 'EUR'),
+        throwsA(isA<GoalCategoryInUseException>().having((e) => e.conflictingGoalName, 'name', 'First')),
+      );
+    }
+    final grandchild = await categories.create(name: 'subsub', parentId: child, type: 'ahorro');
+    await expectLater(
+      goals.create(name: 'Dup', categoryId: grandchild, targetCents: 100, currency: 'EUR'),
+      throwsA(isA<GoalCategoryInUseException>()),
+    );
+    // An unrelated category is fine.
+    await goals.create(name: 'Other', categoryId: other, targetCents: 100, currency: 'EUR');
+    expect((await goals.listAll()).length, 2);
   });
 }

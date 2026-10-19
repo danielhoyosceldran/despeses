@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/i18n/translations.dart';
 import '../../core/theme/app_theme.dart';
+import 'app_switch.dart';
 
 /// Chart palette from `STYLE_FLUTTER.md` §2 — reused here as the color picker
 /// choices for categories/tags (only real accent color usage besides the
@@ -34,15 +35,21 @@ Color? hexToColor(String? hex) {
 }
 
 class EntityFormResult {
-  const EntityFormResult({required this.name, this.color, this.icon});
+  const EntityFormResult({required this.name, this.color, this.icon, this.favorite});
 
   final String name;
   final String? color;
   final String? icon;
+
+  /// Favorite toggle state; null when the dialog had no favorite toggle.
+  final bool? favorite;
 }
 
 /// Shared create/edit dialog for the entities that only need name + optional
 /// color + optional icon text (categories, tags, payment methods).
+///
+/// A non-null [initialFavorite] adds a "Favorite" toggle row (payment
+/// methods, BL-024) whose state comes back in [EntityFormResult.favorite].
 Future<EntityFormResult?> showEntityFormDialog(
   BuildContext context, {
   required String title,
@@ -52,10 +59,12 @@ Future<EntityFormResult?> showEntityFormDialog(
   String? initialIcon,
   bool withColor = true,
   bool withIcon = true,
+  bool? initialFavorite,
 }) async {
   final nameController = TextEditingController(text: initialName);
   final iconController = TextEditingController(text: initialIcon ?? '');
   var selectedColor = initialColor;
+  var favorite = initialFavorite;
 
   return showDialog<EntityFormResult>(
     context: context,
@@ -78,6 +87,25 @@ Future<EntityFormResult?> showEntityFormDialog(
                   controller: iconController,
                   maxLength: 50,
                   decoration: InputDecoration(labelText: translations.t('common.icon_optional')),
+                ),
+              ],
+              if (favorite != null) ...[
+                const SizedBox(height: AppSpacing.smMd),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        translations.t('payment_methods.favorite'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    AppSwitch(
+                      value: favorite!,
+                      onChanged: (v) => setState(() => favorite = v),
+                      semanticLabel: translations.t('payment_methods.favorite'),
+                    ),
+                  ],
                 ),
               ],
               if (withColor) ...[
@@ -127,6 +155,7 @@ Future<EntityFormResult?> showEntityFormDialog(
                   name: name,
                   color: selectedColor,
                   icon: iconController.text.trim().isEmpty ? null : iconController.text.trim(),
+                  favorite: favorite,
                 ),
               );
             },

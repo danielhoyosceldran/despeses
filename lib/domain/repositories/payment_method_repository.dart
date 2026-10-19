@@ -56,7 +56,12 @@ class PaymentMethodRepository {
   /// Deletes [id] and recompacts the remaining methods to a contiguous
   /// 0..n-1 position range, so a later `create` (which appends at
   /// `max(position)+1`) can't collide with the gap left by this delete.
+  ///
+  /// Throws [LastPaymentMethodException] instead of deleting the only
+  /// remaining method. Deleting the favorite clears it (FK ON DELETE SET NULL
+  /// on `profile.favorite_payment_method_id`).
   Future<void> delete(String id) async {
+    if ((await listAll()).length <= 1) throw const LastPaymentMethodException();
     await (_db.delete(_db.paymentMethods)..where((p) => p.id.equals(id))).go();
     final remaining = await listAll();
     await _db.batch((batch) {

@@ -1,52 +1,42 @@
-import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:drift/drift.dart' show BooleanExpressionOperators, TableUpdateQuery;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/providers/keep_alive.dart';
 import '../../../data/database.dart';
-import '../../../domain/repositories/analytics/analytics_behavior.dart';
-import '../../../domain/repositories/analytics/analytics_cashflow.dart';
 import '../../../domain/repositories/analytics/analytics_category.dart';
-import '../../../domain/repositories/analytics/analytics_dashboard.dart';
 import '../../../domain/repositories/analytics/analytics_math.dart';
+import '../../../domain/repositories/analytics/analytics_query.dart';
 import '../../../domain/repositories/analytics/analytics_tags.dart';
 import '../../../domain/repositories/budget_repository.dart';
 
-/// Analytics section data, keyed by the section's inputs (month/currency/window
-/// /…). Moving the per-section `_load` off `build` and into a `FutureProvider
-/// .family` (R1) means Riverpod caches each result by its arguments: a rebuild
+/// Analytics section data, keyed by the section's inputs (month/currency/…).
+/// Moving the per-section `_load` off `build` and into a `FutureProvider.family`
+/// (R1) means Riverpod caches each result by its arguments: a rebuild
 /// with the same arguments — e.g. the ~60fps rebuilds while dragging the
 /// section FAB — is a cache hit, not a fresh query. Only a real input change
-/// (month swipe, drill, window switch) runs a query, exactly once.
+/// (month swipe, drill, event switch) runs a query, exactly once.
 ///
 /// These are `autoDispose` + [_keepAliveFor] rather than plain `autoDispose`:
 /// the Analytics screen stays mounted across tabs (IndexedStack), and the
 /// month PageView lets the user swipe through unlimited months (R26), so a
 /// bare non-autoDispose family would cache every visited month forever. Each
-/// entry instead survives for [_sectionCacheTtl] after its last watcher drops
+/// entry instead survives for [keepAliveTtl] after its last watcher drops
 /// (e.g. leaving the Analytics tab or swiping to another month) and is then
 /// evicted, capping memory while still surviving quick tab switches. Freshness
 /// after a mutation on another tab is handled by [invalidateAnalyticsSections],
 /// which the screen calls when the Analytics tab regains focus.
 
-const _sectionCacheTtl = Duration(minutes: 10);
-
-/// Keeps an `autoDispose` provider entry alive for [_sectionCacheTtl] after
-/// its last listener unsubscribes, instead of disposing immediately.
-void _keepAliveFor(Ref ref, [Duration ttl = _sectionCacheTtl]) {
-  final link = ref.keepAlive();
-  Timer? timer;
-  ref.onDispose(() => timer?.cancel());
-  ref.onCancel(() => timer = Timer(ttl, link.close));
-  ref.onResume(() => timer?.cancel());
-}
+void _keepAliveFor(Ref ref) => keepAliveFor(ref);
 
 typedef MonthCurrency = ({DateTime month, String currency});
 typedef CategoryArgs = ({DateTime month, String currency, String? parentId});
-typedef WindowArgs = ({DateTime month, String currency, int window});
+typedef CategoryDetailArgs = ({DateTime month, String currency, String categoryId});
+typedef TagDetailArgs = ({DateTime month, String currency, String tagId});
 typedef EventArgs = ({String eventId, DateTime? startsAt, DateTime? endsAt, String currency});
 
 /// Every section family provider, so the screen can drop cached results in one
@@ -55,17 +45,46 @@ void invalidateAnalyticsSections(WidgetRef ref) {
   developer.log('invalidating all analytics section providers', name: 'Analytics');
   ref.invalidate(categorySectionProvider);
   ref.invalidate(tagSectionProvider);
-  ref.invalidate(healthSectionProvider);
-  ref.invalidate(burnUpProvider);
-  ref.invalidate(trendSectionProvider);
-  ref.invalidate(cashflowSectionProvider);
-  ref.invalidate(paymentSectionProvider);
-  ref.invalidate(behaviorSectionProvider);
-  ref.invalidate(qualitySectionProvider);
+  ref.invalidate(categoryTransactionsProvider);
+  ref.invalidate(tagDetailProvider);
   ref.invalidate(budgetSectionProvider);
   ref.invalidate(eventListProvider);
   ref.invalidate(eventSectionProvider);
 }
+
+/// Whether any table the analytics sections read from has been written since
+/// the sections were last refreshed. Returning to the Analytics tab used to
+/// invalidate (and recompute) every section unconditionally; now it only does
+/// so when this reports a write (BL-061).
+class AnalyticsStaleness {
+  bool _dirty = false;
+
+  /// Returns whether data changed since the last call, and resets the flag.
+  bool consume() {
+    final dirty = _dirty;
+    _dirty = false;
+    return dirty;
+  }
+}
+
+/// Kept alive for the app's lifetime once read (the Analytics screen reads it
+/// on first build), so writes made on other tabs are always recorded.
+final analyticsStalenessProvider = Provider<AnalyticsStaleness>((ref) {
+  final db = ref.watch(databaseProvider);
+  final staleness = AnalyticsStaleness();
+  final sub = db
+      .tableUpdates(TableUpdateQuery.onAllTables([
+        db.expenses,
+        db.expenseTags,
+        db.budgets,
+        db.categories,
+        db.tags,
+        db.events,
+      ]))
+      .listen((_) => staleness._dirty = true);
+  ref.onDispose(sub.cancel);
+  return staleness;
+});
 
 /// Category ------------------------------------------------------------------
 
@@ -89,7 +108,8 @@ final categorySectionProvider =
     parentId: a.parentId,
     type: 'expense',
     currency: a.currency,
-  );
+  )
+    ..sort((x, y) => y.amountCents.compareTo(x.amountCents));
   final byId = {for (final c in allCategories) c.id: c};
   final labels = <String, String>{};
   final hasChildren = <String, bool>{};
@@ -117,7 +137,8 @@ final tagSectionProvider =
   final analytics = ref.watch(tagAnalyticsProvider);
   final translations = await ref.watch(translationsProvider.future);
   final allTags = await ref.watch(referenceDataCacheProvider).tags();
-  final slices = await analytics.byTag(DateRange.month(a.month), a.currency);
+  final slices = await analytics.byTag(DateRange.month(a.month), a.currency)
+    ..sort((x, y) => y.amountCents.compareTo(x.amountCents));
   final byId = {for (final t in allTags) t.id: t};
   final labels = {
     for (final s in slices)
@@ -127,121 +148,86 @@ final tagSectionProvider =
   return TagSectionData(slices, labels, translations);
 });
 
-/// Health --------------------------------------------------------------------
+/// Detail drill-downs ---------------------------------------------------------
 
-final healthSectionProvider =
-    FutureProvider.autoDispose.family<(FinancialHealth, String?), MonthCurrency>((ref, a) async {
-  _keepAliveFor(ref);
-  final health = await ref.watch(dashboardAnalyticsProvider).summary(a.month, a.currency);
-  String? topLabel;
-  if (health.topCategoryId != null) {
-    final t = await ref.watch(translationsProvider.future);
-    final cats = await ref.watch(referenceDataCacheProvider).categories();
-    final matches = cats.where((c) => c.id == health.topCategoryId);
-    if (matches.isNotEmpty) {
-      topLabel = displayNameFor(t, name: matches.first.name, isDefault: matches.first.isDefault);
-    }
+/// Newest first, with a stable tie-break (many rows share a date).
+int _newestFirst(Expense a, Expense b) {
+  final byDate = b.date.compareTo(a.date);
+  return byDate != 0 ? byDate : b.createdAt.compareTo(a.createdAt);
+}
+
+/// [rootId] plus every descendant id in [all].
+Set<String> _subtreeIds(String rootId, List<Category> all) {
+  final ids = {rootId};
+  var frontier = {rootId};
+  while (frontier.isNotEmpty) {
+    frontier = {for (final c in all) if (c.parentId != null && frontier.contains(c.parentId)) c.id}..removeAll(ids);
+    ids.addAll(frontier);
   }
-  return (health, topLabel);
-});
-
-final burnUpProvider = FutureProvider.autoDispose
-    .family<({List<(int, int)> current, List<(int, int)> previous}), MonthCurrency>((ref, a) {
-  _keepAliveFor(ref);
-  return ref.watch(timeseriesAnalyticsProvider).burnUp(a.month, a.currency);
-});
-
-/// Trend ---------------------------------------------------------------------
-
-class TrendSectionData {
-  TrendSectionData(this.totals, this.movingAvg, this.mom, this.yoy, this.weekday, this.heat);
-  final List<(DateTime, int)> totals;
-  final List<(DateTime, double)> movingAvg;
-  final double? mom;
-  final double? yoy;
-  final Map<int, double> weekday;
-  final Map<int, int> heat;
+  return ids;
 }
 
-final trendSectionProvider =
-    FutureProvider.autoDispose.family<TrendSectionData, WindowArgs>((ref, a) async {
+/// The month's counted transactions in a category's whole subtree (the same
+/// rows the category slice aggregates), newest first.
+final categoryTransactionsProvider =
+    FutureProvider.autoDispose.family<List<Expense>, CategoryDetailArgs>((ref, a) async {
   _keepAliveFor(ref);
-  final ts = ref.watch(timeseriesAnalyticsProvider);
-  final range = DateRange.trailingMonths(a.month, a.window);
-  final totals = await ts.monthlyTotals(range, a.currency);
-  final movingAvg = await ts.movingAverage(range, a.currency);
-  final mm = await ts.momYoY(a.month, a.currency);
-  final weekday = await ts.averageByWeekday(range, a.currency);
-  final heat = await ts.calendarHeat(a.month, a.currency);
-  return TrendSectionData(totals, movingAvg, mm.mom.fraction, mm.yoy.fraction, weekday, heat);
+  final db = ref.watch(databaseProvider);
+  final ids = _subtreeIds(a.categoryId, await ref.watch(referenceDataCacheProvider).categories());
+  final all = await expensesInRange(db, DateRange.month(a.month), a.currency);
+  return all.where((e) => e.categoryId != null && ids.contains(e.categoryId)).toList()..sort(_newestFirst);
 });
 
-/// Cash flow -----------------------------------------------------------------
+class TagDetailData {
+  TagDetailData(this.expenses, this.byCategory, this.labels, this.spent, this.savings);
 
-class CashflowSectionData {
-  CashflowSectionData(this.months, this.balance, this.savings);
-  final List<MonthlyCashflow> months;
-  final List<(DateTime, int)> balance;
-  final List<(DateTime, int)> savings;
-}
+  /// Every counted transaction carrying the tag (any type), newest first.
+  final List<Expense> expenses;
 
-final cashflowSectionProvider =
-    FutureProvider.autoDispose.family<CashflowSectionData, WindowArgs>((ref, a) async {
-  _keepAliveFor(ref);
-  final cf = ref.watch(cashflowAnalyticsProvider);
-  final range = DateRange.trailingMonths(a.month, a.window);
-  return CashflowSectionData(
-    await cf.monthly(range, a.currency),
-    await cf.cumulativeBalance(range, a.currency),
-    await cf.cumulativeSavings(range, a.currency),
-  );
-});
-
-/// Payment -------------------------------------------------------------------
-
-class PaymentSectionData {
-  PaymentSectionData(this.byMethod, this.labels);
-  final Map<String?, int> byMethod;
+  /// Expense-type spend under the tag per category, largest first. The key is
+  /// the category id, or '' for uncategorized rows.
+  final List<CategorySlice> byCategory;
   final Map<String, String> labels;
+  final int spent;
+  final int savings;
 }
 
-final paymentSectionProvider =
-    FutureProvider.autoDispose.family<PaymentSectionData, MonthCurrency>((ref, a) async {
+final tagDetailProvider = FutureProvider.autoDispose.family<TagDetailData, TagDetailArgs>((ref, a) async {
   _keepAliveFor(ref);
-  final by = await ref.watch(paymentAnalyticsProvider).byMethod(DateRange.month(a.month), a.currency);
-  final t = await ref.watch(translationsProvider.future);
-  final methods = await ref.watch(referenceDataCacheProvider).paymentMethods();
-  final labels = {for (final m in methods) m.id: displayNameFor(t, name: m.name, isDefault: m.isDefault)};
-  return PaymentSectionData(by, labels);
-});
+  final db = ref.watch(databaseProvider);
+  final translations = await ref.watch(translationsProvider.future);
+  final categories = await ref.watch(referenceDataCacheProvider).categories();
+  final all = await expensesInRange(db, DateRange.month(a.month), a.currency);
+  final ids = all.map((e) => e.id).toSet();
+  final tagged = ids.isEmpty
+      ? <String>{}
+      : (await (db.select(db.expenseTags)
+                ..where((t) => t.tagId.equals(a.tagId) & t.expenseId.isIn(ids)))
+              .get())
+          .map((l) => l.expenseId)
+          .toSet();
+  final expenses = all.where((e) => tagged.contains(e.id)).toList()..sort(_newestFirst);
 
-/// Behavior ------------------------------------------------------------------
+  final amounts = <String, int>{};
+  final counts = <String, int>{};
+  for (final e in expenses.where((e) => e.type == 'expense')) {
+    final key = e.categoryId ?? '';
+    amounts[key] = (amounts[key] ?? 0) + e.amount;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  final byCategory = [
+    for (final entry in amounts.entries)
+      CategorySlice(categoryId: entry.key, amountCents: entry.value, count: counts[entry.key] ?? 0),
+  ]..sort((x, y) => y.amountCents.compareTo(x.amountCents));
 
-class BehaviorSectionData {
-  BehaviorSectionData(this.stats, this.histogram, this.ant, this.refundRatio);
-  final TicketStats stats;
-  final List<int> histogram;
-  final ({int total, int count}) ant;
-  final double refundRatio;
-}
-
-final behaviorSectionProvider =
-    FutureProvider.autoDispose.family<BehaviorSectionData, MonthCurrency>((ref, a) async {
-  _keepAliveFor(ref);
-  final b = ref.watch(behaviorAnalyticsProvider);
-  final range = DateRange.month(a.month);
-  final stats = await b.ticketStats(range, a.currency);
-  final histogram = await b.histogram(range, a.currency, const [500, 1000, 2500, 5000, 10000]);
-  final ant = await b.antSpend(range, a.currency, 500);
-  final refunds = await b.refunds(range, a.currency);
-  return BehaviorSectionData(stats, histogram, ant, refunds.ratio);
-});
-
-/// Quality -------------------------------------------------------------------
-
-final qualitySectionProvider = FutureProvider.autoDispose.family<double, MonthCurrency>((ref, a) {
-  _keepAliveFor(ref);
-  return ref.watch(tagAnalyticsProvider).coverageGap(DateRange.month(a.month), a.currency);
+  final byId = {for (final c in categories) c.id: c};
+  final labels = {
+    for (final key in amounts.keys)
+      key: byId[key] == null
+          ? translations.t('analytics.no_category')
+          : displayNameFor(translations, name: byId[key]!.name, isDefault: byId[key]!.isDefault),
+  };
+  return TagDetailData(expenses, byCategory, labels, expenseOutflow(expenses), savingsSetAside(expenses));
 });
 
 /// Budgets -------------------------------------------------------------------
@@ -269,10 +255,14 @@ final budgetSectionProvider =
   final repo = ref.watch(budgetRepositoryProvider);
   final analytics = ref.watch(budgetAnalyticsProvider);
   final monthKey = monthKeyOf(DateTime(a.month.year, a.month.month));
-  final active = (await repo.listAll()).where((b) => repo.isActiveForMonth(b, monthKey)).toList();
+  // Pace is measured as of today, so the spent figures are the current
+  // month's; the shared reactive provider recomputes them on every write.
+  final now = DateTime.now();
+  final progress = await ref.watch(budgetProgressProvider(DateTime(now.year, now.month)).future);
+  final active = progress.budgets.where((b) => repo.isActiveForMonth(b, monthKey)).toList();
   final rows = <BudgetRowData>[];
   for (final b in active) {
-    final pace = await analytics.pace(b);
+    final pace = analytics.paceOf(b, progress.spent[b.id] ?? 0, asOf: now);
     rows.add(BudgetRowData(
       name: b.name,
       spent: pace.spentCents,
@@ -291,11 +281,17 @@ final eventListProvider = FutureProvider<List<Event>>(
     (ref) => ref.watch(referenceDataCacheProvider).events());
 
 class EventSectionData {
-  EventSectionData(this.total, this.perDay, this.timeline, this.outOfRange);
+  EventSectionData(this.total, this.savings, this.perDay, this.timeline, this.outOfRange, this.expenses);
   final int total;
+
+  /// Savings set aside under the event — shown apart from [total].
+  final int savings;
   final double? perDay;
   final List<(DateTime, int)> timeline;
   final int outOfRange;
+
+  /// The event's counted transactions, newest first.
+  final List<Expense> expenses;
 }
 
 final eventSectionProvider =
@@ -303,8 +299,10 @@ final eventSectionProvider =
   _keepAliveFor(ref);
   final ev = ref.watch(eventAnalyticsProvider);
   final total = await ev.totalCost(eventId: a.eventId);
+  final savings = await ev.savings(eventId: a.eventId);
   final perDay = await ev.costPerDay(startsAt: a.startsAt, endsAt: a.endsAt, eventId: a.eventId);
   final timeline = await ev.timeline(eventId: a.eventId);
   final oor = await ev.outOfRange(eventId: a.eventId, startsAt: a.startsAt, endsAt: a.endsAt);
-  return EventSectionData(total, perDay, timeline, oor.length);
+  final expenses = await ev.transactions(eventId: a.eventId);
+  return EventSectionData(total, savings, perDay, timeline, oor.length, expenses);
 });

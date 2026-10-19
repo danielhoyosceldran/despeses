@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:io';
 
@@ -9,7 +10,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/i18n/translations.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/database.dart';
 import '../../../domain/export/export_service.dart';
 import '../../../domain/repositories/expense_repository.dart';
 import '../../widgets/app_toast.dart';
@@ -39,10 +42,26 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     if (picked != null) setState(() => _to = picked);
   }
 
-  Future<List<List<String>>> _buildRows() async {
+  /// An inverted range would export an empty file: swap it and say so.
+  void _orderDates() {
+    if (!_from.isAfter(_to)) return;
+    final from = _to;
+    setState(() {
+      _to = _from;
+      _from = from;
+    });
+    final t = ref.read(translationsProvider).asData?.value;
+    showAppToast(
+      context,
+      t?.t('common.dates_swapped') ?? 'The start date was after the end date, so they were swapped.',
+      variant: ToastVariant.warning,
+    );
+  }
+
+  Future<_ExportData> _buildData() async {
     final expenseRepo = ref.read(expenseRepositoryProvider);
     final expenses = await expenseRepo.listAll(
-      filters: ExpenseFilters(type: _type, dateFrom: _from, dateTo: _to),
+      filters: ExpenseFilters(types: {?_type}, dateFrom: _from, dateTo: _to),
     );
 
     final translations = await ref.read(translationsProvider.future);
@@ -53,12 +72,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     final projectsById = {for (final p in await cache.projects()) p.id: p};
     final tagsById = {for (final t in await cache.tags()) t.id: t};
 
-    final tagIdsByExpenseId = <String, List<String>>{};
-    for (final e in expenses) {
-      tagIdsByExpenseId[e.id] = await expenseRepo.tagIdsOf(e.id);
-    }
+    final tagIdsByExpenseId = await expenseRepo.tagIdsByExpense(expenses.map((e) => e.id));
 
-    return buildExportRows(
+    final rows = buildExportRows(
       expenses: expenses,
       categoriesById: categoriesById,
       paymentMethodsById: paymentMethodsById,
@@ -68,29 +84,50 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       tagsById: tagsById,
       translations: translations,
     );
+    return _ExportData(translations: translations, expenses: expenses, rows: rows);
+  }
+
+  static const _exportFilePrefix = 'despeses_export_';
+
+  /// Writes a uniquely named export file to the temp dir (so a previous export
+  /// is never reshared). The file is deliberately NOT deleted after sharing:
+  /// on Android `shareXFiles` can resolve before the target app (Gmail, Drive)
+  /// has read the attachment. Instead, exports left over from earlier runs are
+  /// cleaned up here, at the start of the next export.
+  Future<File> _writeExportFile(String extension, List<int> bytes) async {
+    final dir = await getTemporaryDirectory();
+    await for (final entry in dir.list()) {
+      if (entry is File && p.basename(entry.path).startsWith(_exportFilePrefix)) {
+        try {
+          await entry.delete();
+        } catch (_) {
+          // Best effort: a leftover temp file is harmless.
+        }
+      }
+    }
+    final file = File(p.join(dir.path, '$_exportFilePrefix${DateTime.now().millisecondsSinceEpoch}.$extension'));
+    return file.writeAsBytes(bytes);
   }
 
   String get _rangeLabel => '${DateFormat.yMMMd().format(_from)} - ${DateFormat.yMMMd().format(_to)}';
 
   Future<void> _exportCsv() async {
+    _orderDates();
     setState(() => _busy = true);
     try {
-      final rows = await _buildRows();
-      final csv = buildExportCsv(rows);
-      final dir = await getTemporaryDirectory();
-      // Unique name so a previous export left in the private cache is never
-      // reshared, and delete it once the share sheet is done with it.
-      final file = File(p.join(dir.path, 'despeses_export_${DateTime.now().millisecondsSinceEpoch}.csv'));
-      await file.writeAsBytes(encodeCsvUtf8(csv));
-      try {
-        await Share.shareXFiles([XFile(file.path)]);
-      } finally {
-        if (await file.exists()) await file.delete();
-      }
-    } catch (e) {
+      final data = await _buildData();
+      final csv = buildExportCsv(
+        data.rows,
+        header: buildExportHeader(data.translations),
+        format: CsvFormat.forLocale(data.translations.locale),
+      );
+      final file = await _writeExportFile('csv', encodeCsvUtf8(csv));
+      await Share.shareXFiles([XFile(file.path)]);
+    } catch (e, st) {
+      developer.log('export failed', name: 'ExportScreen', error: e, stackTrace: st);
       if (mounted) {
         final t = ref.read(translationsProvider).asData?.value;
-        showAppToast(context, t?.t('export.export_failed').replaceAll('{{error}}', '$e') ?? 'Export failed: $e', variant: ToastVariant.error);
+        showAppToast(context, t?.t('export.export_failed') ?? 'Export failed. Please try again.', variant: ToastVariant.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -98,23 +135,24 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   Future<void> _exportPdf() async {
+    _orderDates();
     setState(() => _busy = true);
     try {
-      final rows = await _buildRows();
-      final bytes = await buildExportPdf(rows, rangeLabel: _rangeLabel);
-      final dir = await getTemporaryDirectory();
-      // Unique name + cleanup, same rationale as the CSV export above.
-      final file = File(p.join(dir.path, 'despeses_export_${DateTime.now().millisecondsSinceEpoch}.pdf'));
-      await file.writeAsBytes(bytes);
-      try {
-        await Share.shareXFiles([XFile(file.path)]);
-      } finally {
-        if (await file.exists()) await file.delete();
-      }
-    } catch (e) {
+      final data = await _buildData();
+      final bytes = await buildExportPdf(
+        data.rows,
+        rangeLabel: _rangeLabel,
+        header: buildExportHeader(data.translations),
+        title: data.translations.t('analytics.transactions'),
+        totals: buildExportTotals(expenses: data.expenses, translations: data.translations),
+      );
+      final file = await _writeExportFile('pdf', bytes);
+      await Share.shareXFiles([XFile(file.path)]);
+    } catch (e, st) {
+      developer.log('export failed', name: 'ExportScreen', error: e, stackTrace: st);
       if (mounted) {
         final t = ref.read(translationsProvider).asData?.value;
-        showAppToast(context, t?.t('export.export_failed').replaceAll('{{error}}', '$e') ?? 'Export failed: $e', variant: ToastVariant.error);
+        showAppToast(context, t?.t('export.export_failed') ?? 'Export failed. Please try again.', variant: ToastVariant.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -178,4 +216,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       ),
     );
   }
+}
+
+/// Everything an export needs: the source transactions (for totals), their
+/// table rows and the translations they were rendered with.
+class _ExportData {
+  const _ExportData({required this.translations, required this.expenses, required this.rows});
+
+  final Translations translations;
+  final List<Expense> expenses;
+  final List<List<String>> rows;
 }

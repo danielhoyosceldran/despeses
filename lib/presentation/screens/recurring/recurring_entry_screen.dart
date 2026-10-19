@@ -1,4 +1,7 @@
+import 'dart:developer' as developer;
+
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,18 +12,19 @@ import '../../../core/i18n/translations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
-import '../../widgets/amount_text.dart';
+import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
-import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/tag_picker_sheet.dart';
+import '../../widgets/unsaved_changes_guard.dart';
 
 /// Create/edit a recurring-transaction template (feature 3.13). Reuses the
-/// transaction entry pattern (keypad + bottom panels), adding a schedule block
+/// transaction entry pattern (amount field + bottom panels), adding a schedule block
 /// (frequency + start/end date). Unlike budgets, every field stays editable in
 /// edit mode; changing the start date re-anchors the next fire.
 class RecurringEntryScreen extends ConsumerStatefulWidget {
@@ -52,6 +56,12 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
   final _notesController = TextEditingController();
   final _descriptionFocus = FocusNode();
   final _notesFocus = FocusNode();
+  final _amountFocus = FocusNode();
+
+  /// Field values as hydrated/initialized; closing with different values asks
+  /// before discarding them (null while an edited template is hydrating).
+  List<Object?>? _initialSnapshot;
+  bool _confirmingClose = false;
 
   _FieldLabels _labels = const _FieldLabels();
 
@@ -64,11 +74,43 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     super.initState();
     _descriptionFocus.addListener(_dismissPanelOnTextFocus);
     _notesFocus.addListener(_dismissPanelOnTextFocus);
+    _amountFocus.addListener(_dismissPanelOnTextFocus);
     if (widget.recurring != null) {
       _hydrate(widget.recurring!);
     } else {
+      _initialSnapshot = _snapshot();
       WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel());
     }
+  }
+
+  List<Object?> _snapshot() => [
+        _type,
+        _amountCents,
+        _frequency,
+        _startDate,
+        _endDate,
+        _categoryId,
+        _paymentMethodId,
+        _eventId,
+        _projectId,
+        ([..._tagIds]..sort()).join(','),
+        _descriptionController.text.trim(),
+        _notesController.text.trim(),
+      ];
+
+  bool get _isDirty => _initialSnapshot != null && !listEquals(_snapshot(), _initialSnapshot);
+
+  /// Every user-initiated close (chevron, swipe down, system back) goes
+  /// through here: with unsaved changes it asks before discarding them.
+  Future<void> _requestClose() async {
+    if (_confirmingClose) return;
+    if (_isDirty) {
+      _confirmingClose = true;
+      final discard = await confirmDiscardChanges(context, ref.read(translationsProvider).asData?.value);
+      _confirmingClose = false;
+      if (!discard || !mounted) return;
+    }
+    _close();
   }
 
   @override
@@ -77,6 +119,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     _notesController.dispose();
     _descriptionFocus.dispose();
     _notesFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -95,7 +138,12 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
       _notesController.text = r.notes ?? '';
     });
     final tagIds = await ref.read(recurringRepositoryProvider).tagIdsOf(r.id);
-    if (mounted) setState(() => _tagIds = tagIds);
+    if (mounted) {
+      setState(() {
+        _tagIds = tagIds;
+        _initialSnapshot = _snapshot();
+      });
+    }
     _refreshLabels();
   }
 
@@ -110,7 +158,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
       });
 
   void _dismissPanelOnTextFocus() {
-    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus) && _openPanel != null) {
+    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus || _amountFocus.hasFocus) && _openPanel != null) {
       _closePanel();
     }
   }
@@ -118,11 +166,9 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
   void _openAmountPanel() {
-    _dismissKeyboard();
-    setState(() {
-      _openPanel = 'amount';
-      _panelContent = null;
-    });
+    // Focus the amount field (system keyboard); its focus listener closes
+    // any open bottom panel.
+    _amountFocus.requestFocus();
   }
 
   void _openDatePanel({required bool isEnd}) {
@@ -246,8 +292,25 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
       _descriptionController.text.trim().isNotEmpty &&
       (_endDate == null || !_endDate!.isBefore(_startDate));
 
+  bool _saving = false;
+
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (!_canSave || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await _doSave();
+    } catch (e, st) {
+      developer.log('save failed', name: 'RecurringEntryScreen', error: e, stackTrace: st);
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(context, t?.t('common.error_save') ?? 'Could not save.', variant: ToastVariant.error);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _doSave() async {
     final repo = ref.read(recurringRepositoryProvider);
     final description = _descriptionController.text.trim();
     final notes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
@@ -297,6 +360,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     } catch (_) {
       // Ignored on purpose; see above.
     }
+    if (!mounted) return;
     _close(true);
   }
 
@@ -332,198 +396,194 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     final colors = context.appColors;
     final semantic = context.semanticColors;
 
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: () => _close()),
-        title: Text(_isEdit
-            ? (translations?.t('recurring.edit') ?? 'Edit recurring')
-            : (translations?.t('recurring.new') ?? 'New recurring')),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SwipeDownToClose(
-              onClose: _close,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
-                children: [
-                  _buildTypeSelector(translations, colors, semantic),
-                  const SizedBox(height: AppSpacing.lg),
-                  Center(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _openAmountPanel,
-                      child: AmountText(amountCents: _amountCents, currency: currency, color: _typeColor(semantic)),
+    return UnsavedChangesGuard(
+      overlayMode: widget.onClose != null,
+      onRequestClose: _requestClose,
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: true,
+          leading: IconButton(icon: const Icon(LucideIcons.chevronDown300), onPressed: _requestClose),
+          title: Text(_isEdit
+              ? (translations?.t('recurring.edit') ?? 'Edit recurring')
+              : (translations?.t('recurring.new') ?? 'New recurring')),
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: SwipeDownToClose(
+                onClose: _requestClose,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                  children: [
+                    _buildTypeSelector(translations, colors, semantic),
+                    const SizedBox(height: AppSpacing.lg),
+                    Center(
+                      child: AmountInputField(
+                        amountCents: _amountCents,
+                        focusNode: _amountFocus,
+                        currency: currency,
+                        color: _typeColor(semantic),
+                        onAmountChanged: (v) => setState(() => _amountCents = v),
+                        onSubmitted: () => _descriptionFocus.requestFocus(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextField(
-                    controller: _descriptionController,
-                    focusNode: _descriptionFocus,
-                    maxLength: 300,
-                    decoration: InputDecoration(
-                      labelText: translations?.t('common.description') ?? 'Description',
-                      counterText: '',
+                    const SizedBox(height: AppSpacing.lg),
+                    TextField(
+                      controller: _descriptionController,
+                      focusNode: _descriptionFocus,
+                      maxLength: 300,
+                      decoration: InputDecoration(
+                        labelText: translations?.t('common.description') ?? 'Description',
+                        counterText: '',
+                      ),
+                      onChanged: (_) => setState(() {}),
                     ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Schedule
-                  _sectionLabel(translations?.t('recurring.schedule') ?? 'Schedule'),
-                  const SizedBox(height: AppSpacing.sm),
-                  SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment(value: 'monthly', label: Text(translations?.t('recurring.freq_monthly') ?? 'Monthly')),
-                      ButtonSegment(value: 'weekly', label: Text(translations?.t('recurring.freq_weekly') ?? 'Weekly')),
-                      ButtonSegment(value: 'yearly', label: Text(translations?.t('recurring.freq_yearly') ?? 'Yearly')),
-                    ],
-                    selected: {_frequency},
-                    onSelectionChanged: (s) => setState(() => _frequency = s.first),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  AppCard(
-                    clip: true,
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        _fieldTile(
-                          leading: translations?.t('recurring.starts') ?? 'Starts',
-                          text: DateFormat.yMMMd().format(_startDate),
-                          isPlaceholder: false,
-                          onTap: () => _openDatePanel(isEnd: false),
-                        ),
-                        Divider(height: 1, color: colors.divider),
-                        _fieldTile(
-                          leading: translations?.t('recurring.ends') ?? 'Ends',
-                          text: _endDate == null
-                              ? (translations?.t('recurring.no_end') ?? 'No end date')
-                              : DateFormat.yMMMd().format(_endDate!),
-                          isPlaceholder: _endDate == null,
-                          onTap: () => _openDatePanel(isEnd: true),
-                          onClear: _endDate == null ? null : () => setState(() => _endDate = null),
-                        ),
+                    const SizedBox(height: AppSpacing.lg),
+                    // Schedule
+                    _sectionLabel(translations?.t('recurring.schedule') ?? 'Schedule'),
+                    const SizedBox(height: AppSpacing.sm),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(value: 'monthly', label: Text(translations?.t('recurring.freq_monthly') ?? 'Monthly')),
+                        ButtonSegment(value: 'weekly', label: Text(translations?.t('recurring.freq_weekly') ?? 'Weekly')),
+                        ButtonSegment(value: 'yearly', label: Text(translations?.t('recurring.freq_yearly') ?? 'Yearly')),
                       ],
+                      selected: {_frequency},
+                      onSelectionChanged: (s) => setState(() => _frequency = s.first),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  // Details
-                  _sectionLabel(translations?.t('recurring.details') ?? 'Details'),
-                  const SizedBox(height: AppSpacing.sm),
-                  AppCard(
-                    clip: true,
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        _fieldTile(
-                          text: _labels.category ?? (translations?.t('expenses.category') ?? 'Category'),
-                          isPlaceholder: _labels.category == null,
-                          onTap: () => _openStep('category'),
-                        ),
-                        Divider(height: 1, color: colors.divider),
-                        _fieldTile(
-                          text: _labels.paymentMethod ?? (translations?.t('expenses.payment_method') ?? 'Payment method'),
-                          isPlaceholder: _labels.paymentMethod == null,
-                          onTap: () => _openStep('paymentMethod'),
-                        ),
-                        Divider(height: 1, color: colors.divider),
-                        _fieldTile(
-                          text: _tagIds.isEmpty
-                              ? (translations?.t('expenses.tags') ?? 'Tags')
-                              : (translations?.t('expenses.selected_count').replaceAll('{{count}}', '${_tagIds.length}') ??
-                                  '${_tagIds.length} selected'),
-                          isPlaceholder: _tagIds.isEmpty,
-                          onTap: () => _openStep('tags'),
-                        ),
-                        Divider(height: 1, color: colors.divider),
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: _fieldTile(
-                                  text: _labels.event ?? (translations?.t('expenses.event') ?? 'Event'),
-                                  isPlaceholder: _labels.event == null,
-                                  onTap: () => _openStep('event'),
-                                ),
-                              ),
-                              VerticalDivider(width: 1, color: colors.divider),
-                              Expanded(
-                                child: _fieldTile(
-                                  text: _labels.project ?? (translations?.t('expenses.project') ?? 'Project'),
-                                  isPlaceholder: _labels.project == null,
-                                  onTap: () => _openStep('project'),
-                                ),
-                              ),
-                            ],
+                    const SizedBox(height: AppSpacing.sm),
+                    AppCard(
+                      clip: true,
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          _fieldTile(
+                            leading: translations?.t('recurring.starts') ?? 'Starts',
+                            text: DateFormat.yMMMd().format(_startDate),
+                            isPlaceholder: false,
+                            onTap: () => _openDatePanel(isEnd: false),
                           ),
-                        ),
-                      ],
+                          Divider(height: 1, color: colors.divider),
+                          _fieldTile(
+                            leading: translations?.t('recurring.ends') ?? 'Ends',
+                            text: _endDate == null
+                                ? (translations?.t('recurring.no_end') ?? 'No end date')
+                                : DateFormat.yMMMd().format(_endDate!),
+                            isPlaceholder: _endDate == null,
+                            onTap: () => _openDatePanel(isEnd: true),
+                            onClear: _endDate == null ? null : () => setState(() => _endDate = null),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: _notesController,
-                    focusNode: _notesFocus,
-                    maxLength: 1000,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: translations?.t('expenses.notes') ?? 'Notes',
-                      counterText: '',
+                    const SizedBox(height: AppSpacing.lg),
+                    // Details
+                    _sectionLabel(translations?.t('recurring.details') ?? 'Details'),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppCard(
+                      clip: true,
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          _fieldTile(
+                            text: _labels.category ?? (translations?.t('expenses.category') ?? 'Category'),
+                            isPlaceholder: _labels.category == null,
+                            onTap: () => _openStep('category'),
+                          ),
+                          Divider(height: 1, color: colors.divider),
+                          _fieldTile(
+                            text: _labels.paymentMethod ?? (translations?.t('expenses.payment_method') ?? 'Payment method'),
+                            isPlaceholder: _labels.paymentMethod == null,
+                            onTap: () => _openStep('paymentMethod'),
+                          ),
+                          Divider(height: 1, color: colors.divider),
+                          _fieldTile(
+                            text: _tagIds.isEmpty
+                                ? (translations?.t('expenses.tags') ?? 'Tags')
+                                : (translations?.t('expenses.selected_count').replaceAll('{{count}}', '${_tagIds.length}') ??
+                                    '${_tagIds.length} selected'),
+                            isPlaceholder: _tagIds.isEmpty,
+                            onTap: () => _openStep('tags'),
+                          ),
+                          Divider(height: 1, color: colors.divider),
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _fieldTile(
+                                    text: _labels.event ?? (translations?.t('expenses.event') ?? 'Event'),
+                                    isPlaceholder: _labels.event == null,
+                                    onTap: () => _openStep('event'),
+                                  ),
+                                ),
+                                VerticalDivider(width: 1, color: colors.divider),
+                                Expanded(
+                                  child: _fieldTile(
+                                    text: _labels.project ?? (translations?.t('expenses.project') ?? 'Project'),
+                                    isPlaceholder: _labels.project == null,
+                                    onTap: () => _openStep('project'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      controller: _notesController,
+                      focusNode: _notesFocus,
+                      maxLength: 1000,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: translations?.t('expenses.notes') ?? 'Notes',
+                        counterText: '',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_openPanel != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-              child: _openPanel == 'tags'
-                  ? Row(
-                      children: [
-                        Expanded(child: _saveButton(translations)),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => _tagPickerKey?.currentState?.confirm(),
-                            child: Text(translations?.t('common.next') ?? 'Next'),
+            if (_openPanel != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+                child: _openPanel == 'tags'
+                    ? Row(
+                        children: [
+                          Expanded(child: _saveButton(translations)),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => _tagPickerKey?.currentState?.confirm(),
+                              child: Text(translations?.t('common.next') ?? 'Next'),
+                            ),
                           ),
-                        ),
-                      ],
-                    )
-                  : SizedBox(width: double.infinity, child: _saveButton(translations)),
-            ),
-          BottomActionPanel(
-            isOpen: _openPanel != null,
-            maxHeight: switch (_openPanel) {
-                  'startDate' || 'endDate' => 380,
-                  _ => 340,
-                } +
-                MediaQuery.of(context).padding.bottom,
-            child: _openPanel == 'amount'
-                ? NumericKeypad(
-                    amountCents: _amountCents,
-                    nextLabel: translations?.t('common.next') ?? 'Next',
-                    onKeyTap: () => ref.read(hapticsProvider).selection(),
-                    onAmountChanged: (v) => setState(() => _amountCents = v),
-                    onNext: () {
-                      _closePanel();
-                      _descriptionFocus.requestFocus();
-                    },
-                  )
-                : _panelContent,
-          ),
-          if (_openPanel == null)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: SizedBox(width: double.infinity, child: _saveButton(translations)),
+                        ],
+                      )
+                    : SizedBox(width: double.infinity, child: _saveButton(translations)),
               ),
+            BottomActionPanel(
+              isOpen: _openPanel != null,
+              maxHeight: switch (_openPanel) {
+                    'startDate' || 'endDate' => 380,
+                    _ => 340,
+                  } +
+                  MediaQuery.of(context).padding.bottom,
+              child: _panelContent,
             ),
-        ],
+            if (_openPanel == null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: SizedBox(width: double.infinity, child: _saveButton(translations)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -532,7 +592,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: _descriptionController,
       builder: (context, _, _) => FilledButton(
-        onPressed: _canSave ? _save : null,
+        onPressed: (_canSave && !_saving) ? _save : null,
         child: Text(translations?.t('common.save') ?? 'Save'),
       ),
     );

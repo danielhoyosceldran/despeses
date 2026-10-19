@@ -42,7 +42,7 @@ class AccountScreen extends ConsumerWidget {
                   ),
                 HairlineListTile(
                   icon: LucideIcons.hardDriveDownload300,
-                  title: 'Backup',
+                  title: t?.t('settings_nav.backup') ?? 'Backup',
                   onTap: () => context.push('/account/backup'),
                   showDivider: false,
                 ),

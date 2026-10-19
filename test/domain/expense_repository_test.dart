@@ -41,12 +41,33 @@ void main() {
     expect(await repo.tagIdsOf(id), [otherTag.id]);
   });
 
+  test('tagIdsByExpense resolves many expenses at once, across chunks (BL-018)', () async {
+    final tags = await db.select(db.tags).get();
+    final ids = <String>[];
+    for (var i = 0; i < 1000; i++) {
+      ids.add(await repo.create(
+        amountCents: 100,
+        currency: 'EUR',
+        type: 'expense',
+        date: DateTime(2026, 1, 1),
+        tagIds: i.isEven ? [tags[0].id, tags[1].id] : const [],
+      ));
+    }
+
+    final byExpense = await repo.tagIdsByExpense(ids);
+
+    expect(byExpense.length, 500);
+    expect(byExpense[ids.first]!.toSet(), {tags[0].id, tags[1].id});
+    expect(byExpense.containsKey(ids[1]), isFalse);
+    expect(byExpense[ids[998]]!.length, 2); // second chunk (index ≥ 900)
+  });
+
   test('list filters by type entirely in SQL and orders most-recent-first', () async {
     await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 1));
     await repo.create(amountCents: 200, currency: 'EUR', type: 'income', date: DateTime(2026, 1, 2));
     await repo.create(amountCents: 300, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 3));
 
-    final expenses = await repo.list(filters: const ExpenseFilters(type: 'expense'));
+    final expenses = await repo.list(filters: const ExpenseFilters(types: {'expense'}));
     expect(expenses.length, 2);
     expect(expenses.first.amount, 300); // most recent first
   });
@@ -65,5 +86,140 @@ void main() {
     final id = await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 1));
     await repo.delete(id);
     expect(await repo.byId(id), isNull);
+  });
+
+  test('dateTo includes the whole last day regardless of time', () async {
+    Future<void> add(DateTime date) => repo.create(
+          amountCents: 100,
+          currency: 'EUR',
+          type: 'expense',
+          date: date,
+        );
+    await add(DateTime(2026, 3, 1, 9)); // first day, morning
+    await add(DateTime(2026, 3, 31, 18)); // last day, 18:00
+    await add(DateTime(2026, 4, 1, 0, 0, 1)); // just past the range
+    await add(DateTime(2026, 2, 28, 23, 59)); // just before the range
+
+    final rows = await repo.listAll(
+      filters: ExpenseFilters(dateFrom: DateTime(2026, 3, 1), dateTo: DateTime(2026, 3, 31)),
+    );
+
+    expect(rows.map((e) => e.date).toSet(), {DateTime(2026, 3, 1, 9), DateTime(2026, 3, 31, 18)});
+  });
+
+  test('hasInvertedDates compares days and withSwappedDates exchanges them', () {
+    final inverted = ExpenseFilters(types: {'expense'}, dateFrom: DateTime(2026, 3, 10), dateTo: DateTime(2026, 3, 5));
+    final sameDay = ExpenseFilters(dateFrom: DateTime(2026, 3, 5, 18), dateTo: DateTime(2026, 3, 5));
+
+    expect(inverted.hasInvertedDates, isTrue);
+    expect(sameDay.hasInvertedDates, isFalse);
+    expect(const ExpenseFilters().hasInvertedDates, isFalse);
+    final swapped = inverted.withSwappedDates();
+    expect(swapped.dateFrom, DateTime(2026, 3, 5));
+    expect(swapped.dateTo, DateTime(2026, 3, 10));
+    expect(swapped.types, {'expense'});
+  });
+
+  test('pagination over many same-date rows neither repeats nor skips', () async {
+    final total = ExpenseRepository.pageSize * 2 + 7;
+    for (var i = 0; i < total; i++) {
+      await repo.create(amountCents: 100 + i, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+    }
+
+    final seen = <String>[];
+    Expense? cursor;
+    for (var page = 0; page < 3; page++) {
+      final rows = await repo.list(after: cursor);
+      seen.addAll(rows.map((e) => e.id));
+      cursor = rows.last;
+    }
+    expect(await repo.list(after: cursor), isEmpty);
+
+    expect(seen.length, total);
+    expect(seen.toSet().length, total);
+  });
+
+  test('the newest-first page order is served by an index, no temp sort (BL-065)', () async {
+    final plan = await db
+        .customSelect('EXPLAIN QUERY PLAN SELECT * FROM expenses '
+            'WHERE date <= 0 ORDER BY date DESC, created_at DESC, id DESC LIMIT 100')
+        .get();
+    final details = plan.map((r) => r.data['detail'] as String).join(' | ');
+    expect(details, contains('idx_expenses_order'));
+    expect(details, isNot(contains('TEMP B-TREE')));
+  });
+
+  test('filtering by a parent category matches its whole subtree', () async {
+    final all = await db.select(db.categories).get();
+    final parent = all.firstWhere((c) => c.parentId == null && all.any((x) => x.parentId == c.id));
+    final child = all.firstWhere((c) => c.parentId == parent.id);
+    final other = all.firstWhere((c) => c.parentId == null && c.id != parent.id);
+    await repo.create(amountCents: 100, currency: 'EUR', type: parent.type, date: DateTime(2026, 3, 1), categoryId: child.id);
+    await repo.create(amountCents: 200, currency: 'EUR', type: other.type, date: DateTime(2026, 3, 1), categoryId: other.id);
+
+    final byParent = await repo.listAll(filters: ExpenseFilters(categoryIds: {parent.id}));
+    final byChild = await repo.listAll(filters: ExpenseFilters(categoryIds: {child.id}));
+
+    expect(byParent.map((e) => e.amount), [100]);
+    expect(byChild.map((e) => e.amount), [100]);
+  });
+
+  test('multi-select filters match any selected value per dimension, AND across them', () async {
+    final methods = await db.select(db.paymentMethods).get();
+    final a = methods[0].id, b = methods[1].id;
+    await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1), paymentMethodId: a);
+    await repo.create(amountCents: 200, currency: 'EUR', type: 'income', date: DateTime(2026, 3, 1), paymentMethodId: b);
+    await repo.create(amountCents: 300, currency: 'EUR', type: 'ahorro', date: DateTime(2026, 3, 1), paymentMethodId: a);
+    await repo.create(amountCents: 400, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+
+    Future<Set<int>> amounts(ExpenseFilters f) async => (await repo.listAll(filters: f)).map((e) => e.amount).toSet();
+
+    expect(await amounts(const ExpenseFilters(types: {'expense', 'ahorro'})), {100, 300, 400});
+    expect(await amounts(ExpenseFilters(paymentMethodIds: {a, b})), {100, 200, 300});
+    expect(await amounts(ExpenseFilters(types: const {'expense', 'income'}, paymentMethodIds: {a})), {100});
+  });
+
+  test('tag filter lists a transaction once even when several selected tags match', () async {
+    final tags = await db.select(db.tags).get();
+    final t1 = tags[0].id, t2 = tags[1].id, t3 = tags[2].id;
+    await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1), tagIds: [t1, t2]);
+    await repo.create(amountCents: 200, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1), tagIds: [t3]);
+    await repo.create(amountCents: 300, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+
+    final rows = await repo.listAll(filters: ExpenseFilters(tagIds: {t1, t2}));
+    expect(rows.map((e) => e.amount), [100]);
+    final either = await repo.listAll(filters: ExpenseFilters(tagIds: {t1, t3}));
+    expect(either.map((e) => e.amount).toSet(), {100, 200});
+  });
+
+  test('amount range bounds are inclusive and withSwappedAmounts fixes an inverted range', () async {
+    for (final cents in [999, 1000, 2500, 5000, 5001]) {
+      await repo.create(amountCents: cents, currency: 'EUR', type: 'expense', date: DateTime(2026, 3, 1));
+    }
+
+    final rows = await repo.listAll(filters: const ExpenseFilters(amountMin: 1000, amountMax: 5000));
+    expect(rows.map((e) => e.amount).toSet(), {1000, 2500, 5000});
+    final onlyMin = await repo.listAll(filters: const ExpenseFilters(amountMin: 5000));
+    expect(onlyMin.map((e) => e.amount).toSet(), {5000, 5001});
+
+    const inverted = ExpenseFilters(amountMin: 5000, amountMax: 1000);
+    expect(inverted.hasInvertedAmounts, isTrue);
+    expect(const ExpenseFilters(amountMin: 1000).hasInvertedAmounts, isFalse);
+    final swapped = inverted.withSwappedAmounts();
+    expect((swapped.amountMin, swapped.amountMax), (1000, 5000));
+  });
+
+  test('several parent categories match the union of their subtrees', () async {
+    final all = await db.select(db.categories).get();
+    final parents = all.where((c) => c.parentId == null && all.any((x) => x.parentId == c.id)).take(2).toList();
+    final children = [for (final p in parents) all.firstWhere((c) => c.parentId == p.id)];
+    for (var i = 0; i < children.length; i++) {
+      await repo.create(amountCents: 100 + i, currency: 'EUR', type: children[i].type, date: DateTime(2026, 3, 1), categoryId: children[i].id);
+    }
+    final other = all.firstWhere((c) => c.parentId == null && !parents.contains(c) && !all.any((x) => x.parentId == c.id));
+    await repo.create(amountCents: 999, currency: 'EUR', type: other.type, date: DateTime(2026, 3, 1), categoryId: other.id);
+
+    final rows = await repo.listAll(filters: ExpenseFilters(categoryIds: {for (final p in parents) p.id}));
+    expect(rows.map((e) => e.amount).toSet(), {for (var i = 0; i < children.length; i++) 100 + i});
   });
 }

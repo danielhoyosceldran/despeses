@@ -53,6 +53,11 @@ android {
             val allowDebugSigning =
                 (project.findProperty("allowDebugSigningForRelease") as String?)
                     ?.toBoolean() == true
+            // This block runs at configuration time for every build, so only fail
+            // when a release task was actually requested; otherwise debug builds
+            // would break on machines without key.properties.
+            val releaseTaskRequested =
+                gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
             signingConfig = when {
                 hasKeystoreProperties -> signingConfigs.getByName("release")
                 allowDebugSigning -> {
@@ -62,6 +67,7 @@ android {
                     )
                     signingConfigs.getByName("debug")
                 }
+                !releaseTaskRequested -> null
                 else -> throw GradleException(
                     "Cannot sign the release build: android/key.properties is missing. " +
                         "Create it with keyAlias/keyPassword/storeFile/storePassword, or pass " +

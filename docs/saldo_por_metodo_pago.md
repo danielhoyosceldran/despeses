@@ -2,6 +2,11 @@
 
 Estado: **no implementado**. Documento de análisis para retomar más adelante.
 
+> **Aplazado (2026-10-02).** Saldos y arrastre entre meses son seguimiento de
+> patrimonio, que queda fuera del alcance actual (ver backlog BL-037 y
+> CLAUDE.md › App philosophy). No diseñar nada para ello hasta que se decida
+> abordarlo.
+
 ## Objetivo
 
 Evaluar si vale la pena añadir a la app la posibilidad de:

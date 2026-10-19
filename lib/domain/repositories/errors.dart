@@ -9,6 +9,12 @@ class DuplicateNameException implements Exception {
   final String name;
 }
 
+/// Thrown when deleting a payment method would leave none: a new transaction
+/// requires one, so at least one must always exist (BL-024).
+class LastPaymentMethodException implements Exception {
+  const LastPaymentMethodException();
+}
+
 /// Runs [action] and converts a UNIQUE-constraint [SqliteException] into a
 /// [DuplicateNameException]. Any other exception propagates unchanged.
 Future<T> guardUniqueName<T>(String name, Future<T> Function() action) async {

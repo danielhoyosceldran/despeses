@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/format/date.dart';
 import '../../core/haptics/haptics.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
@@ -121,7 +122,7 @@ class AppTopBar extends ConsumerWidget {
                       )
                     : Center(
                         child: Text(
-                          toBeginningOfSentenceCase(DateFormat.yMMMM().format(month!)).toUpperCase(),
+                          toBeginningOfSentenceCase(cachedDateFormat(DateFormat.YEAR_MONTH).format(month!)).toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
@@ -193,7 +194,7 @@ class _SlidingMonthLabel extends StatelessWidget {
   final TextStyle style;
 
   String _label(int page) =>
-      toBeginningOfSentenceCase(DateFormat.yMMMM().format(monthForPage(page))).toUpperCase();
+      toBeginningOfSentenceCase(cachedDateFormat(DateFormat.YEAR_MONTH).format(monthForPage(page))).toUpperCase();
 
   @override
   Widget build(BuildContext context) {

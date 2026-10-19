@@ -198,7 +198,7 @@ class AppTheme {
     return TextTheme(
       displayLarge: appDisplay(colors, fontSize: 60), // balance hero (expanded)
       displayMedium: appDisplay(colors, fontSize: 48), // analytics total
-      displaySmall: appDisplay(colors, fontSize: 34), // keypad / big totals
+      displaySmall: appDisplay(colors, fontSize: 34), // amount hero / big totals
       headlineMedium: appDisplay(colors, fontSize: 28),
       headlineSmall: appDisplay(colors, fontSize: 22),
       titleLarge: appDisplay(colors, fontSize: 20), // display section titles

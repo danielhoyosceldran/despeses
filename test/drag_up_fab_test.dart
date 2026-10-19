@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:despeses/core/haptics/haptics.dart';
 import 'package:despeses/presentation/widgets/drag_up_fab.dart';
+import 'package:despeses/presentation/widgets/unsaved_changes_guard.dart';
 
 class _NoHaptics implements HapticsService {
   @override
@@ -76,6 +77,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('page')), findsNothing);
     expect(result, isTrue);
+  });
+
+  testWidgets('discard dialog opened from the sheet shows on top and closes it',
+      (tester) async {
+    Object? result = 'unset';
+    await tester.pumpWidget(ProviderScope(
+      overrides: [hapticsProvider.overrideWithValue(_NoHaptics())],
+      child: MaterialApp(
+        home: Scaffold(
+          floatingActionButton: DragUpFab(
+            onResult: (r) => result = r,
+            pageBuilder: (context, close) => Scaffold(
+              key: const Key('page'),
+              body: Center(
+                child: Builder(
+                  builder: (context) => ElevatedButton(
+                    onPressed: () async {
+                      if (await confirmDiscardChanges(context, null)) close(null);
+                    },
+                    child: const Text('CLOSE'),
+                  ),
+                ),
+              ),
+            ),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('CLOSE'));
+    await tester.pumpAndSettle();
+
+    // The dialog must be above the sheet, not hidden behind it.
+    expect(find.text('Discard').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('page')), findsNothing);
+    expect(result, isNull);
   });
 
   testWidgets('release below threshold cancels (no result)', (tester) async {

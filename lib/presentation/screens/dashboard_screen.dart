@@ -5,24 +5,26 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/format/money.dart';
 import '../../core/haptics/haptics.dart';
-import '../../core/i18n/display_name.dart';
 import '../../core/navigation/bottom_up_route.dart';
 import '../../core/i18n/translations.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database.dart';
+import '../../domain/repositories/analytics/analytics_math.dart';
+import '../../domain/repositories/budget_repository.dart' show BudgetMonthProgress;
 import '../../domain/repositories/expense_repository.dart';
 import '../widgets/amount_text.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/day_grouped_list.dart';
 import '../widgets/drag_up_fab.dart';
 import '../widgets/entity_form_dialog.dart' show chartPalette;
 import '../widgets/error_retry.dart';
+import '../widgets/expense_row.dart';
 import '../widgets/pressable_scale.dart';
 import '../widgets/thin_progress_bar.dart';
 import 'expense_entry/expense_entry_screen.dart';
@@ -48,8 +50,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   late final PageController _pageController;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
 
-  List<Budget> _allBudgets = [];
-  Map<String, int> _budgetProgress = {};
   final Set<String> _selectedIds = {};
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
@@ -71,7 +71,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.initState();
     _baseMonth = DateTime(_month.year, _month.month);
     _pageController = PageController(initialPage: _kInitialPage);
-    _loadBudgets();
     // Show the backup-restore result (R18): the screen that triggered it is
     // gone by the time the provider tree finishes rebuilding, so the message
     // is picked up here instead.
@@ -106,32 +105,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final cached = _monthStreamCache[key];
     if (cached != null) return cached;
 
+    // Drift's watch streams are already multi-listener and replay the latest
+    // result to each new subscriber. Don't wrap in `asBroadcastStream()`: it
+    // doesn't replay, so a page rebuilt after paging away would never get data.
     final repo = ref.read(expenseRepositoryProvider);
-    final stream = repo
-        .watchAll(
-          filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
-        )
-        .asBroadcastStream();
+    final stream = repo.watchAll(
+      filters: ExpenseFilters(dateFrom: DateTime(month.year, month.month, 1), dateTo: _monthBounds(month)),
+    );
 
     if (_monthStreamCache.length >= _maxCachedMonthStreams) {
       _monthStreamCache.remove(_monthStreamCache.keys.first);
     }
     _monthStreamCache[key] = stream;
     return stream;
-  }
-
-  Future<void> _loadBudgets() async {
-    final budgetRepo = ref.read(budgetRepositoryProvider);
-    final allBudgets = await budgetRepo.listAll();
-    final progress = <String, int>{};
-    for (final budget in allBudgets) {
-      progress[budget.id] = await budgetRepo.calculateProgress(budget, inMonth: _month);
-    }
-    if (!mounted) return;
-    setState(() {
-      _allBudgets = allBudgets;
-      _budgetProgress = progress;
-    });
   }
 
   Future<void> _onRefresh() async {
@@ -143,7 +129,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     } catch (_) {
       // Ignored on purpose; the next refresh/app start retries.
     }
-    await _loadBudgets();
   }
 
   void _changeMonth(int delta) {
@@ -163,12 +148,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Future<void> _openEntry({String? expenseId}) async {
-    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(
+    await Navigator.of(context, rootNavigator: true).push<bool>(
       bottomUpRoute(ExpenseEntryScreen(expenseId: expenseId)),
     );
-    if (saved == true) {
-      _loadBudgets();
-    }
   }
 
   Future<void> _deleteSelected() async {
@@ -189,7 +171,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     setState(() {
       _selectedIds.clear();
     });
-    _loadBudgets();
   }
 
   @override
@@ -197,17 +178,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final translationsAsync = ref.watch(translationsProvider);
     final translations = translationsAsync.asData?.value;
     final profileAsync = ref.watch(profileStreamProvider);
+    // The shell keeps this tab mounted (IndexedStack) while others are shown.
+    // Its month stream is paused then, so writes made elsewhere don't rebuild
+    // and re-lay out a hidden dashboard on every save (BL-068); the stream is
+    // resumed (and re-queried) when the tab becomes visible again.
+    final visible = ref.watch(currentTabIndexProvider.select((index) => index == 0));
     final currency = profileAsync.asData?.value.currency ?? 'EUR';
     final colors = context.appColors;
 
     return Scaffold(
       floatingActionButton: DragUpAction(
         pageBuilder: (_, close) => ExpenseEntryScreen(onClose: close),
-        onResult: (saved) {
-          if (saved == true) {
-            _loadBudgets();
-          }
-        },
         builder: (context, armed, onTap) => Semantics(
           button: true,
           label: translations?.t('expenses.add') ?? 'Add expense',
@@ -258,9 +239,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   key: ValueKey(_monthKeyOf(month)),
                   month: month,
                   watchExpenses: _watchMonth,
+                  active: visible,
                   onRetry: _retryMonth,
-                  allBudgets: _allBudgets,
-                  budgetProgress: _budgetProgress,
                   currency: currency,
                   translations: translations,
                   onOpenEntry: _openEntry,
@@ -298,6 +278,8 @@ class _RecurringDueSectionState extends ConsumerState<_RecurringDueSection> {
   /// Occurrence id currently showing its accept/reject controls, or null.
   String? _armedId;
   Timer? _revertTimer;
+  // Occurrences whose accept/reject is in flight, so a double tap is ignored.
+  final Set<String> _busyIds = {};
 
   @override
   void dispose() {
@@ -320,17 +302,27 @@ class _RecurringDueSectionState extends ConsumerState<_RecurringDueSection> {
   }
 
   Future<void> _accept(RecurringOccurrence occ) async {
+    if (!_busyIds.add(occ.id)) return;
     _revertTimer?.cancel();
     ref.read(hapticsProvider).medium();
     _armedId = null; // stream will rebuild without this tile
-    await ref.read(recurringRepositoryProvider).confirm(occ);
+    try {
+      await ref.read(recurringRepositoryProvider).confirm(occ);
+    } finally {
+      _busyIds.remove(occ.id);
+    }
   }
 
   Future<void> _reject(RecurringOccurrence occ) async {
+    if (!_busyIds.add(occ.id)) return;
     _revertTimer?.cancel();
     ref.read(hapticsProvider).light();
     _armedId = null;
-    await ref.read(recurringRepositoryProvider).skip(occ.id);
+    try {
+      await ref.read(recurringRepositoryProvider).skip(occ.id);
+    } finally {
+      _busyIds.remove(occ.id);
+    }
   }
 
   @override
@@ -572,47 +564,50 @@ class _RecurringDueTile extends StatelessWidget {
   }
 }
 
-/// Signed monthly totals in the profile currency (accounting rule: expense
-/// and ahorro subtract, refund adds back, income is tracked separately).
+/// Monthly totals in the profile currency, per the shared definition in
+/// analytics_math.dart: spent = expense − refund; savings (ahorro) are shown
+/// apart, not as spending, but still reduce the balance.
 class _Totals {
-  const _Totals({required this.spent, required this.income});
+  const _Totals({required this.spent, required this.savings, required this.income});
   final int spent;
+  final int savings;
   final int income;
-  int get balance => income - spent;
+  int get balance => income - spent - savings;
 
   factory _Totals.of(List<Expense> expenses, String currency) {
-    var spent = 0;
-    var income = 0;
-    for (final e in expenses) {
-      if (e.currency != currency) continue;
-      switch (e.type) {
-        case 'expense':
-        case 'ahorro':
-          spent += e.amount;
-        case 'refund':
-          spent -= e.amount;
-        case 'income':
-          income += e.amount;
-      }
-    }
-    return _Totals(spent: spent, income: income);
+    // Scheduled (future-dated) rows are listed but don't count until their day.
+    final inCurrency = expenses.where((e) => e.currency == currency && !isScheduled(e)).toList();
+    return _Totals(
+      spent: expenseOutflow(inCurrency),
+      savings: savingsSetAside(inCurrency),
+      income: sumOfType(inCurrency, 'income'),
+    );
   }
 }
 
 /// Collapsing balance hero. [t] 0→1: balance shrinks 60→30, the Income/Spent
 /// tiles fold away, and a hairline bottom border fades in.
+///
+/// Rebuilt on every scroll frame, so it only composes cheap per-frame wrappers
+/// (scale, fold, fade, padding) around children built once per data change by
+/// [_HeroHeaderDelegate] (BL-058): the texts are laid out once at their full
+/// size and then scaled at paint time, never re-measured per frame.
 class _BalanceHeader extends StatelessWidget {
-  const _BalanceHeader({required this.totals, required this.currency, required this.t, required this.translations});
+  const _BalanceHeader({required this.t, required this.label, required this.amount, required this.tiles});
 
-  final _Totals totals;
-  final String currency;
   final double t;
-  final Translations? translations;
+  final Widget label;
+  final Widget amount;
+  final Widget tiles;
+
+  /// The tiles finish fading in the first half of the collapse; from there on
+  /// opacity is 0 (nothing painted) and the fold alone hides them, so the
+  /// offscreen layer an intermediate opacity needs only exists half the time.
+  static const _fade = Interval(0, 0.5);
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final semantic = context.semanticColors;
     return ClipRect(
       child: Container(
       width: double.infinity,
@@ -630,48 +625,16 @@ class _BalanceHeader extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            translations?.t('dashboard.total_balance') ?? 'Total Balance',
-            style: Theme.of(context).textTheme.labelSmall!.copyWith(fontSize: lerpDouble(13, 12, t)),
-          ),
+          _ScaledFromTop(scale: lerpDouble(1, _HeroHeaderDelegate.labelMinSize / _HeroHeaderDelegate.labelMaxSize, t)!, child: label),
           const SizedBox(height: AppSpacing.xs),
-          AmountText(
-            amountCents: totals.balance,
-            currency: currency,
-            style: appDisplay(colors, fontSize: lerpDouble(60, 30, t)!),
-          ),
+          _ScaledFromTop(scale: lerpDouble(1, _HeroHeaderDelegate.amountMinSize / _HeroHeaderDelegate.amountMaxSize, t)!, child: amount),
           // Income / Spent tiles collapse away as t → 1.
           ClipRect(
             child: Align(
               heightFactor: (1 - t).clamp(0.0, 1.0),
               child: Opacity(
-                opacity: (1 - t).clamp(0.0, 1.0),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.lg),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatTile(
-                          label: translations?.t('analytics.income') ?? 'Income',
-                          value: totals.income,
-                          currency: currency,
-                          icon: LucideIcons.arrowDownRight,
-                          color: semantic.income,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: _StatTile(
-                          label: translations?.t('analytics.spent') ?? 'Spent',
-                          value: totals.spent,
-                          currency: currency,
-                          icon: LucideIcons.arrowUpRight,
-                          color: semantic.expense,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                opacity: 1 - _fade.transform(t),
+                child: tiles,
               ),
             ),
           ),
@@ -682,7 +645,78 @@ class _BalanceHeader extends StatelessWidget {
   }
 }
 
-/// Income/Spent stat tile: muted fill, hairline border, colored icon chip.
+/// Paints [child] scaled by [scale] from its top-center and occupies only the
+/// scaled height. The child is laid out once at full size (same constraints
+/// every frame, so layout is skipped); only the paint transform changes.
+class _ScaledFromTop extends StatelessWidget {
+  const _ScaledFromTop({required this.scale, required this.child});
+
+  final double scale;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      heightFactor: scale,
+      child: Transform.scale(scale: scale, alignment: Alignment.topCenter, child: child),
+    );
+  }
+}
+
+/// The three Income/Spent/Savings tiles, as one row.
+class _StatTilesRow extends StatelessWidget {
+  const _StatTilesRow({required this.totals, required this.currency, required this.translations});
+
+  final _Totals totals;
+  final String currency;
+  final Translations? translations;
+
+  @override
+  Widget build(BuildContext context) {
+    final semantic = context.semanticColors;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.lg),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatTile(
+              label: translations?.t('analytics.income') ?? 'Income',
+              value: totals.income,
+              currency: currency,
+              icon: LucideIcons.arrowDownRight,
+              color: semantic.income,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.smMd),
+          Expanded(
+            child: _StatTile(
+              label: translations?.t('analytics.spent') ?? 'Spent',
+              value: totals.spent,
+              currency: currency,
+              icon: LucideIcons.arrowUpRight,
+              color: semantic.expense,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.smMd),
+          Expanded(
+            child: _StatTile(
+              label: translations?.t('expenses.type_ahorro') ?? 'Savings',
+              value: totals.savings,
+              currency: currency,
+              icon: LucideIcons.coins300,
+              color: semantic.savings,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Income/Spent/Savings stat tile (three in a row): muted fill, hairline
+/// border; a small colored icon chip beside the label, the amount below it,
+/// scaled down to fit the narrow tile.
 class _StatTile extends StatelessWidget {
   const _StatTile({
     required this.label,
@@ -702,33 +736,42 @@ class _StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.smMd),
       decoration: BoxDecoration(
         color: colors.mutedFill(0.30),
         borderRadius: BorderRadius.circular(AppDimens.radiusCard),
         border: Border.all(color: colors.borderSoft, width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(color: iconChipBackground(color), shape: BoxShape.circle),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(width: AppSpacing.smMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: Theme.of(context).textTheme.labelSmall),
-                const SizedBox(height: AppSpacing.xs),
-                AmountText(
-                  amountCents: value,
-                  currency: currency,
-                  style: appDisplay(colors, fontSize: 20),
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(color: iconChipBackground(color), shape: BoxShape.circle),
+                child: Icon(icon, size: 14, color: color),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: AmountText(
+              amountCents: value,
+              currency: currency,
+              style: appDisplay(colors, fontSize: 20),
             ),
           ),
         ],
@@ -742,9 +785,8 @@ class _MonthPage extends ConsumerWidget {
     required super.key,
     required this.month,
     required this.watchExpenses,
+    required this.active,
     required this.onRetry,
-    required this.allBudgets,
-    required this.budgetProgress,
     required this.currency,
     required this.translations,
     required this.onOpenEntry,
@@ -755,9 +797,11 @@ class _MonthPage extends ConsumerWidget {
 
   final DateTime month;
   final Stream<List<Expense>> Function(DateTime month) watchExpenses;
+
+  /// False while the dashboard tab is hidden: the stream is detached and the
+  /// last snapshot keeps being shown (StreamBuilder retains its data).
+  final bool active;
   final void Function(DateTime month) onRetry;
-  final List<Budget> allBudgets;
-  final Map<String, int> budgetProgress;
   final String currency;
   final Translations? translations;
   final Future<void> Function({String? expenseId}) onOpenEntry;
@@ -768,7 +812,7 @@ class _MonthPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return StreamBuilder<List<Expense>>(
-      stream: watchExpenses(month),
+      stream: active ? watchExpenses(month) : null,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return ErrorRetry(
@@ -777,26 +821,13 @@ class _MonthPage extends ConsumerWidget {
           );
         }
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final expenses = snapshot.data!;
-        final colors = context.appColors;
-        final budgetRepo = ref.read(budgetRepositoryProvider);
-        final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
-        final active = allBudgets.where((b) => budgetRepo.isActiveForMonth(b, monthKey)).toList();
-        final days = _groupByDay(expenses, currency, translations);
-        final totals = _Totals.of(expenses, currency);
+        final monthExpenses = snapshot.data!;
+        final derived = _MonthDerived.of(monthExpenses, currency, translations);
+        final expenses = derived.expenses;
 
-        final content = <Widget>[
-          if (active.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
-              child: Text(
-                (translations?.t('dashboard.active_budgets') ?? 'Active budgets').toUpperCase(),
-                style: appHeaderStyle(colors),
-              ),
-            ),
-            _BudgetGrid(budgets: active.take(4).toList(), progress: budgetProgress),
-            const SizedBox(height: AppSpacing.lg),
-          ],
+        // Fixed sections above the transaction list (a handful of widgets).
+        final header = <Widget>[
+          _ActiveBudgets(month: month, active: active, translations: translations),
           if (!selectionMode) ...[
             _RecurringDueSection(translations: translations),
             const SizedBox(height: AppSpacing.lg),
@@ -804,39 +835,32 @@ class _MonthPage extends ConsumerWidget {
           if (expenses.isEmpty)
             Padding(
               padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Center(child: Text(translations?.t('dashboard.no_transactions') ?? 'No transactions')),
-            )
-          else
-            for (final group in days) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.sm, AppSpacing.xs, AppSpacing.smMd),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(group.label, style: appHeaderStyle(colors)),
-                    Text(
-                      _signed(group.total, currency),
-                      style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                            color: group.total >= 0 ? context.semanticColors.income : colors.textMuted,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                    ),
-                  ],
-                ),
+              child: Center(
+                child: Text(translations?.t('dashboard.no_transactions') ?? 'No transactions'),
               ),
-              for (final expense in group.items)
-                _ExpenseRow(
-                  expense: expense,
-                  translations: translations,
-                  selectionMode: selectionMode,
-                  selected: selectedIds.contains(expense.id),
-                  onTap: () => selectionMode ? onToggleSelection(expense) : onOpenEntry(expenseId: expense.id),
-                  onLongPress: () => onToggleSelection(expense),
-                ),
-              const SizedBox(height: AppSpacing.smMd),
-            ],
+            ),
         ];
+
+        // The transaction list is built lazily (BL-057): only the day headers
+        // and rows on screen are created, instead of every row of the month.
+        final items = derived.items;
+        Widget buildItem(BuildContext context, int index) {
+          final item = items[index];
+          if (item is Expense) {
+            return ExpenseRow(
+              key: ValueKey(item.id),
+              expense: item,
+              translations: translations,
+              selectionMode: selectionMode,
+              selected: selectedIds.contains(item.id),
+              onTap: () => selectionMode ? onToggleSelection(item) : onOpenEntry(expenseId: item.id),
+              onLongPress: () => onToggleSelection(item),
+            );
+          }
+          if (item is DayGroup) return DayGroupHeader(group: item, currency: currency);
+          // dayGroupGap: spacing after a day's last row.
+          return const SizedBox(height: AppSpacing.smMd);
+        }
 
         return CustomScrollView(
           // Always scrollable so the hero can collapse even on short months.
@@ -846,11 +870,16 @@ class _MonthPage extends ConsumerWidget {
             // is the animation clock — the scroll position IS the value.
             SliverPersistentHeader(
               pinned: true,
-              delegate: _HeroHeaderDelegate(totals: totals, currency: currency, translations: translations),
+              delegate: _HeroHeaderDelegate(totals: derived.totals, currency: currency, translations: translations),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xxxl),
-              sliver: SliverList.list(children: content),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.fabClearance),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  SliverList.list(children: header),
+                  SliverList.builder(itemCount: items.length, itemBuilder: buildItem),
+                ],
+              ),
             ),
           ],
         );
@@ -859,9 +888,57 @@ class _MonthPage extends ConsumerWidget {
   }
 }
 
+/// Everything [_MonthPage] derives from one stream snapshot: the
+/// transactions, the flattened lazy-list items (day headers, rows, gaps) and
+/// the hero totals. Memoized per snapshot list (BL-057), so rebuilds that
+/// don't change the data — selection, budgets reload, tab switches — don't
+/// re-filter, re-group and re-total the whole month.
+class _MonthDerived {
+  _MonthDerived._(this.currency, this.translations, this.today, this.expenses, this.items, this.totals);
+
+  final String currency;
+  final Translations? translations;
+
+  /// Day the "Today"/"Yesterday" labels were computed for.
+  final DateTime today;
+  final List<Expense> expenses;
+
+  /// [DayGroup] header, then its [Expense] rows, then [dayGroupGap]; per day.
+  final List<Object> items;
+  final _Totals totals;
+
+  static final _cache = Expando<_MonthDerived>('monthDerived');
+
+  static _MonthDerived of(
+    List<Expense> monthExpenses,
+    String currency,
+    Translations? translations,
+  ) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cached = _cache[monthExpenses];
+    if (cached != null &&
+        cached.currency == currency &&
+        identical(cached.translations, translations) &&
+        cached.today == today) {
+      return cached;
+    }
+    final items = dayGroupedItems(monthExpenses, currency, translations);
+    final derived = _MonthDerived._(
+        currency, translations, today, monthExpenses, items, _Totals.of(monthExpenses, currency));
+    _cache[monthExpenses] = derived;
+    return derived;
+  }
+}
+
 /// Pinned collapsing hero. [shrinkOffset] maps linearly to t (0 = expanded,
 /// 1 = collapsed): the scroll drives the balance shrink and the Income/Spent
 /// tiles folding away, simultaneously, 1:1 with the finger.
+///
+/// [build] runs on every scroll frame. The label, amount and tiles are built
+/// once per delegate (i.e. per data change) and handed to [_BalanceHeader] as
+/// the *same* widget instances each frame, so Flutter skips rebuilding them:
+/// no money formatting and no text layout while scrolling (BL-058).
 class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   _HeroHeaderDelegate({required this.totals, required this.currency, required this.translations});
 
@@ -872,6 +949,37 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
   static const double _min = 88;
   static const double _max = 244;
 
+  /// Font sizes at t = 0 / t = 1. Texts are laid out at the max size and
+  /// scaled down at paint time.
+  static const double labelMaxSize = 13;
+  static const double labelMinSize = 12;
+  static const double amountMaxSize = 60;
+  static const double amountMinSize = 30;
+
+  ThemeData? _builtForTheme;
+  late Widget _label;
+  late Widget _amount;
+  late Widget _tiles;
+
+  void _ensureChildren(BuildContext context) {
+    final theme = Theme.of(context);
+    if (identical(theme, _builtForTheme)) return;
+    _builtForTheme = theme;
+    final colors = context.appColors;
+    _label = Text(
+      translations?.t('dashboard.total_balance') ?? 'Total Balance',
+      style: theme.textTheme.labelSmall!.copyWith(fontSize: labelMaxSize),
+    );
+    _amount = AmountText(
+      amountCents: totals.balance,
+      currency: currency,
+      style: appDisplay(colors, fontSize: amountMaxSize),
+    );
+    _tiles = RepaintBoundary(
+      child: _StatTilesRow(totals: totals, currency: currency, translations: translations),
+    );
+  }
+
   @override
   double get minExtent => _min;
   @override
@@ -879,62 +987,69 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    _ensureChildren(context);
     final t = (shrinkOffset / (_max - _min)).clamp(0.0, 1.0);
-    return _BalanceHeader(totals: totals, currency: currency, t: t, translations: translations);
+    return RepaintBoundary(
+      child: _BalanceHeader(t: t, label: _label, amount: _amount, tiles: _tiles),
+    );
   }
 
   @override
   bool shouldRebuild(_HeroHeaderDelegate old) =>
       old.totals.spent != totals.spent ||
+      old.totals.savings != totals.savings ||
       old.totals.income != totals.income ||
       old.currency != currency ||
       old.translations != translations;
 }
 
-/// A day bucket of transactions in display order, with its signed total.
-class _DayGroup {
-  _DayGroup(this.label);
-  final String label;
-  final List<Expense> items = [];
-  int total = 0;
+/// The month's active budgets (title + [_BudgetGrid]), or nothing when there
+/// are none. Live via [budgetProgressProvider] (BL-063): saving or deleting a
+/// transaction anywhere updates it without manual reloads. While the dashboard
+/// tab is hidden ([active] false) it stops listening and keeps showing the
+/// last value, so writes on other tabs don't rebuild it (BL-068); the
+/// provider's cache makes resuming instant.
+class _ActiveBudgets extends ConsumerStatefulWidget {
+  const _ActiveBudgets({required this.month, required this.active, required this.translations});
+
+  final DateTime month;
+  final bool active;
+  final Translations? translations;
+
+  @override
+  ConsumerState<_ActiveBudgets> createState() => _ActiveBudgetsState();
 }
 
-int _signedCents(Expense e) => switch (e.type) {
-      'income' => e.amount,
-      'refund' => e.amount,
-      _ => -e.amount,
-    };
+class _ActiveBudgetsState extends ConsumerState<_ActiveBudgets> {
+  BudgetMonthProgress? _last;
 
-String _signed(int cents, String currency) {
-  final sign = cents > 0 ? '+' : '';
-  return '$sign${formatMoney(cents, currency)}';
-}
-
-String _dayLabel(DateTime date, Translations? translations) {
-  final now = DateTime.now();
-  final d = DateTime(date.year, date.month, date.day);
-  final today = DateTime(now.year, now.month, now.day);
-  final diff = today.difference(d).inDays;
-  if (diff == 0) return (translations?.t('dashboard.today') ?? 'Today').toUpperCase();
-  if (diff == 1) return (translations?.t('dashboard.yesterday') ?? 'Yesterday').toUpperCase();
-  return DateFormat.MMMEd().format(date).toUpperCase();
-}
-
-List<_DayGroup> _groupByDay(List<Expense> expenses, String currency, Translations? translations) {
-  final groups = <_DayGroup>[];
-  final index = <String, int>{};
-  for (final e in expenses) {
-    final key = '${e.date.year}-${e.date.month}-${e.date.day}';
-    var i = index[key];
-    if (i == null) {
-      i = groups.length;
-      index[key] = i;
-      groups.add(_DayGroup(_dayLabel(e.date, translations)));
+  @override
+  Widget build(BuildContext context) {
+    final month = DateTime(widget.month.year, widget.month.month);
+    if (widget.active) {
+      _last = ref.watch(budgetProgressProvider(month)).valueOrNull ?? _last;
     }
-    groups[i].items.add(e);
-    if (e.currency == currency) groups[i].total += _signedCents(e);
+    final progress = _last;
+    if (progress == null) return const SizedBox.shrink();
+    final budgetRepo = ref.read(budgetRepositoryProvider);
+    final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
+    final active = progress.budgets.where((b) => budgetRepo.isActiveForMonth(b, monthKey)).toList();
+    if (active.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
+          child: Text(
+            (widget.translations?.t('dashboard.active_budgets') ?? 'Active budgets').toUpperCase(),
+            style: appHeaderStyle(context.appColors),
+          ),
+        ),
+        _BudgetGrid(budgets: active.take(4).toList(), progress: progress.spent),
+        const SizedBox(height: AppSpacing.lg),
+      ],
+    );
   }
-  return groups;
 }
 
 /// The dashboard's active-budgets preview: a fixed 2-column grid, capped at 4
@@ -1054,111 +1169,5 @@ class _BudgetProgressTile extends ConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-/// Transaction row as a hairline card: uppercase category line, title, and the
-/// signed amount in the display face (income emerald / expense rose / refund
-/// neutral).
-class _ExpenseRow extends ConsumerWidget {
-  const _ExpenseRow({
-    required this.expense,
-    required this.translations,
-    required this.onTap,
-    required this.onLongPress,
-    this.selectionMode = false,
-    this.selected = false,
-  });
-
-  final Expense expense;
-  final Translations? translations;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final bool selectionMode;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = context.appColors;
-    final sign = switch (expense.type) {
-      'income' => '+',
-      'refund' => '±',
-      _ => '-',
-    };
-    final color = context.amountColorForType(expense.type);
-    final title = expense.description?.isNotEmpty == true ? expense.description! : expense.type;
-    final categoryLabel = _categoryLabel(ref);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: selected ? colors.mutedFill(0.5) : colors.surface,
-        borderRadius: BorderRadius.circular(AppDimens.radiusCard),
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(AppDimens.radiusCard),
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.smMd),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppDimens.radiusCard),
-              border: Border.all(color: colors.borderSoft, width: 1),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (selectionMode) ...[
-                  Checkbox(value: selected, onChanged: (_) => onTap()),
-                  const SizedBox(width: AppSpacing.xs),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (categoryLabel != null && categoryLabel.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            categoryLabel.toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.5,
-                              color: colors.textMuted,
-                            ),
-                          ),
-                        ),
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Text(
-                  '$sign${formatMoney(expense.amount, expense.currency)}',
-                  style: appDisplay(colors, fontSize: 18, color: color),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String? _categoryLabel(WidgetRef ref) {
-    if (expense.categoryId == null || translations == null) return null;
-    final categories = ref.watch(categoriesListProvider).valueOrNull;
-    if (categories == null) return null;
-    final match = categories.where((c) => c.id == expense.categoryId);
-    if (match.isEmpty) return null;
-    return displayNameFor(translations!, name: match.first.name, isDefault: match.first.isDefault);
   }
 }

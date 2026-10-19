@@ -108,6 +108,51 @@ class CategoryRepository {
     return id;
   }
 
+  /// Creates a subcategory under [parentId] while keeping the leaf-only rule:
+  /// if the parent is currently a leaf that transactions, recurring templates
+  /// or pending occurrences point at, those would be left on a non-leaf. So
+  /// they are moved to a child named [othersName] (the translated "Others",
+  /// stored as plain text) — the new child itself when it has that name,
+  /// otherwise an extra "Others" child created alongside it. All in one
+  /// transaction.
+  Future<CreatedSubcategory> createSubcategory({
+    required String name,
+    required String parentId,
+    required String othersName,
+    String? color,
+    String? icon,
+  }) {
+    return _db.transaction(() async {
+      final wasLeaf = await isLeaf(parentId);
+      final id = await create(name: name, parentId: parentId, color: color, icon: icon);
+      if (!wasLeaf || !await _hasUsages(parentId)) return CreatedSubcategory(id);
+
+      final targetId = name == othersName ? id : await create(name: othersName, parentId: parentId);
+      final moved = await (_db.update(_db.expenses)..where((e) => e.categoryId.equals(parentId)))
+              .write(ExpensesCompanion(categoryId: Value(targetId), updatedAt: Value(DateTime.now()))) +
+          await (_db.update(_db.recurrings)..where((r) => r.categoryId.equals(parentId)))
+              .write(RecurringsCompanion(categoryId: Value(targetId), updatedAt: Value(DateTime.now()))) +
+          await (_db.update(_db.recurringOccurrences)..where((o) => o.categoryId.equals(parentId)))
+              .write(RecurringOccurrencesCompanion(categoryId: Value(targetId)));
+      return CreatedSubcategory(id, movedToId: targetId, movedCount: moved);
+    });
+  }
+
+  Future<bool> _hasUsages(String categoryId) async {
+    Future<bool> any<T extends Table, D>(TableInfo<T, D> table, GeneratedColumn<String> column) async {
+      final row = await (_db.selectOnly(table)
+            ..addColumns([column])
+            ..where(column.equals(categoryId))
+            ..limit(1))
+          .getSingleOrNull();
+      return row != null;
+    }
+
+    return await any(_db.expenses, _db.expenses.categoryId) ||
+        await any(_db.recurrings, _db.recurrings.categoryId) ||
+        await any(_db.recurringOccurrences, _db.recurringOccurrences.categoryId);
+  }
+
   /// Renaming a default category detaches it from the i18n key (`is_default = false`).
   Future<void> rename(String id, String newName) async {
     final target = await byId(id);
@@ -221,4 +266,15 @@ class CategoryRepository {
       }
     });
   }
+}
+
+/// Result of [CategoryRepository.createSubcategory]: the new child's [id] and,
+/// when the parent's usages had to be moved off it, where to and how many rows
+/// (transactions + recurring templates + pending occurrences).
+class CreatedSubcategory {
+  const CreatedSubcategory(this.id, {this.movedToId, this.movedCount = 0});
+
+  final String id;
+  final String? movedToId;
+  final int movedCount;
 }

@@ -35,40 +35,50 @@ List<DateTime> monthsIn(DateRange range) {
   return months;
 }
 
-/// The signed **spend** total: `expense` and `ahorro` add, `refund`
-/// subtracts, `income` is excluded.
-int signedSpend(Iterable<Expense> expenses) {
+// Spend vs. savings — the single definition every screen uses:
+//
+// - **Spent** ("Gastado") = [expenseOutflow]: `expense` minus `refund`.
+// - **Savings** ("Ahorro") = [savingsSetAside]: money set aside as not
+//   available this month. It is NOT spending and is shown as its own figure.
+// - **Balance** = income − spent − savings: savings still reduce what's left.
+
+/// Start of tomorrow. Transactions dated on or after it are **scheduled**:
+/// recorded ahead of time, they don't count anywhere (totals, analytics,
+/// projection, streaks, budgets, goals) until their day arrives; lists show
+/// them marked as scheduled. [now] is injectable for tests.
+DateTime scheduledFrom([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  return DateTime(n.year, n.month, n.day + 1);
+}
+
+/// Whether [e] is scheduled (dated after today); see [scheduledFrom].
+bool isScheduled(Expense e, {DateTime? now}) => !e.date.isBefore(scheduledFrom(now));
+
+/// Spent: `expense` positive, `refund` subtracts; `ahorro` and `income`
+/// excluded. Use this wherever a figure means "spent" (see the note above).
+int expenseOutflow(Iterable<Expense> expenses) {
   var total = 0;
   for (final e in expenses) {
-    switch (e.type) {
-      case 'expense':
-      case 'ahorro':
-        total += e.amount;
-      case 'refund':
-        total -= e.amount;
-      // income excluded.
-    }
+    total += spentContribution(e.type, e.amount);
   }
   return total;
 }
 
-/// Pure expense outflow: `expense` positive, `refund` subtracts, `ahorro` and
-/// `income` excluded. Use this wherever "spend" means money spent on goods and
-/// services, as opposed to [signedSpend]'s "total outflow" that also counts
-/// money set aside as savings.
-int expenseOutflow(Iterable<Expense> expenses) {
-  var total = 0;
-  for (final e in expenses) {
-    switch (e.type) {
-      case 'expense':
-        total += e.amount;
-      case 'refund':
-        total -= e.amount;
-      // ahorro and income excluded.
-    }
-  }
-  return total;
-}
+/// What [amount] of a transaction [type] adds to the spent figure: `expense`
+/// positive, `refund` negative, `ahorro`/`income` nothing. The single rule
+/// behind [expenseOutflow] and the SQL aggregates (`AmountGroups.spent`).
+int spentContribution(String type, int amount) => switch (type) {
+      'expense' => amount,
+      'refund' => -amount,
+      _ => 0,
+    };
+
+/// Transaction types that make up the spent figure.
+const spendTypes = ['expense', 'refund'];
+
+/// Savings set aside: the sum of `ahorro` amounts. Shown next to (never inside)
+/// the spent figure.
+int savingsSetAside(Iterable<Expense> expenses) => sumOfType(expenses, 'ahorro');
 
 /// Signed amount of a single spend transaction: `expense` positive, `refund`
 /// negative. Only meaningful for lists already filtered to expense/refund.

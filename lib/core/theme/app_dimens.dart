@@ -37,6 +37,10 @@ class AppSpacing {
   static const xl = 32.0;
   static const xxl = 48.0;
   static const xxxl = 64.0;
+
+  /// Bottom padding for scrollable lists under a FAB: 56 FAB + 16 Scaffold
+  /// margin + 24 gap, so the last item can scroll clear of the button.
+  static const fabClearance = 96.0;
 }
 
 /// App shadows. Cards mostly rely on the hairline border; heavier shadows are

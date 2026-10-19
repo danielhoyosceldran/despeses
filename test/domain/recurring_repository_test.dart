@@ -111,7 +111,7 @@ void main() {
     await recurring.materializeDue(now: DateTime(2026, 1, 15));
     final occ = (await recurring.listPending()).single;
 
-    final expenseId = await recurring.confirm(occ);
+    final expenseId = (await recurring.confirm(occ))!;
 
     final expense = await (db.select(db.expenses)..where((e) => e.id.equals(expenseId))).getSingle();
     expect(expense.amount, 80000);
@@ -138,12 +138,114 @@ void main() {
     final occ = (await recurring.listPending()).single;
     expect(occ.recurringId, id);
 
-    final expenseId = await recurring.confirm(occ);
+    final expenseId = (await recurring.confirm(occ))!;
 
     final tagRows = await (db.select(db.expenseTags)
           ..where((t) => t.expenseId.equals(expenseId)))
         .get();
     expect(tagRows.map((r) => r.tagId).toList(), ['t1']);
+  });
+
+  test('confirming the same occurrence twice creates a single expense', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+
+    // Concurrent double tap, then a late third confirm.
+    final results = await Future.wait([recurring.confirm(occ), recurring.confirm(occ)]);
+    final late = await recurring.confirm(occ);
+
+    expect(results.whereType<String>().length, 1);
+    expect(late, isNull);
+    expect((await db.select(db.expenses).get()).length, 1);
+    expect(await recurring.listPending(), isEmpty);
+  });
+
+  test('confirming an already skipped occurrence creates nothing', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+    await recurring.skip(occ.id);
+
+    expect(await recurring.confirm(occ), isNull);
+    expect(await db.select(db.expenses).get(), isEmpty);
+  });
+
+  test('confirm with edits saves the edited values and clears the occurrence', () async {
+    await addMonthly(start: DateTime(2026, 1, 1), amount: 1000);
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+
+    final expenseId = await recurring.confirm(
+      occ,
+      edits: OccurrenceEdits(
+        amountCents: 1234,
+        type: 'expense',
+        date: DateTime(2026, 1, 3),
+        description: 'Edited',
+      ),
+    );
+
+    final expense = await (db.select(db.expenses)..where((e) => e.id.equals(expenseId!))).getSingle();
+    expect(expense.amount, 1234);
+    expect(expense.date, DateTime(2026, 1, 3));
+    expect(expense.description, 'Edited');
+    expect(await recurring.listPending(), isEmpty);
+  });
+
+  test('confirm with edits on an already handled occurrence saves nothing', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15));
+    final occ = (await recurring.listPending()).single;
+    await recurring.confirm(occ);
+
+    final second = await recurring.confirm(
+      occ,
+      edits: OccurrenceEdits(amountCents: 5, type: 'expense', date: DateTime(2026, 1, 1)),
+    );
+
+    expect(second, isNull);
+    expect((await db.select(db.expenses).get()).length, 1);
+  });
+
+  test('confirmAll confirms every occurrence in one go', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15));
+    final pending = await recurring.listPending();
+
+    final created = await recurring.confirmAll(pending);
+
+    expect(created, 3);
+    expect((await db.select(db.expenses).get()).length, 3);
+    expect(await recurring.listPending(), isEmpty);
+  });
+
+  test('confirmAll is all-or-nothing when one confirmation fails', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15));
+    final pending = await recurring.listPending();
+    // Force a failure on the last one: amount 0 violates CHECK (amount > 0).
+    final broken = pending.last.copyWith(amount: 0);
+
+    await expectLater(
+      recurring.confirmAll([...pending.take(2), broken]),
+      throwsA(anything),
+    );
+
+    expect(await db.select(db.expenses).get(), isEmpty);
+    expect((await recurring.listPending()).length, 3);
+  });
+
+  test('confirmAll leaves out occurrences already confirmed', () async {
+    await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 2, 15));
+    final pending = await recurring.listPending();
+    await recurring.confirm(pending.first);
+
+    final created = await recurring.confirmAll(pending);
+
+    expect(created, 1);
+    expect((await db.select(db.expenses).get()).length, 2);
   });
 
   test('skip discards an occurrence without creating an expense', () async {
@@ -164,6 +266,130 @@ void main() {
     final created = await recurring.materializeDue(now: DateTime(2026, 3, 15));
 
     expect(created, 0);
+  });
+
+  test('resuming a paused template skips the dates of the paused period', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 10));
+    await recurring.materializeDue(now: DateTime(2026, 1, 15)); // Jan 10
+    await recurring.setActive(id, false);
+
+    await recurring.setActive(id, true, now: DateTime(2026, 6, 20));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isTrue);
+    expect(template.nextDate, DateTime(2026, 7, 10));
+    final created = await recurring.materializeDue(now: DateTime(2026, 6, 20));
+    expect(created, 0);
+    expect((await recurring.listPending()).length, 1); // only the pre-pause Jan 10
+  });
+
+  test('resuming keeps a scheduled date that falls today', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 10));
+    await recurring.setActive(id, false);
+
+    await recurring.setActive(id, true, now: DateTime(2026, 6, 10, 18));
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 6, 10));
+  });
+
+  test('changing monthly to weekly recomputes nextDate from the last materialized date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15)); // Jan 1, Feb 1, Mar 1
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 4, 1));
+
+    await recurring.update(id, frequency: 'weekly');
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 3, 8));
+    await recurring.materializeDue(now: DateTime(2026, 3, 20));
+    final due = (await recurring.listPending()).map((o) => o.dueDate).toList();
+    expect(due.skip(3), [DateTime(2026, 3, 8), DateTime(2026, 3, 15)]);
+  });
+
+  test('changing monthly to yearly advances one year from the last materialized date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15)); // last: Mar 1
+
+    await recurring.update(id, frequency: 'yearly');
+
+    // Yearly re-anchors on the start date's month/day.
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2027, 1, 1));
+  });
+
+  test('changing weekly to monthly picks the next anchored day after the last date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 20), frequency: 'weekly');
+    await recurring.materializeDue(now: DateTime(2026, 2, 5)); // Jan 20, Jan 27, Feb 3
+
+    await recurring.update(id, frequency: 'monthly');
+
+    // Feb 20 is the first monthly date (anchored on the 20th) after Feb 3.
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 2, 20));
+  });
+
+  test('changing frequency before anything was materialized keeps the start date', () async {
+    final id = await addMonthly(start: DateTime(2026, 5, 1));
+
+    await recurring.update(id, frequency: 'weekly');
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 5, 1));
+  });
+
+  test('changing frequency never moves nextDate before a later start date', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1));
+    await recurring.materializeDue(now: DateTime(2026, 3, 15));
+
+    await recurring.update(id, frequency: 'weekly', startDate: DateTime(2026, 6, 1));
+
+    expect((await recurring.listTemplates()).single.nextDate, DateTime(2026, 6, 1));
+  });
+
+  test('a template past its end date is finished', () async {
+    await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(RecurringRepository.isFinished(template), isTrue);
+  });
+
+  test('extending the end date of a finished template reactivates it from today', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1)); // Jan, Feb; nextDate Mar 1
+
+    await recurring.update(id, endDate: DateTime(2026, 12, 31), now: DateTime(2026, 10, 15));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isTrue);
+    expect(template.nextDate, DateTime(2026, 11, 1)); // Mar–Oct skipped
+    expect(RecurringRepository.isFinished(template), isFalse);
+  });
+
+  test('clearing the end date of a finished template reactivates it', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1));
+
+    await recurring.update(id, clearEndDate: true, now: DateTime(2026, 6, 1));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isTrue);
+    expect(template.nextDate, DateTime(2026, 6, 1));
+  });
+
+  test('an end date still behind the schedule keeps the template finished', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 2, 28));
+    await recurring.materializeDue(now: DateTime(2026, 6, 1));
+
+    await recurring.update(id, endDate: DateTime(2026, 5, 31), now: DateTime(2026, 6, 15));
+
+    final template = (await recurring.listTemplates()).single;
+    expect(template.active, isFalse);
+  });
+
+  test('extending the end date of a paused template does not resume it', () async {
+    final id = await addMonthly(start: DateTime(2026, 1, 1), end: DateTime(2026, 12, 31));
+    await recurring.setActive(id, false);
+
+    await recurring.update(id, endDate: DateTime(2027, 12, 31), now: DateTime(2026, 3, 1));
+
+    expect((await recurring.listTemplates()).single.active, isFalse);
   });
 
   test('deleting a template cascades to its pending occurrences', () async {

@@ -23,6 +23,7 @@ typedef SheetPageBuilder = Widget Function(
 /// (the recognizer is torn down when the navigator restacks), which is why this
 /// uses an overlay instead. The hosted page closes via the `close` callback
 /// (wired to the entry screen's `onClose`), so it never needs `Navigator.pop`.
+/// The page is hosted in a nested [Navigator] so its own dialogs show above it.
 ///
 /// [onResult] receives the value the page closes with (e.g. `true` on save).
 class DragUpAction extends ConsumerStatefulWidget {
@@ -92,9 +93,20 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
     _sheet.value = 0;
     final entry = OverlayEntry(
       builder: (context) {
+        // The page gets its own Navigator: the entry sits above every root
+        // route, so a dialog pushed on the root navigator (e.g. "Discard
+        // changes?") would render hidden behind the sheet. Dialogs opened with
+        // `useRootNavigator: false` land here, on top of the page.
         final sheet = SlideTransition(
           position: _slide,
-          child: widget.pageBuilder(context, _dismiss),
+          child: Navigator(
+            onGenerateRoute: (settings) => PageRouteBuilder<void>(
+              settings: settings,
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+              pageBuilder: (context, _, _) => widget.pageBuilder(context, _dismiss),
+            ),
+          ),
         );
         // Intercept Android system back to close the sheet (not the tab below).
         // Requires a Router ancestor (go_router provides one); skip otherwise.
@@ -173,7 +185,11 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
     // Tap is left to the child button (keeps ripple/enabled state); this
     // detector only claims vertical drags, which win the arena once the finger
     // moves past slop.
-    return GestureDetector(
+    // Repaint boundaries (BL-070): the outer one keeps the per-frame drag
+    // translation from repainting the screen behind; the inner one lets the
+    // moving button reuse its recorded layer.
+    return RepaintBoundary(
+      child: GestureDetector(
       onVerticalDragStart: (_) => _start(),
       onVerticalDragUpdate: (d) => _update(d.delta.dy),
       onVerticalDragEnd: (d) => _end(d.primaryVelocity ?? 0),
@@ -188,7 +204,8 @@ class _DragUpActionState extends ConsumerState<DragUpAction>
           offset: Offset(0, -offset),
           child: child,
         ),
-        child: widget.builder(context, _armed, _onTap),
+        child: RepaintBoundary(child: widget.builder(context, _armed, _onTap)),
+      ),
       ),
     );
   }

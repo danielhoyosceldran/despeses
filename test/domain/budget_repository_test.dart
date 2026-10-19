@@ -151,17 +151,19 @@ void main() {
     expect(updated.budgetType, 'monthly');
   });
 
-  test('monthly budgets are always active regardless of navigated month', () {
+  test('monthly budgets are active from their creation month onward', () {
     final fakeBudget = Budget(
       id: 'x',
       name: 'x',
       amount: 100,
       currency: 'EUR',
       budgetType: 'monthly',
-      createdAt: DateTime(2026),
-      updatedAt: DateTime(2026),
+      createdAt: DateTime(2026, 3, 20, 18),
+      updatedAt: DateTime(2026, 3, 20, 18),
     );
-    expect(budgets.isActiveForMonth(fakeBudget, '2020-01'), isTrue);
+    expect(budgets.isActiveForMonth(fakeBudget, '2020-01'), isFalse);
+    expect(budgets.isActiveForMonth(fakeBudget, '2026-02'), isFalse);
+    expect(budgets.isActiveForMonth(fakeBudget, '2026-03'), isTrue);
     expect(budgets.isActiveForMonth(fakeBudget, '2099-12'), isTrue);
   });
 

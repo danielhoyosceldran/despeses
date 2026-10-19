@@ -106,7 +106,7 @@ Inter w600, `letterSpacing 0.5`, `textMuted`. Uppercase section/day headers
 |---|---|---|
 | `displayLarge` | Clash 60 w500 | balance hero (expanded) |
 | `displayMedium` | Clash 48 w500 | analytics total |
-| `displaySmall` | Clash 34 w500 | keypad / big totals |
+| `displaySmall` | Clash 34 w500 | amount hero / big totals |
 | `headlineMedium` | Clash 28 w500 | `PageTitleHeader` |
 | `headlineSmall` | Clash 22 w500 | `AppTopBar` title |
 | `titleLarge` | Clash 20 w500 | display section titles |
@@ -143,6 +143,10 @@ outlines, stat tiles, transaction rows, inputs, settings row separators. Full
 ### Spacing scale — `AppSpacing`
 `xs 4 · sm 8 · smMd 12 · md 16 · lg 24 · xl 32 · xxl 48 · xxxl 64`. Space is the
 primary separator; borders appear only where space alone isn't enough.
+
+`fabClearance 96` (56 FAB + 16 Scaffold margin + 24 gap) is the bottom padding
+of every scrollable list on a screen with a FAB, so the last item can scroll
+clear of the button.
 
 ### Shadows — `AppShadows`
 One soft shadow, reserved for elevated things (cards rely on the hairline
@@ -210,18 +214,30 @@ All use `colors.shadow` (pre-baked opacity per theme).
 - **Search pill** (budgets `_SearchPill`) — `TextField`, `mutedFill(0.5)` fill,
   `radiusPill`, leading `search` icon 16 muted, `bodyMedium` text, focus 1px
   `accent` ring. Paired with a ghost `archive` `TopBarCircleButton` (accent tint
-  when showing archived/expired).
+  when showing archived/expired). The Transactions search field
+  (`_SearchField`) uses the same pill treatment (clear button: ghost `circleX`
+  icon 18 muted), paired with a default Material `FilterChip` ("This month",
+  selected when the range is the current month).
+- **Filter sheet** (`ExpenseFilterSheet`) — default Material modal sheet; each
+  dimension is an `ExpansionTile` with transparent dividers, its subtitle the
+  selection summary (`textMuted` when "Any", `accent` when something is
+  picked). Options are default Material `FilterChip`s; categories are dense
+  compact `CheckboxListTile`s under uppercase `appHeaderStyle` type headers.
+  Amount fields use the themed input decoration.
 - **`ThinProgressBar`** (`thin_progress_bar.dart`) — 6px tall, track
   `surfaceAlt`, solid `fillColor` (data color / `over` when over budget),
   rounded-full.
-- **Transaction row** (dashboard `_ExpenseRow`, expenses `_ExpenseTile`) —
+- **Transaction row** (shared `ExpenseRow` in `widgets/expense_row.dart`, used by
+  the dashboard, the transactions list and the analytics details) —
   hairline card radius 16 on `surface` (`mutedFill(0.5)` when selected). Left
   column: uppercase category line (Inter 11 w500, `letterSpacing 0.5`, muted) +
   title (`labelLarge`). Right: signed amount in Clash 18 via
   `amountColorForType` (income `+`, refund `±`, expense `-`).
-- **Stat tile** (dashboard hero) — `mutedFill(0.30)`, radius 16, hairline; 32px
-  icon chip (`iconChipBackground`) + `labelSmall` label + Clash 20 value.
-  Income = emerald `arrowDownRight`, Spent = rose `arrowUpRight`.
+- **Stat tile** (dashboard hero, three in a row) — `mutedFill(0.30)`, radius
+  16, hairline, padding 12; 24px icon chip (`iconChipBackground`, 14px icon) +
+  `labelSmall` label (1 line, ellipsis), then a Clash 20 value scaled down to
+  fit (`FittedBox`). Income = emerald `arrowDownRight`, Spent = rose
+  `arrowUpRight`, Savings = savings color `coins`. Tiles are 12 apart.
 - **Budget tile** — name `labelLarge`, `ThinProgressBar`, `spent / limit` in
   `bodySmall` tabular (`over` color when exceeded).
 - **Recurring-due tile** (`_RecurringDueTile`) — hairline card radius 16 on
@@ -252,21 +268,22 @@ stay ink/neutral.
 - **`StatCard`** — `AppCard` (hairline, `radiusCard`) with a `labelLarge` title,
   optional muted `bodySmall` subtitle (the stat's Excel ref), then the chart.
 - **`KpiTile`** — `mutedFill(0.30)` fill, hairline, `radiusCard`; `appHeaderStyle`
-  label + `appDisplay` 22 value (accent color for at-risk/emphasis). Laid out by
-  `KpiTileGrid` as paired `IntrinsicHeight` rows (content-driven height, both
-  tiles in a row matched), not a fixed-aspect grid.
-- **`MonthlyBars` / `TrendLines`** — bars use `accent` (or a semantic/data color);
-  lines 2.5px, curved, no dots; moving-average line uses `savings` blue.
-  `TrendLines` keeps ~12% vertical headroom and a small horizontal margin and sets
+  label + `appDisplay` 22 value (optional accent color for emphasis).
+- **`TrendLines`** — lines 2.5px, curved, no dots, `accent` (or a semantic/data
+  color). Keeps ~12% vertical headroom and a small horizontal margin and sets
   `preventCurveOverShooting`, so the curve/stroke never clip at the box edges.
-- **`RingGauge`** — `CircularProgressIndicator` 10px on `surfaceAlt` track,
-  fill `accent` or a semantic color; percent centered in `appDisplay`. Stroke uses
-  `strokeAlignInside` (drawn inside the 96px box) so it isn't clipped/flattened at
-  the edges; the wrapping `Stack` is `Clip.none`.
-- **`CalendarHeatmap`** — 7-col grid; empty day = `surfaceAlt`, else base color at
-  `0.15 + 0.85·intensity` alpha; `radius 4` cells.
-- **`RankedList` / `LegendRow`** — proportional `LinearProgressIndicator` /
-  color-dot rows; amounts in tabular figures.
+- **`BreakdownRow`** — 10px color dot; `labelLarge` name (1 line, ellipsis) and
+  tabular `labelLarge` amount; below, a 4px `ThinProgressBar` in the slice color
+  (share of total); then a `bodySmall` `textMuted` meta line (count / savings)
+  and the % (tabular, 1 decimal under 10%). 16px muted chevron when tappable.
+- **`BreakdownCard`** — `AppCard` (radius 16, hairline) wrapping `BreakdownRow`s
+  separated by 1px `borderSoft` dividers; optional `appHeaderStyle` uppercase
+  title.
+- **Detail screens** — `DetailSummaryCard` is an `AppCard.large` (padding 24):
+  `appHeaderStyle` label, Clash 32 total, muted `bodySmall` "count · avg" line,
+  savings line in the `savings` color. `DetailSectionHeader` and the per-day
+  headers of `TransactionsByDay` use `appHeaderStyle` uppercase. Subcategory
+  donut is 200px tall with the count in Clash 28.
 - **`StatInfoButton`** — compact `IconButton` (`info300`, 18px, `textMuted`,
   32×32 tap target) placed beside a stat's title. Opens `showStatInfoSheet`: a
   `showDragHandle`/`isScrollControlled` bottom sheet with `titleMedium` (bold)
@@ -276,9 +293,12 @@ stay ink/neutral.
 
 `lucide_icons_flutter`, thin-line weight (the `*300` variants). Sizes: nav 22,
 FAB 24, list/header icons 18–20, inline 16. Default tint `textMuted`; active /
-primary `accent` (or `text`). Bottom-nav: Dashboard `layoutDashboard`, Expenses
+primary `accent` (or `text`). Bottom-nav: Dashboard `layoutDashboard`, Transactions
 `receipt`, Budgets `pieChart`, Analytics `barChart2`, Settings/catalog `layers`.
 Header gear `settings`.
+
+Favorite marker (`EntityListTile.favorite`, Payment methods): `star` 20,
+tinted `accent`.
 
 ---
 
@@ -319,9 +339,13 @@ Header gear `settings`.
 - **Dashboard balance collapse** (`dashboard_screen` `_HeroHeaderDelegate`) — a
   pinned `SliverPersistentHeader` whose `shrinkOffset` maps 1:1 to `t` (0→1)
   between `minExtent 88` and `maxExtent 244`. As `t` grows the balance shrinks
-  (Clash 60→30), the Income/Spent tiles fold away (`Align(heightFactor: 1-t)` +
-  `Opacity(1-t)`), padding tightens, and a hairline bottom border fades in. The
-  scroll **is** the animation clock — no timed controller.
+  (Clash 60→30) and the "Total balance" label 13→12 — both laid out once at
+  their full size and *scaled* from the top-center (`Transform.scale` 1→0.5 /
+  1→12/13, occupying the scaled height), never by animating `fontSize`. The
+  Income/Spent/Savings tiles fold away (`Align(heightFactor: 1-t)`) and fade
+  out over the first half of the collapse (`Opacity(1 − Interval(0, 0.5)(t))`,
+  fully transparent from `t = 0.5`); padding tightens, and a hairline bottom
+  border fades in. The scroll **is** the animation clock — no timed controller.
 - **FAB press** — `PressableScale` (see §5).
 - **Analytics section-FAB drag** (`analytics_screen` `_SectionFab`) — dragging
   the section FAB gives live feedback along the committed axis: the button

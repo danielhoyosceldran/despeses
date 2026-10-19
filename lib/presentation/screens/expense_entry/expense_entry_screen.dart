@@ -1,4 +1,7 @@
+import 'dart:developer' as developer;
+
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,18 +12,21 @@ import '../../../core/haptics/haptics.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/database.dart';
-import '../../widgets/amount_text.dart';
+import '../../../domain/repositories/recurring_repository.dart';
+import '../../widgets/amount_input_field.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_toast.dart';
 import '../../widgets/bottom_action_panel.dart';
 import '../../widgets/calendar_panel.dart';
 import '../../widgets/category_picker_sheet.dart';
-import '../../widgets/numeric_keypad.dart';
 import '../../widgets/simple_picker_sheet.dart';
 import '../../widgets/swipe_down_to_close.dart';
 import '../../widgets/tag_picker_sheet.dart';
+import '../../widgets/unsaved_changes_guard.dart';
 
-/// The rich transaction entry flow (plan §3): full-screen, own numeric
-/// keypad, field rows opening embedded bottom panels, auto-advancing steps
+/// The rich transaction entry flow (plan §3): full-screen, amount field on
+/// the system numeric keyboard, field rows opening embedded bottom panels,
+/// auto-advancing steps
 /// (skipping tags/event/project when the user hasn't created any), category
 /// drill-down, fixed save bar.
 /// Initial values to pre-fill a *new* transaction with — used by the recurring
@@ -39,6 +45,7 @@ class ExpenseSeed {
     this.eventId,
     this.projectId,
     this.tagIds = const [],
+    this.occurrence,
   });
 
   final String type;
@@ -51,6 +58,10 @@ class ExpenseSeed {
   final String? eventId;
   final String? projectId;
   final List<String> tagIds;
+
+  /// The pending occurrence this seed came from. Saving then confirms it with
+  /// the edited values in one transaction (see [RecurringRepository.confirm]).
+  final RecurringOccurrence? occurrence;
 }
 
 class ExpenseEntryScreen extends ConsumerStatefulWidget {
@@ -73,8 +84,9 @@ class ExpenseEntryScreen extends ConsumerStatefulWidget {
 }
 
 // Auto-advance chain on "Next": amount → description → category → payment
-// method, then stop. Remaining fields (tags, event, project, notes) are filled
-// manually by the user.
+// method, then stop. The payment method step is skipped when one is already
+// picked (e.g. the preselected favorite). Remaining fields (tags, event,
+// project, notes) are filled manually by the user.
 const _fieldStepOrder = [
   'amount',
   'description',
@@ -95,8 +107,14 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   final _notesController = TextEditingController();
   final _descriptionFocus = FocusNode();
   final _notesFocus = FocusNode();
+  final _amountFocus = FocusNode();
 
   bool _loadingExisting = false;
+
+  /// Field values as loaded/seeded/initialized; closing with different values
+  /// asks before discarding them (null while an existing row is loading).
+  List<Object?>? _initialSnapshot;
+  bool _confirmingClose = false;
 
   /// Resolved display labels for the picked category/method/event/project.
   /// Resolved once when a selection changes (not inside `build`) so typing in
@@ -111,21 +129,66 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   @override
   void initState() {
     super.initState();
-    // Focusing a text field must dismiss any open bottom panel (keypad/pickers)
+    // Focusing a text field must dismiss any open bottom panel (pickers)
     // so the OS keyboard doesn't stack on top of it.
     _descriptionFocus.addListener(_dismissPanelOnTextFocus);
     _notesFocus.addListener(_dismissPanelOnTextFocus);
+    _amountFocus.addListener(_dismissPanelOnTextFocus);
     if (widget.expenseId != null) {
       _loadExisting(widget.expenseId!);
     } else if (widget.seed != null) {
       _hydrateFromSeed(widget.seed!);
+      _initialSnapshot = _snapshot();
     } else {
+      _initialSnapshot = _snapshot();
+      _preselectFavoritePaymentMethod();
       WidgetsBinding.instance.addPostFrameCallback((_) => _openAmountPanel());
     }
   }
 
+  /// A blank new transaction starts with the favorite payment method (BL-024),
+  /// if one is marked. Edits and seeded entries keep their own method. The
+  /// preselection is folded into the initial snapshot, so on its own it never
+  /// counts as an unsaved change.
+  Future<void> _preselectFavoritePaymentMethod() async {
+    final favoriteId = (await ref.read(profileRepositoryProvider).get()).favoritePaymentMethodId;
+    if (favoriteId == null || !mounted || _paymentMethodId != null) return;
+    final untouched = !_isDirty;
+    setState(() => _paymentMethodId = favoriteId);
+    if (untouched) _initialSnapshot = _snapshot();
+    _refreshLabels();
+  }
+
+  List<Object?> _snapshot() => [
+        _type,
+        _amountCents,
+        _date,
+        _categoryId,
+        _paymentMethodId,
+        _eventId,
+        _projectId,
+        ([..._tagIds]..sort()).join(','),
+        _descriptionController.text.trim(),
+        _notesController.text.trim(),
+      ];
+
+  bool get _isDirty => _initialSnapshot != null && !listEquals(_snapshot(), _initialSnapshot);
+
+  /// Every user-initiated close (chevron, swipe down, system back) goes
+  /// through here: with unsaved changes it asks before discarding them.
+  Future<void> _requestClose() async {
+    if (_confirmingClose) return;
+    if (_isDirty) {
+      _confirmingClose = true;
+      final discard = await confirmDiscardChanges(context, ref.read(translationsProvider).asData?.value);
+      _confirmingClose = false;
+      if (!discard || !mounted) return;
+    }
+    _close();
+  }
+
   /// Pre-fills a new transaction from a [ExpenseSeed] (recurring confirm flow).
-  /// Unlike a blank new entry, the keypad does not auto-open — the user is
+  /// Unlike a blank new entry, the amount field is not auto-focused — the user is
   /// reviewing already-filled values, not starting from scratch.
   void _hydrateFromSeed(ExpenseSeed seed) {
     _type = seed.type;
@@ -147,6 +210,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     _notesController.dispose();
     _descriptionFocus.dispose();
     _notesFocus.dispose();
+    _amountFocus.dispose();
     super.dispose();
   }
 
@@ -157,8 +221,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     if (!mounted) return;
     if (expense == null) {
       setState(() => _loadingExisting = false);
+      final t = ref.read(translationsProvider).asData?.value;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Movimiento no encontrado')),
+        SnackBar(content: Text(t?.t('expenses.not_found') ?? 'Transaction not found.')),
       );
       Navigator.of(context).pop();
       return;
@@ -177,6 +242,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       _descriptionController.text = expense.description ?? '';
       _notesController.text = expense.notes ?? '';
       _loadingExisting = false;
+      _initialSnapshot = _snapshot();
     });
     _refreshLabels();
   }
@@ -194,7 +260,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       });
 
   void _dismissPanelOnTextFocus() {
-    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus) && _openPanel != null) {
+    if ((_descriptionFocus.hasFocus || _notesFocus.hasFocus || _amountFocus.hasFocus) && _openPanel != null) {
       _closePanel();
     }
   }
@@ -204,11 +270,9 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
   void _openAmountPanel() {
-    _dismissKeyboard();
-    setState(() {
-      _openPanel = 'amount';
-      _panelContent = null;
-    });
+    // Focus the amount field (system keyboard); its focus listener closes
+    // any open bottom panel.
+    _amountFocus.requestFocus();
   }
 
   void _openDatePanel() {
@@ -219,7 +283,12 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
         initial: _date ?? DateTime.now(),
         onSelected: (picked) {
           ref.read(hapticsProvider).selection();
-          setState(() => _date = picked);
+          // CalendarPanel picks a day (00:00). Keep the transaction's original
+          // time of day so changing only the day doesn't move it to the end of
+          // that day's list and scramble the intraday order.
+          final time = _date ?? DateTime.now();
+          setState(() => _date = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute,
+              time.second, time.millisecond, time.microsecond));
           _closePanel();
         },
       );
@@ -249,6 +318,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     for (var i = startIndex; i < _fieldStepOrder.length; i++) {
       final step = _fieldStepOrder[i];
       if (!available.contains(step)) continue;
+      if (step == 'paymentMethod' && _paymentMethodId != null) continue;
       if (!mounted) return;
       switch (step) {
         case 'amount':
@@ -381,6 +451,12 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
     setState(() => _saving = true);
     try {
       await _doSave();
+    } catch (e, st) {
+      developer.log('save failed', name: 'ExpenseEntryScreen', error: e, stackTrace: st);
+      if (mounted) {
+        final t = ref.read(translationsProvider).asData?.value;
+        showAppToast(context, t?.t('common.error_save') ?? 'Could not save.', variant: ToastVariant.error);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -389,6 +465,30 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   Future<void> _doSave() async {
     final profile = await ref.read(profileRepositoryProvider).get();
     final repo = ref.read(expenseRepositoryProvider);
+    final occurrence = widget.seed?.occurrence;
+    if (widget.expenseId == null && occurrence != null) {
+      final expenseId = await ref.read(recurringRepositoryProvider).confirm(
+            occurrence,
+            edits: OccurrenceEdits(
+              amountCents: _amountCents,
+              type: _type,
+              date: _date!,
+              description:
+                  _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim(),
+              notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+              categoryId: _categoryId,
+              paymentMethodId: _paymentMethodId,
+              eventId: _eventId,
+              projectId: _projectId,
+              tagIds: _tagIds,
+            ),
+          );
+      if (!mounted) return;
+      // Null: the occurrence was already confirmed/skipped elsewhere, so
+      // nothing was saved here.
+      _close(expenseId != null);
+      return;
+    }
     if (widget.expenseId == null) {
       await repo.create(
         amountCents: _amountCents,
@@ -459,75 +559,68 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronDown300),
-          onPressed: () => _close(),
-        ),
-        title: TextButton(
-          onPressed: _openDatePanel,
-          child: Text(
-            _date == null
-                ? (translations?.t('expenses.select') ?? 'Select')
-                : DateFormat.yMd().format(_date!),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colors.text),
+    return UnsavedChangesGuard(
+      overlayMode: widget.onClose != null,
+      onRequestClose: _requestClose,
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(LucideIcons.chevronDown300),
+            onPressed: _requestClose,
+          ),
+          title: TextButton(
+            onPressed: _openDatePanel,
+            child: Text(
+              _date == null
+                  ? (translations?.t('expenses.select') ?? 'Select')
+                  : DateFormat.yMd().format(_date!),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colors.text),
+            ),
           ),
         ),
-      ),
-      body: Column(
-        children: [
-          Expanded(child: _buildFieldsView(translations, colors, semantic, currency)),
-          if (_openPanel != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-              child: _openPanel == 'tags'
-                  ? Row(
-                      children: [
-                        Expanded(child: _saveButton(translations)),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () {
-                              _tagPickerKey?.currentState?.confirm();
-                            },
-                            child: Text(translations?.t('common.next') ?? 'Next'),
+        body: Column(
+          children: [
+            Expanded(child: _buildFieldsView(translations, colors, semantic, currency)),
+            if (_openPanel != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
+                child: _openPanel == 'tags'
+                    ? Row(
+                        children: [
+                          Expanded(child: _saveButton(translations)),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () {
+                                _tagPickerKey?.currentState?.confirm();
+                              },
+                              child: Text(translations?.t('common.next') ?? 'Next'),
+                            ),
                           ),
-                        ),
-                      ],
-                    )
-                  : SizedBox(width: double.infinity, child: _saveButton(translations)),
-            ),
-          BottomActionPanel(
-            isOpen: _openPanel != null,
-            maxHeight: switch (_openPanel) {
-                  'date' => 380,
-                  _ => 340,
-                } +
-                MediaQuery.of(context).padding.bottom,
-            child: _openPanel == 'amount'
-                ? NumericKeypad(
-                    amountCents: _amountCents,
-                    nextLabel: translations?.t('common.next') ?? 'Next',
-                    onKeyTap: () => ref.read(hapticsProvider).selection(),
-                    onAmountChanged: (v) => setState(() => _amountCents = v),
-                    onNext: () {
-                      _closePanel();
-                      _openNextStep('amount');
-                    },
-                  )
-                : _panelContent,
-          ),
-          if (_openPanel == null)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: SizedBox(width: double.infinity, child: _saveButton(translations)),
+                        ],
+                      )
+                    : SizedBox(width: double.infinity, child: _saveButton(translations)),
               ),
+            BottomActionPanel(
+              isOpen: _openPanel != null,
+              maxHeight: switch (_openPanel) {
+                    'date' => 380,
+                    _ => 340,
+                  } +
+                  MediaQuery.of(context).padding.bottom,
+              child: _panelContent,
             ),
-        ],
+            if (_openPanel == null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: SizedBox(width: double.infinity, child: _saveButton(translations)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -553,7 +646,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
   ) {
     final labels = _labels;
     return SwipeDownToClose(
-          onClose: _close,
+          onClose: _requestClose,
           child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
@@ -561,14 +654,13 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             _buildTypeSelector(translations, colors, semantic),
             const SizedBox(height: AppSpacing.lg),
             Center(
-              child: GestureDetector(
-                onTap: _openAmountPanel,
-                behavior: HitTestBehavior.opaque,
-                child: AmountText(
-                  amountCents: _amountCents,
-                  currency: currency,
-                  color: _typeColor(colors, semantic),
-                ),
+              child: AmountInputField(
+                amountCents: _amountCents,
+                focusNode: _amountFocus,
+                currency: currency,
+                color: _typeColor(colors, semantic),
+                onAmountChanged: (v) => setState(() => _amountCents = v),
+                onSubmitted: () => _openNextStep('amount'),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../domain/backup/backup_service.dart';
+import 'civil_date_time.dart';
 import 'tables.dart';
+
+export 'civil_date_time.dart' show civilVariable;
 
 part 'database.g.dart';
 
@@ -26,26 +32,31 @@ class _Cat {
 
 /// Inserts [node] and its subtree, assigning [position] among its siblings and
 /// linking children to their parent via parentId.
-Future<void> _insertCategoryNode(
-  AppDatabase db, {
+/// Queues [node] (and its subtree) for insertion in [batch]. Ids are
+/// generated client-side, so children can reference their parent without
+/// waiting for an insert to complete.
+void _insertCategoryNode(
+  AppDatabase db,
+  Batch batch, {
   required String type,
   String? parentId,
   required _Cat node,
   required int position,
-}) async {
+}) {
   final id = _uuid.v4();
-  await db.into(db.categories).insert(
-        CategoriesCompanion.insert(
-          id: id,
-          name: node.key,
-          type: Value(type),
-          parentId: Value(parentId),
-          isDefault: const Value(true),
-          position: Value(position),
-        ),
-      );
+  batch.insert(
+    db.categories,
+    CategoriesCompanion.insert(
+      id: id,
+      name: node.key,
+      type: Value(type),
+      parentId: Value(parentId),
+      isDefault: const Value(true),
+      position: Value(position),
+    ),
+  );
   for (var i = 0; i < node.children.length; i++) {
-    await _insertCategoryNode(db, type: type, parentId: id, node: node.children[i], position: i);
+    _insertCategoryNode(db, batch, type: type, parentId: id, node: node.children[i], position: i);
   }
 }
 
@@ -76,8 +87,65 @@ class AppDatabase extends _$AppDatabase {
     return driftDatabase(name: 'despeses');
   }
 
+  /// Oldest schema version onUpgrade accepts. Every install starts at or
+  /// above it; see docs/database_baseline.md before changing it.
+  static const int baselineSchemaVersion = 9;
+
+  /// Schema version this build creates/migrates to. Static so code without a
+  /// live connection (e.g. backup validation) can check a file against it.
+  static const int currentSchemaVersion = 11;
+
+  /// Accounting-date columns (table → SQL column names), stored with
+  /// [CivilDateTimeType] since schema v11 (BL-042). Before v11 they held
+  /// instants; onUpgrade rewrites them with [_convertToCivilDates].
+  static const Map<String, List<String>> civilDateColumns = {
+    'expenses': ['date'],
+    'recurrings': ['start_date', 'next_date', 'end_date'],
+    'recurring_occurrences': ['due_date'],
+    'events': ['starts_at', 'ends_at'],
+    'projects': ['starts_at', 'ends_at'],
+    'savings_goals': ['deadline'],
+  };
+
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => currentSchemaVersion;
+
+  /// Columns each schema bump after the baseline added to an EXISTING table:
+  /// version → table → SQL column names, in ascending version order. The
+  /// single source for onUpgrade's addColumn steps and for backup validation
+  /// ([schemaColumnsAt]), which must know which columns a file of a given
+  /// version is supposed to have.
+  static const Map<int, Map<String, Set<String>>> columnsAddedInVersion = {
+    10: {'profile': {'favorite_payment_method_id'}}, // BL-024
+  };
+
+  /// Every table's columns (SQL names) at schema [version], between
+  /// [baselineSchemaVersion] and [currentSchemaVersion]: the current drift
+  /// definitions minus the columns added in later versions. Tables added
+  /// after the baseline would need the same treatment here.
+  static Map<String, Set<String>> schemaColumnsAt(int version) {
+    final columns = {for (final e in _currentColumns.entries) e.key: {...e.value}};
+    for (final step in columnsAddedInVersion.entries) {
+      if (step.key <= version) continue;
+      for (final table in step.value.entries) {
+        columns[table.key]!.removeAll(table.value);
+      }
+    }
+    return columns;
+  }
+
+  static final Map<String, Set<String>> _currentColumns = _readCurrentColumns();
+
+  /// Reads the table definitions from a throwaway, never-opened instance (no
+  /// query runs, so the in-memory executor is never even created).
+  static Map<String, Set<String>> _readCurrentColumns() {
+    final db = _SchemaProbe();
+    final columns = {
+      for (final table in db.allTables) table.actualTableName: {for (final c in table.$columns) c.name},
+    };
+    unawaited(db.close());
+    return columns;
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -88,71 +156,79 @@ class AppDatabase extends _$AppDatabase {
           await _createRecurringIndexes(this);
         },
         onUpgrade: (m, from, to) async {
-          // Safety net first: copy the current DB (main file + WAL sidecars)
-          // before touching it, so a buggy migration step — or the dev reseed
-          // below — can never destroy data unrecoverably. Never throws.
+          // Auto-backup before any schema change — never throws.
           await _backupService.createAutoBackup();
 
           if (_devReseedOnUpgrade) {
-            // DEV-ONLY: wipe everything and reseed. Guarded by a const that is
-            // false in real builds (see _devReseedOnUpgrade).
             await _rebuildFromScratch(this, m);
             return;
           }
 
-          // Schemas older than v7 predate data-preserving migrations: back then
-          // every upgrade wiped and reseeded, so no install ever carried data
-          // forward across them. They are also not reachable additively — v1→v6
-          // dropped `budgets.months`, rewrote the `budget_type`/`type` CHECK
-          // constraints and changed `categories`' unique key, none of which
-          // SQLite's ALTER TABLE can express, and v2/v3/v5 added
-          // `categories.type` / `profile.haptics_enabled` /
-          // `profile.haptics_strength` that the steps below never add. Falling
-          // through would leave those columns missing and crash every query
-          // with "no such column". So rebuild instead — the auto-backup above
-          // already holds the pre-migration file.
-          if (from < 7) {
-            await _rebuildFromScratch(this, m);
-            return;
+          // BASELINE: v9 is the oldest schema any install carries (see
+          // docs/database_baseline.md). Earlier upgrade steps were removed on
+          // purpose, so a pre-baseline file cannot be migrated. Refuse it
+          // instead of guessing — the auto-backup above already holds it.
+          if (from < baselineSchemaVersion) {
+            throw UnsupportedError(
+                'Database schema v$from predates the v$baselineSchemaVersion '
+                'baseline and cannot be upgraded.');
           }
 
-          // Data-preserving migrations. Add one `if (from < N)` block per
-          // schema bump, e.g.:
-          //   if (from < 8) await m.addColumn(expenses, expenses.someColumn);
-          //   if (from < 9) await m.createTable(recurring);
+          // Columns added to existing tables, driven by columnsAddedInVersion
+          // (v10, BL-024: profile.favorite_payment_method_id). Other kinds of
+          // step (new tables, data fixes) go in their own `if (from < N)`
+          // block.
+          for (final step in columnsAddedInVersion.entries) {
+            if (from >= step.key) continue;
+            for (final entry in step.value.entries) {
+              final table = allTables.firstWhere((t) => t.actualTableName == entry.key);
+              for (final name in entry.value) {
+                await m.addColumn(table, table.$columns.firstWhere((c) => c.name == name));
+              }
+            }
+          }
+
+          // v11 (BL-042): accounting dates become civil date/times.
+          if (from < 11) await _convertToCivilDates(this);
           //
           // CRITICAL when adding a column to an EXISTING table (tables.dart):
-          //   1. The column MUST declare withDefault(...)/clientDefault in
-          //      tables.dart — SQLite's ALTER TABLE ADD COLUMN cannot add a
-          //      NOT NULL column without a default.
-          //   2. Bump schemaVersion above and add the matching
-          //      `if (from < N) await m.addColumn(table, table.column);`
-          //      step here in the SAME change. Drift's generated queries
-          //      SELECT the table's full explicit column list, so any
-          //      installed app that reaches the new schemaVersion via
-          //      onUpgrade WITHOUT this step will crash on next launch with
-          //      "no such column" — onCreate/createAll (fresh installs)
-          //      hides this because it always builds the full current
-          //      schema, so the bug only shows up on upgrade.
-          //   3. Steps must stay additive/idempotent and accumulate
-          //      (if (from < N)), never replace an earlier step.
-          //   4. v7 is the oldest schema these steps handle; anything older is
-          //      rebuilt above, so no step may assume a pre-v7 shape.
-          // v8 adds recurring-transaction tables (feature 3.13): template,
-          // its tags, and the pending-occurrence inbox. Additive only.
-          if (from < 8) {
-            await m.createTable(recurrings);
-            await m.createTable(recurringTags);
-            await m.createTable(recurringOccurrences);
-            await _createRecurringIndexes(this);
-          }
-          // v9 adds the savings-goals table (feature 3.14). Additive only.
-          if (from < 9) await m.createTable(savingsGoals);
+          //   1. The column MUST declare withDefault(...)/clientDefault (or be
+          //      nullable) — SQLite's ALTER TABLE ADD COLUMN cannot add a NOT
+          //      NULL column without a default.
+          //   2. Bump schemaVersion above and add the column to
+          //      columnsAddedInVersion under the new version IN THE SAME
+          //      change. Drift selects the full explicit column list, so an
+          //      installed app that skips this step crashes on launch with
+          //      "no such column" — onCreate hides this because it always
+          //      builds the full current schema. Backup validation relies on
+          //      the same map to tell missing (migratable) columns apart.
+          //   3. Steps must accumulate (if (from < N)), never replace an
+          //      earlier step.
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
+          // Performance (BL-064). Per-connection settings, so no schema bump.
+          // WAL: commits append to the -wal file instead of rewriting pages,
+          // and reads (the watch streams) don't block writes. synchronous =
+          // NORMAL is the recommended pairing: durable across app crashes, only
+          // the last commits can be lost on a power cut. Backups already
+          // checkpoint the WAL before copying (BackupService.createBackup), and
+          // auto-backups/restore carry the -wal/-shm sidecars.
+          await customStatement('PRAGMA journal_mode = WAL');
+          await customStatement('PRAGMA synchronous = NORMAL');
+          await customStatement('PRAGMA temp_store = MEMORY');
+          // Indexes added after an install was created (IF NOT EXISTS: no-op
+          // otherwise).
+          await _createIndexes(this);
         },
       );
+}
+
+/// Table definitions only, for [AppDatabase._readCurrentColumns]. Its own
+/// class so drift's debug "created AppDatabase multiple times" check, which
+/// counts instances per runtimeType, ignores it.
+class _SchemaProbe extends AppDatabase {
+  _SchemaProbe() : super(NativeDatabase.memory());
 }
 
 /// Drops every table and rebuilds the current schema from scratch (seed +
@@ -172,14 +248,57 @@ Future<void> _rebuildFromScratch(AppDatabase db, Migrator m) async {
   await db.customStatement('PRAGMA foreign_keys = ON');
 }
 
+/// v11 data step (BL-042): every [AppDatabase.civilDateColumns] value held an
+/// instant (unix seconds); rewrite it as the wall-clock date/time it had in
+/// the device's time zone at migration time, encoded by [CivilDateTimeType].
+/// Done in Dart because SQLite's 'localtime' depends on the platform's zone
+/// support. Rows are updated one by one, so forward-shifted values go from the
+/// latest down (and backward ones from the earliest up): a value never lands
+/// on one still waiting to move, which keeps
+/// `recurring_occurrences(recurring_id, due_date)` unique throughout.
+Future<void> _convertToCivilDates(AppDatabase db) async {
+  for (final entry in AppDatabase.civilDateColumns.entries) {
+    for (final column in entry.value) {
+      final rows = await db
+          .customSelect('SELECT rowid AS rid, "$column" AS v FROM "${entry.key}" WHERE "$column" IS NOT NULL')
+          .get();
+      final forward = <(int, int, int)>[];
+      final backward = <(int, int, int)>[];
+      for (final row in rows) {
+        final old = row.read<int>('v');
+        final converted = CivilDateTimeType.encode(DateTime.fromMillisecondsSinceEpoch(old * 1000));
+        if (converted > old) {
+          forward.add((row.read<int>('rid'), old, converted));
+        } else if (converted < old) {
+          backward.add((row.read<int>('rid'), old, converted));
+        }
+      }
+      forward.sort((a, b) => b.$2.compareTo(a.$2));
+      backward.sort((a, b) => a.$2.compareTo(b.$2));
+      await db.batch((batch) {
+        for (final (rid, _, converted) in [...forward, ...backward]) {
+          batch.customStatement('UPDATE "${entry.key}" SET "$column" = ? WHERE rowid = ?', [converted, rid]);
+        }
+      });
+    }
+  }
+}
+
 /// Indexes on the hottest `expenses` query paths (R3): every analytics/listing
 /// query filters by `date` and/or `category_id`, which were full table scans.
 /// Declared here (not via table annotations) so no codegen step is needed and
-/// the same statements serve both onCreate and the v7 migration.
+/// the same statements serve onCreate, the dev rebuild and beforeOpen. All
+/// use IF NOT EXISTS, so adding one needs no schemaVersion bump: beforeOpen
+/// creates it on existing installs.
 Future<void> _createIndexes(AppDatabase db) async {
   await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
   await db.customStatement(
       'CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)');
+  // Matches ExpenseRepository's total order (date, created_at, id), so the
+  // paginated list reads it in index order with no temp B-tree sort and the
+  // keyset cursor seeks straight to the next page (BL-065).
+  await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_order '
+      'ON expenses(date DESC, created_at DESC, id DESC)');
 }
 
 /// Indexes on the recurring feature's hot paths (feature 3.13): the
@@ -192,8 +311,13 @@ Future<void> _createRecurringIndexes(AppDatabase db) async {
       'CREATE INDEX IF NOT EXISTS idx_recurring_occ_due ON recurring_occurrences(due_date)');
 }
 
-Future<void> _seedDefaults(AppDatabase db) async {
-  await db.into(db.profile).insert(const ProfileCompanion());
+/// Default rows of a fresh install, written in a single batch (one
+/// transaction, prepared statements reused) instead of ~90 sequential inserts
+/// (BL-066).
+Future<void> _seedDefaults(AppDatabase db) => db.batch((batch) => _queueDefaults(db, batch));
+
+void _queueDefaults(AppDatabase db, Batch batch) {
+  batch.insert(db.profile, const ProfileCompanion());
 
   final tagGroupIds = <String, String>{};
   const tagGroupKeys = [
@@ -205,9 +329,7 @@ Future<void> _seedDefaults(AppDatabase db) async {
   for (var i = 0; i < tagGroupKeys.length; i++) {
     final id = _uuid.v4();
     tagGroupIds[tagGroupKeys[i]] = id;
-    await db.into(db.tagGroups).insert(
-          TagGroupsCompanion.insert(id: id, name: tagGroupKeys[i], position: Value(i)),
-        );
+    batch.insert(db.tagGroups, TagGroupsCompanion.insert(id: id, name: tagGroupKeys[i], position: Value(i)));
   }
 
   const tagsByGroup = {
@@ -235,15 +357,16 @@ Future<void> _seedDefaults(AppDatabase db) async {
   for (final entry in tagsByGroup.entries) {
     final groupId = tagGroupIds[entry.key]!;
     for (var i = 0; i < entry.value.length; i++) {
-      await db.into(db.tags).insert(
-            TagsCompanion.insert(
-              id: _uuid.v4(),
-              tagGroupId: groupId,
-              name: entry.value[i],
-              isDefault: const Value(true),
-              position: Value(i),
-            ),
-          );
+      batch.insert(
+        db.tags,
+        TagsCompanion.insert(
+          id: _uuid.v4(),
+          tagGroupId: groupId,
+          name: entry.value[i],
+          isDefault: const Value(true),
+          position: Value(i),
+        ),
+      );
     }
   }
 
@@ -324,7 +447,7 @@ Future<void> _seedDefaults(AppDatabase db) async {
   };
   for (final entry in categoryForest.entries) {
     for (var i = 0; i < entry.value.length; i++) {
-      await _insertCategoryNode(db, type: entry.key, node: entry.value[i], position: i);
+      _insertCategoryNode(db, batch, type: entry.key, node: entry.value[i], position: i);
     }
   }
 
@@ -333,13 +456,14 @@ Future<void> _seedDefaults(AppDatabase db) async {
     'payment.cash',
   ];
   for (var i = 0; i < paymentMethods.length; i++) {
-    await db.into(db.paymentMethods).insert(
-          PaymentMethodsCompanion.insert(
-            id: _uuid.v4(),
-            name: paymentMethods[i],
-            isDefault: const Value(true),
-            position: Value(i),
-          ),
-        );
+    batch.insert(
+      db.paymentMethods,
+      PaymentMethodsCompanion.insert(
+        id: _uuid.v4(),
+        name: paymentMethods[i],
+        isDefault: const Value(true),
+        position: Value(i),
+      ),
+    );
   }
 }

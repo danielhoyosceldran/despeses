@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/display_name.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/theme/app_dimens.dart';
 import '../../../data/database.dart';
 import '../../../domain/repositories/errors.dart';
 import '../../widgets/app_toast.dart';
@@ -22,6 +23,7 @@ class PaymentMethodsScreen extends ConsumerStatefulWidget {
 
 class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   List<PaymentMethod> _methods = [];
+  String? _favoriteId;
   bool _loading = true;
   bool _selectionMode = false;
   final Set<String> _selected = {};
@@ -35,8 +37,10 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final methods = await ref.read(paymentMethodRepositoryProvider).listAll();
+    final profile = await ref.read(profileRepositoryProvider).get();
     setState(() {
       _methods = methods;
+      _favoriteId = profile.favoritePaymentMethodId;
       _loading = false;
     });
   }
@@ -49,14 +53,17 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       title: translations.t('payment_methods.new'),
       translations: translations,
       withColor: false,
+      initialFavorite: false,
     );
     if (result == null) return;
+    final String id;
     try {
-      await ref.read(paymentMethodRepositoryProvider).create(name: result.name, icon: result.icon);
+      id = await ref.read(paymentMethodRepositoryProvider).create(name: result.name, icon: result.icon);
     } on DuplicateNameException catch (e) {
       if (mounted) showDuplicateNameToast(context, translations, e.name);
       return;
     }
+    if (result.favorite == true) await ref.read(profileRepositoryProvider).setFavoritePaymentMethod(id);
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -71,6 +78,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       initialName: currentName,
       initialIcon: method.icon,
       withColor: false,
+      initialFavorite: method.id == _favoriteId,
     );
     if (result == null) return;
     final repo = ref.read(paymentMethodRepositoryProvider);
@@ -81,6 +89,10 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       return;
     }
     await repo.updateIcon(method.id, result.icon);
+    final wasFavorite = method.id == _favoriteId;
+    if (result.favorite != wasFavorite) {
+      await ref.read(profileRepositoryProvider).setFavoritePaymentMethod(result.favorite == true ? method.id : null);
+    }
     ref.read(referenceDataCacheProvider).invalidate();
     _load();
   }
@@ -91,6 +103,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     try {
       await ref.read(paymentMethodRepositoryProvider).delete(method.id);
       ref.read(referenceDataCacheProvider).invalidate();
+      // The database clears the favorite along with its method.
+      if (method.id == _favoriteId) setState(() => _favoriteId = null);
     } catch (_) {
       if (index >= 0) setState(() => _methods.insert(index, method));
       if (mounted) {
@@ -143,6 +157,15 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
   Future<void> _deleteSelected() async {
     final toDelete = _methods.where((m) => _selected.contains(m.id)).toList();
     final translations = ref.read(translationsProvider).asData?.value;
+    // A new transaction requires a payment method, so at least one must stay.
+    if (toDelete.length >= _methods.length) {
+      showAppToast(
+        context,
+        translations?.t('payment_methods.cannot_delete_last') ?? 'There must be at least one payment method.',
+        variant: ToastVariant.warning,
+      );
+      return;
+    }
     final confirmed = await showConfirmDialog(
       context,
       title: translations?.t('payment_methods.delete_title') ?? 'Delete payment method',
@@ -186,7 +209,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
                 : _methods.isEmpty
                     ? EmptyState(translations?.t('payment_methods.empty') ?? 'No payment methods yet.')
                     : ReorderableListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
                     buildDefaultDragHandles: false,
                     itemCount: _methods.length,
                     onReorderItem: _reorder,
@@ -206,6 +229,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
                   selected: _selected.contains(method.id),
                   onSelectedChanged: (v) => _setSelected(method.id, v),
                   reorderIndex: index,
+                  favorite: method.id == _favoriteId,
                 );
               },
                   ),
