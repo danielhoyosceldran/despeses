@@ -43,6 +43,7 @@ class TagPickerContent extends StatefulWidget {
     required this.initialSelectedIds,
     required this.translations,
     required this.onDone,
+    this.onChanged,
   });
 
   final List<TagGroup> groups;
@@ -50,6 +51,12 @@ class TagPickerContent extends StatefulWidget {
   final List<String> initialSelectedIds;
   final Translations translations;
   final ValueChanged<List<String>> onDone;
+
+  /// Fired on every chip toggle with the current selection. Hosts embedding the
+  /// picker in a panel must use this to keep their state in sync, otherwise the
+  /// selection is lost when the panel is dismissed or the form is saved without
+  /// pressing "Next".
+  final ValueChanged<List<String>>? onChanged;
 
   @override
   State<TagPickerContent> createState() => TagPickerContentState();
@@ -103,6 +110,7 @@ class TagPickerContentState extends State<TagPickerContent> {
                                       _selected.remove(tag.id);
                                     }
                                   });
+                                  widget.onChanged?.call(selectedIds);
                                 },
                               ),
                           ],

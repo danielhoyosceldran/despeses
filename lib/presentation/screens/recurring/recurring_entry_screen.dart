@@ -196,6 +196,7 @@ class _RecurringEntryScreenState extends ConsumerState<RecurringEntryScreen> {
             tags: tags,
             initialSelectedIds: _tagIds,
             translations: translations,
+            onChanged: (selected) => setState(() => _tagIds = selected),
             onDone: (selected) {
               ref.read(hapticsProvider).selection();
               setState(() => _tagIds = selected);

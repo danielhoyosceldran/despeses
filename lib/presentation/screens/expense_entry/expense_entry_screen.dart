@@ -319,6 +319,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             tags: tags,
             initialSelectedIds: _tagIds,
             translations: translations,
+            onChanged: (selected) => setState(() => _tagIds = selected),
             onDone: (selected) {
               ref.read(hapticsProvider).selection();
               setState(() => _tagIds = selected);
