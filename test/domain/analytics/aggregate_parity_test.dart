@@ -167,6 +167,32 @@ void main() {
     expect(emissions.last.spent[category.id], before + 1234);
   });
 
+  test('watchMonthProgress coalesces a burst of writes into the final state', () async {
+    final stream = budgets.watchMonthProgress(month);
+    final first = await stream.first;
+    final category = first.budgets.firstWhere((b) => b.categoryId != null && b.budgetType == 'monthly');
+    final before = first.spent[category.id]!;
+
+    final emissions = <BudgetMonthProgress>[];
+    final sub = stream.listen(emissions.add);
+    await pumpEventQueue();
+    emissions.clear();
+    for (var i = 0; i < 10; i++) {
+      await db.into(db.expenses).insert(ExpensesCompanion.insert(
+            id: const Uuid().v4(),
+            amount: 100,
+            currency: currency,
+            type: 'expense',
+            date: DateTime(now.year, now.month, now.day),
+            categoryId: Value(category.categoryId),
+          ));
+    }
+    await pumpEventQueue(times: 200);
+    await sub.cancel();
+    expect(emissions.last.spent[category.id], before + 1000);
+    expect(emissions.length, lessThanOrEqualTo(10));
+  });
+
   test('summary KPIs match the per-metric calculators', () async {
     final budgetAnalytics = BudgetAnalytics(budgets);
     final category = CategoryAnalytics(db, categories);

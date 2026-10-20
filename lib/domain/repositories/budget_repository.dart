@@ -234,16 +234,45 @@ class BudgetRepository {
   /// Every budget plus its progress for [month] (see [progressFor]), re-emitted
   /// whenever a table it depends on changes, so screens stay in sync without
   /// manual reloads (BL-063).
+  ///
+  /// A burst of writes (confirming several recurrences, deleting a selection)
+  /// does not queue one full recompute per write: while one runs, further
+  /// changes only mark it stale, and a single re-run follows, so the last
+  /// emission always reflects the final state.
   Stream<BudgetMonthProgress> watchMonthProgress(DateTime month) {
-    return _db
-        .customSelect(
-          'SELECT 1',
-          readsFrom: {_db.budgets, _db.expenses, _db.expenseTags, _db.categories},
-        )
-        .watch()
-        .asyncMap((_) async {
-      final budgets = await listAll();
-      return BudgetMonthProgress(budgets, await progressFor(budgets, inMonth: month));
+    final changes = _db.customSelect(
+      'SELECT 1',
+      readsFrom: {_db.budgets, _db.expenses, _db.expenseTags, _db.categories},
+    ).watch();
+    return Stream.multi((controller) {
+      var running = false;
+      var stale = false;
+
+      Future<void> recompute() async {
+        running = true;
+        try {
+          do {
+            stale = false;
+            final budgets = await listAll();
+            final progress = await progressFor(budgets, inMonth: month);
+            if (controller.isClosed) return;
+            if (!stale) controller.add(BudgetMonthProgress(budgets, progress));
+          } while (stale && !controller.isClosed);
+        } catch (error, stack) {
+          if (!controller.isClosed) controller.addError(error, stack);
+        } finally {
+          running = false;
+        }
+      }
+
+      final sub = changes.listen((_) {
+        if (running) {
+          stale = true;
+        } else {
+          recompute();
+        }
+      }, onError: controller.addError, onDone: controller.close);
+      controller.onCancel = sub.cancel;
     });
   }
 
