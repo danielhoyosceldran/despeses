@@ -630,7 +630,7 @@ class _ExpenseEntryScreenState extends ConsumerState<ExpenseEntryScreen> {
             child: Text(
               _date == null
                   ? (translations?.t('expenses.select') ?? 'Select')
-                  : DateFormat.yMd().format(_date!),
+                  : cachedDateFormat(DateFormat.YEAR_NUM_MONTH_DAY).format(_date!),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(color: colors.text),
             ),
           ),
