@@ -216,14 +216,16 @@ class _SlidingMonthLabel extends StatelessWidget {
                   for (var i = current - 1; i <= current + 1; i++)
                     Transform.translate(
                       offset: Offset((i - page) * w, 0),
-                      child: Opacity(
-                        opacity: (1 - (i - page).abs()).clamp(0.0, 1.0),
-                        child: Text(
-                          _label(i),
-                          maxLines: 1,
-                          softWrap: false,
-                          textAlign: TextAlign.center,
-                          style: style,
+                      // Fade through the text colour's alpha: unlike `Opacity`
+                      // it needs no offscreen layer on every swipe frame.
+                      child: Text(
+                        _label(i),
+                        maxLines: 1,
+                        softWrap: false,
+                        textAlign: TextAlign.center,
+                        style: style.copyWith(
+                          color: (style.color ?? DefaultTextStyle.of(context).style.color ?? Colors.black)
+                              .withValues(alpha: (1 - (i - page).abs()).clamp(0.0, 1.0)),
                         ),
                       ),
                     ),
