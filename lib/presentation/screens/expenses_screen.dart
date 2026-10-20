@@ -182,9 +182,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     );
     if (!confirmed) return;
     final repo = ref.read(expenseRepositoryProvider);
-    for (final id in _selectedIds) {
-      await repo.delete(id);
-    }
+    await repo.deleteMany(_selectedIds);
     setState(() => _selectedIds.clear());
   }
 

@@ -82,6 +82,33 @@ void main() {
     expect(all.length, 150);
   });
 
+  test('deleteMany removes all given expenses in one go and emits once', () async {
+    final ids = <String>[];
+    for (var i = 0; i < 5; i++) {
+      ids.add(await repo.create(
+        amountCents: 100 + i,
+        currency: 'EUR',
+        type: 'expense',
+        date: DateTime(2026, 1, 10 + i),
+      ));
+    }
+    final emissions = <int>[];
+    final sub = repo.watchAll().listen((rows) => emissions.add(rows.length));
+    await pumpEventQueue();
+    emissions.clear();
+
+    await repo.deleteMany(ids.take(4));
+    await pumpEventQueue();
+
+    expect(await repo.byId(ids.last), isNotNull);
+    for (final id in ids.take(4)) {
+      expect(await repo.byId(id), isNull);
+    }
+    expect(emissions, [1], reason: 'one transaction → one re-query');
+    await repo.deleteMany(const []);
+    await sub.cancel();
+  });
+
   test('delete removes the expense', () async {
     final id = await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 1));
     await repo.delete(id);

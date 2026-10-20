@@ -481,6 +481,19 @@ class ExpenseRepository {
     });
   }
 
+  /// Deletes every expense in [ids] in one transaction, so live queries
+  /// re-run once instead of once per row. Links cascade as in [delete].
+  Future<void> deleteMany(Iterable<String> ids) async {
+    final list = ids.toList();
+    if (list.isEmpty) return;
+    await _db.transaction(() async {
+      for (var i = 0; i < list.length; i += _inChunk) {
+        final chunk = list.sublist(i, min(i + _inChunk, list.length));
+        await (_db.delete(_db.expenses)..where((e) => e.id.isIn(chunk))).go();
+      }
+    });
+  }
+
   /// Rows linked on the other side of a refund link are left unlinked (the
   /// link rows cascade, BL-071).
   Future<void> delete(String id) async {
