@@ -15,36 +15,31 @@ class ThinProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    // No LayoutBuilder: the fill uses FractionallySizedBox so the bar can still
-    // report intrinsic dimensions (needed when a parent IntrinsicHeight measures
-    // it, e.g. the dashboard budget grid).
+    // The fill is a full-width pill slid left by the missing fraction and
+    // clipped by the track: animating it only moves paint, where animating a
+    // width factor would re-layout the bar every frame. No LayoutBuilder, so
+    // the bar can still report intrinsic dimensions (needed when a parent
+    // IntrinsicHeight measures it, e.g. the dashboard budget grid).
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
       duration: AppDimens.animNormal,
       curve: AppDimens.animCurve,
-      builder: (context, animatedValue, _) => Stack(
-        children: [
-          Container(
-            height: height,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: colors.surfaceAlt,
-              borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-            ),
-          ),
-          Positioned.fill(
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: animatedValue,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: fillColor,
-                  borderRadius: BorderRadius.circular(AppDimens.radiusPill),
-                ),
+      builder: (context, animatedValue, _) => ClipRRect(
+        borderRadius: BorderRadius.circular(AppDimens.radiusPill),
+        child: Container(
+          height: height,
+          width: double.infinity,
+          color: colors.surfaceAlt,
+          child: FractionalTranslation(
+            translation: Offset(animatedValue - 1, 0),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: fillColor,
+                borderRadius: BorderRadius.circular(AppDimens.radiusPill),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
