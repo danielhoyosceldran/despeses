@@ -318,6 +318,16 @@ Future<void> _createIndexes(AppDatabase db) async {
   // primary key already serves lookups by refund_id.
   await db.customStatement('CREATE INDEX IF NOT EXISTS idx_refund_links_expense '
       'ON expense_refund_links(expense_id)');
+  // The expense_tags primary key leads with expense_id, so lookups by tag
+  // (tag filter, tag budgets/analytics) need their own index.
+  await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expense_tags_tag '
+      'ON expense_tags(tag_id)');
+  // Filters and analytics by payment method, event and project.
+  await db.customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_expenses_payment ON expenses(payment_method_id)');
+  await db.customStatement('CREATE INDEX IF NOT EXISTS idx_expenses_event ON expenses(event_id)');
+  await db.customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_expenses_project ON expenses(project_id)');
 }
 
 /// Indexes on the recurring feature's hot paths (feature 3.13): the

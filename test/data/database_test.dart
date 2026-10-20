@@ -14,6 +14,33 @@ void main() {
     await db.close();
   });
 
+  test('lookup indexes exist and serve tag/event/project/payment filters', () async {
+    final rows = await db
+        .customSelect("SELECT name FROM sqlite_master WHERE type = 'index'")
+        .get();
+    final names = rows.map((r) => r.read<String>('name')).toSet();
+    expect(
+        names,
+        containsAll([
+          'idx_expense_tags_tag',
+          'idx_expenses_payment',
+          'idx_expenses_event',
+          'idx_expenses_project',
+        ]));
+
+    Future<String> plan(String sql) async {
+      final r = await db.customSelect('EXPLAIN QUERY PLAN $sql').get();
+      return r.map((x) => x.read<String>('detail')).join(' | ');
+    }
+
+    expect(await plan("SELECT expense_id FROM expense_tags WHERE tag_id = 'x'"),
+        contains('idx_expense_tags_tag'));
+    expect(await plan("SELECT id FROM expenses WHERE event_id = 'x'"), contains('idx_expenses_event'));
+    expect(await plan("SELECT id FROM expenses WHERE project_id = 'x'"), contains('idx_expenses_project'));
+    expect(await plan("SELECT id FROM expenses WHERE payment_method_id = 'x'"),
+        contains('idx_expenses_payment'));
+  });
+
   test('seed creates default reference data', () async {
     final profile = await db.select(db.profile).getSingle();
     expect(profile.currency, 'EUR');
