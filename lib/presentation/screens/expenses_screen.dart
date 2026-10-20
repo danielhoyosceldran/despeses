@@ -41,6 +41,13 @@ class ExpensesScreen extends ConsumerStatefulWidget {
 class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   late ExpenseFilters _filters = _withThisMonth(const ExpenseFilters());
   late Stream<List<Expense>> _stream = _watch();
+
+  /// Rows loaded so far, in pages of [ExpenseRepository.pageSize]. The list is
+  /// a window over the newest rows while no search is active: the search is
+  /// client-side, so it needs every row and lifts the window.
+  int _pages = 1;
+  Stream<ExpenseSummary>? _summaryStream;
+  String? _summaryCurrency;
   final TextEditingController _searchController = TextEditingController();
   TransactionQuery? _query;
   final Set<String> _selectedIds = {};
@@ -89,14 +96,35 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         (!_isThisMonth && (f.dateFrom != null || f.dateTo != null));
   }
 
-  Stream<List<Expense>> _watch() => ref.read(expenseRepositoryProvider).watchAll(filters: _filters);
+  /// Rows to read, or null for all of them (a search is active).
+  int? get _limit => _query == null ? ExpenseRepository.pageSize * _pages : null;
+
+  Stream<List<Expense>> _watch() =>
+      ref.read(expenseRepositoryProvider).watchAll(filters: _filters, limit: _limit);
+
+  /// Totals of every row matching the filters, for the header while the list
+  /// only holds a window of them. Recreated when the filters or currency change.
+  Stream<ExpenseSummary> _summary(String currency) {
+    if (_summaryStream == null || _summaryCurrency != currency) {
+      _summaryCurrency = currency;
+      _summaryStream = ref.read(expenseRepositoryProvider).watchSummary(_filters, currency);
+    }
+    return _summaryStream!;
+  }
 
   void _setFilters(ExpenseFilters filters) {
     setState(() {
       _filters = filters;
+      _pages = 1;
+      _summaryStream = null;
       _stream = _watch();
     });
   }
+
+  void _loadMore() => setState(() {
+        _pages++;
+        _stream = _watch();
+      });
 
   void _toggleThisMonth() {
     _setFilters(_isThisMonth
@@ -113,8 +141,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
   void _applyQuery(String text) {
     if (!mounted) return;
-    final query = TransactionQuery.parse(text);
-    setState(() => _query = query.isEmpty ? null : query);
+    final parsed = TransactionQuery.parse(text);
+    final query = parsed.isEmpty ? null : parsed;
+    setState(() {
+      final windowChanged = (_query == null) != (query == null);
+      _query = query;
+      if (windowChanged) {
+        _pages = 1;
+        _stream = _watch();
+      }
+    });
   }
 
   void _toggleSelection(Expense expense) {
@@ -249,7 +285,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 }
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final derived = _ListDerived.of(snapshot.data!, _query, currency, t);
-                return _TransactionList(
+                final limit = _limit;
+                final hasMore = limit != null && snapshot.data!.length >= limit;
+                final list = _TransactionList(
                   derived: derived,
                   currency: currency,
                   translations: t,
@@ -258,6 +296,15 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   selectedIds: _selectedIds,
                   onTap: (e) => _selectionMode ? _toggleSelection(e) : _openEntry(expenseId: e.id),
                   onLongPress: _toggleSelection,
+                  summary: limit == null ? null : _summary(currency),
+                );
+                if (!hasMore) return list;
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    if (n.metrics.extentAfter < 800) _loadMore();
+                    return false;
+                  },
+                  child: list,
                 );
               },
             ),
@@ -372,8 +419,11 @@ class _TransactionList extends StatelessWidget {
     required this.selectedIds,
     required this.onTap,
     required this.onLongPress,
+    this.summary,
   });
 
+  /// Totals of all matching rows when [derived] holds only a window of them.
+  final Stream<ExpenseSummary>? summary;
   final _ListDerived derived;
   final String currency;
   final Translations? translations;
@@ -397,7 +447,18 @@ class _TransactionList extends StatelessWidget {
           sliver: SliverMainAxisGroup(
             slivers: [
               SliverToBoxAdapter(
-                child: ResultsSummaryHeader(expenses: expenses, currency: currency, translations: translations),
+                child: summary == null
+                    ? ResultsSummaryHeader(expenses: expenses, currency: currency, translations: translations)
+                    : StreamBuilder<ExpenseSummary>(
+                        stream: summary,
+                        builder: (context, snapshot) => ResultsSummaryHeader(
+                          expenses: expenses,
+                          currency: currency,
+                          translations: translations,
+                          count: snapshot.data?.count,
+                          net: snapshot.data?.net,
+                        ),
+                      ),
               ),
               if (expenses.isEmpty)
                 SliverToBoxAdapter(

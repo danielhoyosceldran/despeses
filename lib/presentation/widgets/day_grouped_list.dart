@@ -123,17 +123,31 @@ class DayGroupHeader extends StatelessWidget {
 
 /// Results header: uppercase result count (left) + the signed net of
 /// [expenses] in the profile currency (right), styled like a day header.
+///
+/// When the list only holds a window of the results, [count] and [net] carry
+/// the totals of all of them and override the ones derived from [expenses].
 class ResultsSummaryHeader extends StatelessWidget {
-  const ResultsSummaryHeader({super.key, required this.expenses, required this.currency, required this.translations});
+  const ResultsSummaryHeader({
+    super.key,
+    required this.expenses,
+    required this.currency,
+    required this.translations,
+    this.count,
+    this.net,
+  });
 
   final List<Expense> expenses;
+  final int? count;
+  final int? net;
   final String currency;
   final Translations? translations;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final net = expenses.where((e) => e.currency == currency).fold<int>(0, (sum, e) => sum + signedCents(e));
+    final net = this.net ??
+        expenses.where((e) => e.currency == currency).fold<int>(0, (sum, e) => sum + signedCents(e));
+    final count = this.count ?? expenses.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, AppSpacing.smMd),
       child: Row(
@@ -142,11 +156,11 @@ class ResultsSummaryHeader extends StatelessWidget {
         children: [
           Text(
             (translations?.t('transactions.results') ?? '{{count}} results')
-                .replaceAll('{{count}}', '${expenses.length}')
+                .replaceAll('{{count}}', '$count')
                 .toUpperCase(),
             style: appHeaderStyle(colors),
           ),
-          if (expenses.isNotEmpty)
+          if (count > 0)
             Text(
               formatSigned(net, currency),
               style: Theme.of(context).textTheme.labelSmall!.copyWith(

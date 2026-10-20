@@ -109,6 +109,39 @@ void main() {
     await sub.cancel();
   });
 
+  test('watchAll(limit) reads only the newest rows; watchSummary totals all of them', () async {
+    for (var i = 0; i < 6; i++) {
+      await repo.create(
+        amountCents: 1000,
+        currency: 'EUR',
+        type: i == 0 ? 'income' : (i == 1 ? 'refund' : 'expense'),
+        date: DateTime(2026, 1, 1 + i),
+        description: 'row $i',
+      );
+    }
+    await repo.create(
+      amountCents: 7777,
+      currency: 'USD',
+      type: 'expense',
+      date: DateTime(2026, 1, 20),
+    );
+
+    final limited = await repo.watchAll(limit: 3).first;
+    expect(limited.length, 3);
+    expect(limited.first.currency, 'USD', reason: 'newest first');
+
+    final summary = await repo.watchSummary(const ExpenseFilters(), 'EUR').first;
+    expect(summary.count, 7, reason: 'count covers every currency');
+    // income + refund add, 4 expenses subtract; the USD row is ignored.
+    expect(summary.net, 2000 - 4000);
+
+    final empty = await repo
+        .watchSummary(ExpenseFilters(dateFrom: DateTime(2030), dateTo: DateTime(2030, 2)), 'EUR')
+        .first;
+    expect(empty.count, 0);
+    expect(empty.net, 0);
+  });
+
   test('delete removes the expense', () async {
     final id = await repo.create(amountCents: 100, currency: 'EUR', type: 'expense', date: DateTime(2026, 1, 1));
     await repo.delete(id);

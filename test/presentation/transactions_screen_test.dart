@@ -75,4 +75,36 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('a long history loads in pages while the header counts every row', (tester) async {
+    final now = DateTime.now();
+    for (var i = 0; i < 250; i++) {
+      await insertExpense('bulk$i', DateTime(now.year - 1, 1, 1).add(Duration(days: i % 300)), 100, 'Bulk $i');
+    }
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const DespesesApp(),
+    ));
+    await settle(tester);
+    await tester.tap(find.text('Transactions').first);
+    await settle(tester);
+    final screen = find.byType(ExpensesScreen);
+    await tester.tap(find.descendant(of: screen, matching: find.byType(FilterChip)));
+    await settle(tester);
+
+    // 250 bulk rows + the 3 from setUp, though only a page is loaded.
+    expect(find.descendant(of: screen, matching: find.text('253 RESULTS')), findsOneWidget);
+
+    final scrollable = find.descendant(of: screen, matching: find.byType(CustomScrollView));
+    for (var i = 0; i < 40; i++) {
+      await tester.drag(scrollable, const Offset(0, -2000));
+      await settle(tester);
+    }
+    expect(tester.takeException(), isNull);
+    // Everything is reachable: the oldest row is listed once paging reached it.
+    expect(find.descendant(of: screen, matching: find.text('Bulk 0')), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }

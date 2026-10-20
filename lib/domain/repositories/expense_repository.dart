@@ -112,6 +112,15 @@ class ExpenseFilters {
   ExpenseFilters withSwappedAmounts() => copyWith(amountMin: () => amountMax, amountMax: () => amountMin);
 }
 
+/// Count and signed net of a set of transactions (see
+/// [ExpenseRepository.watchSummary]).
+class ExpenseSummary {
+  const ExpenseSummary({required this.count, required this.net});
+
+  final int count;
+  final int net;
+}
+
 class ExpenseRepository {
   ExpenseRepository(this._db);
 
@@ -129,9 +138,15 @@ class ExpenseRepository {
       ];
 
   JoinedSelectStatement<HasResultSet, dynamic> _filteredQuery(ExpenseFilters filters) {
-    final e = _db.expenses;
-    final query = _db.select(e).join([]);
+    final query = _db.select(_db.expenses).join([]);
+    for (final c in _conditions(filters)) {
+      query.where(c);
+    }
+    return query;
+  }
 
+  List<Expression<bool>> _conditions(ExpenseFilters filters) {
+    final e = _db.expenses;
     final conditions = <Expression<bool>>[];
     if (filters.types.isNotEmpty) conditions.add(e.type.isIn(filters.types));
     if (filters.categoryIds.isNotEmpty) {
@@ -164,10 +179,7 @@ class ExpenseRepository {
       final to = filters.dateTo!;
       conditions.add(e.date.isSmallerThanValue(DateTime(to.year, to.month, to.day + 1)));
     }
-    for (final c in conditions) {
-      query.where(c);
-    }
-    return query;
+    return conditions;
   }
 
   /// `category_id IN {each of categoryIds + all their descendants}`. Only
@@ -225,9 +237,35 @@ class ExpenseRepository {
   /// `expenseTags` when [ExpenseFilters.tagIds] is set), so callers never need
   /// to manually cache/invalidate (e.g. after confirming a recurring
   /// occurrence, which inserts directly into `expenses`).
-  Stream<List<Expense>> watchAll({ExpenseFilters filters = const ExpenseFilters()}) {
+  ///
+  /// With [limit], only the newest [limit] rows are read and re-read on each
+  /// write, so a long history doesn't make every save re-query all of it.
+  Stream<List<Expense>> watchAll({ExpenseFilters filters = const ExpenseFilters(), int? limit}) {
     final query = _filteredQuery(filters)..orderBy(_newestFirst);
+    if (limit != null) query.limit(limit);
     return query.map((row) => row.readTable(_db.expenses)).watch();
+  }
+
+  /// Live count and signed net (income and refunds add, the rest subtract) of
+  /// everything matching [filters], computed in SQL: the totals of a result
+  /// list that only holds a window of its rows. Only [currency] rows count
+  /// towards the net; the count covers every currency.
+  Stream<ExpenseSummary> watchSummary(ExpenseFilters filters, String currency) {
+    final e = _db.expenses;
+    final inCurrency = e.currency.equals(currency);
+    final adds = e.type.isIn(const ['income', 'refund']);
+    final plus = e.amount.sum(filter: inCurrency & adds);
+    final minus = e.amount.sum(filter: inCurrency & adds.not());
+    final query = _db.selectOnly(e)..addColumns([e.id.count(), plus, minus]);
+    for (final c in _conditions(filters)) {
+      query.where(c);
+    }
+    return query
+        .map((row) => ExpenseSummary(
+              count: row.read(e.id.count()) ?? 0,
+              net: (row.read(plus) ?? 0) - (row.read(minus) ?? 0),
+            ))
+        .watchSingle();
   }
 
   Future<Expense?> byId(String id) {
