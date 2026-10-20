@@ -69,4 +69,19 @@ void main() {
     expect(TransactionQuery.parse('   ').isEmpty, isTrue);
     expect(_match('', _tx(1)), isTrue);
   });
+
+  test('foldForSearch lowercases, strips accents and folds l·l', () {
+    expect(foldForSearch('CAFÈ Ñandú Çà'), 'cafe nandu ca');
+    expect(foldForSearch('Col·legi'), 'collegi');
+    expect(foldForSearch('日本 € emoji 😀'), '日本 € emoji 😀');
+  });
+
+  test('matching the same expense repeatedly stays correct (cached haystack)', () {
+    final e = _tx(500, description: 'Café Plaza', notes: 'Año nuevo');
+    for (var i = 0; i < 3; i++) {
+      expect(_match('cafe', e), isTrue);
+      expect(_match('ano', e), isTrue);
+      expect(_match('tren', e), isFalse);
+    }
+  });
 }

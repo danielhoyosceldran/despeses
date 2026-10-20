@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,8 +47,13 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
   bool get _selectionMode => _selectedIds.isNotEmpty;
 
+  /// Typing pauses this long before the (whole-list) search re-runs.
+  static const _searchDebounce = Duration(milliseconds: 150);
+  Timer? _searchTimer;
+
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -98,6 +105,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
   }
 
   void _onQueryChanged(String text) {
+    _searchTimer?.cancel();
+    // Clearing the box applies at once; typing waits for a pause.
+    if (text.trim().isEmpty) return _applyQuery(text);
+    _searchTimer = Timer(_searchDebounce, () => _applyQuery(text));
+  }
+
+  void _applyQuery(String text) {
+    if (!mounted) return;
     final query = TransactionQuery.parse(text);
     setState(() => _query = query.isEmpty ? null : query);
   }

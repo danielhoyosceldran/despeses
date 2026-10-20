@@ -77,6 +77,13 @@ class TransactionQuery {
     _ => AmountOp.eq,
   };
 
+  /// Folded title + notes per expense instance: a snapshot is searched again
+  /// on every keystroke, so each row is folded once, not once per keystroke.
+  static final Expando<String> _haystacks = Expando<String>('transactionHaystack');
+
+  static String _haystackOf(Expense expense) =>
+      _haystacks[expense] ??= foldForSearch('${expense.description ?? ''}\n${expense.notes ?? ''}');
+
   bool matches(Expense expense) {
     if (isEmpty) return true;
     for (final filter in amountFilters) {
@@ -151,14 +158,19 @@ const Map<String, String> _accentMap = {
   'ñ': 'n',
 };
 
+/// [_accentMap] keyed by UTF-16 code unit (every accented letter in it is a
+/// single BMP unit), so folding needs no per-character `String`.
+final Map<int, int> _accentCodes = {
+  for (final e in _accentMap.entries) e.key.codeUnitAt(0): e.value.codeUnitAt(0),
+};
+
 /// Lowercases and strips the common Latin accents so "cafe" finds "Café".
 String foldForSearch(String input) {
   var s = input.toLowerCase();
   if (s.contains('l·l')) s = s.replaceAll('l·l', 'll');
   final buffer = StringBuffer();
-  for (final rune in s.runes) {
-    final ch = String.fromCharCode(rune);
-    buffer.write(_accentMap[ch] ?? ch);
+  for (final unit in s.codeUnits) {
+    buffer.writeCharCode(unit < 128 ? unit : (_accentCodes[unit] ?? unit));
   }
   return buffer.toString();
 }
