@@ -82,6 +82,18 @@ Patrones ya aplicados; respétalos al tocar estas zonas.
   `ExpenseRepository.tagIdsByExpense`), no un `await` por fila.
 - **Paginación keyset**, no `OFFSET` (`ExpenseRepository.list(after:)`), apoyada
   en `idx_expenses_order`.
+- **Listas largas en ventana.** La pestaña de movimientos lee solo las páginas
+  cargadas (`watchAll(limit:)`, 100 por página, más al acercarse al final) y los
+  totales de la cabecera salen de SQL (`watchSummary`). La búsqueda es en cliente
+  y por eso levanta la ventana. No uses `watchAll` sin `limit` sobre todo el
+  histórico.
+- **Streams con ráfagas.** `watchMonthProgress` agrupa escrituras seguidas en una
+  sola recomputación; los borrados múltiples van en una transacción
+  (`deleteMany`). Los `StreamProvider` con `keepAlive` siguen suscritos a la BD,
+  así que su TTL es corto (`budgetProgressKeepAlive`).
+- **Fundidos sin capa offscreen.** Si el valor cambia en cada frame, usa el alfa
+  del color (o `FadeTransition`) en vez de `Opacity`; las barras de progreso
+  mueven pintura (`FractionalTranslation`), no relayout.
 - **Índices nuevos** en `_createIndexes` con `IF NOT EXISTS`: se crean también
   en `beforeOpen`, así que no hace falta subir `schemaVersion`.
 - **SQLite en WAL** con `synchronous = NORMAL` (`beforeOpen`). Cualquier copia
