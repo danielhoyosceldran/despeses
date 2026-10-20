@@ -89,7 +89,7 @@ class TransactionQuery {
     for (final filter in amountFilters) {
       if (!filter.matches(expense.amount)) return false;
     }
-    final haystack = foldForSearch('${expense.description ?? ''}\n${expense.notes ?? ''}');
+    final haystack = _haystackOf(expense);
     for (final term in terms) {
       if (!haystack.contains(term)) return false;
     }
