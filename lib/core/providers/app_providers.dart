@@ -136,13 +136,19 @@ final dashboardAnalyticsProvider = Provider<DashboardAnalytics>(
   ),
 );
 
+const budgetProgressKeepAlive = Duration(seconds: 30);
+
 /// Every budget plus its spent figure for a month, live (BL-063): computed in
 /// one batched pass and recomputed whenever budgets, transactions, tags or
 /// categories change. Shared by the dashboard, the Budgets screen and
 /// Analytics. Key it by the first day of the month (`DateTime(year, month)`).
 final budgetProgressProvider =
     StreamProvider.autoDispose.family<BudgetMonthProgress, DateTime>((ref, month) {
-  keepAliveFor(ref);
+  // A kept-alive stream provider stays subscribed to the database, so every
+  // write recomputes it even when nobody watches. Keep it only briefly: enough
+  // for tab switches and back-and-forth month swipes, not for every month
+  // visited in the last ten minutes.
+  keepAliveFor(ref, budgetProgressKeepAlive);
   return ref.watch(budgetRepositoryProvider).watchMonthProgress(month);
 });
 
